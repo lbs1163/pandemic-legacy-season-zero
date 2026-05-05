@@ -1,5 +1,12 @@
 import { z } from 'zod';
 import type { PersistedEnvelope } from '../types/sync';
+import type { CampaignState } from '../types/campaign';
+import { cityCards } from '../data/cards/cities';
+import { eventCards } from '../data/cards/events';
+import { escalationCards } from '../data/cards/escalations';
+import { threatCards } from '../data/cards/threats';
+import { createInitialPlayerDeckState } from '../domain/playerDeck';
+import { createInitialThreatDeckState } from '../domain/threatDeck';
 
 export const LOCAL_CACHE_KEY = 'pandemic-legacy-season-zero.deck-counter.cache';
 
@@ -22,12 +29,17 @@ const playerDeckSchema = z.object({
     escalationResolved: z.boolean()
   })).length(5),
   cardStates: z.record(cardInstanceSchema),
-  currentPileIndex: z.number().int().min(0).max(4)
+  currentPileIndex: z.number().int().min(0).max(4),
+  startingHand: z.object({
+    requiredPerPlayer: z.number().int().nonnegative(),
+    requiredTotal: z.number().int().nonnegative(),
+    configured: z.boolean()
+  })
 });
 
 const threatDeckSchema = z.object({
   totalInitialCount: z.number().int().nonnegative(),
-  unknownDrawPileCount: z.number().int().nonnegative(),
+  cardStates: z.record(cardInstanceSchema),
   discardCardIds: z.array(z.string()),
   knownTopStackCardIds: z.array(z.string()),
   gameEndAreaCardIds: z.array(z.string()),
@@ -36,7 +48,7 @@ const threatDeckSchema = z.object({
 
 export const persistedEnvelopeSchema = z.object({
   appId: z.literal('pandemic-legacy-season-zero-deck-counter'),
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   activeCampaignId: z.string().optional(),
   campaigns: z.array(z.object({
     schemaVersion: z.literal(1),
@@ -54,14 +66,43 @@ export const persistedEnvelopeSchema = z.object({
   }))
 });
 
+function migrateCampaignToV2(value: unknown): CampaignState {
+  const campaign = value as CampaignState & { playerDeck?: unknown; threatDeck?: unknown; updatedAt?: string };
+  const now = campaign.updatedAt ?? new Date().toISOString();
+  return {
+    ...campaign,
+    playerDeck: createInitialPlayerDeckState({
+      playerCardIds: [...cityCards.map((card) => card.id), ...eventCards.map((card) => card.id)],
+      playerCount: campaign.players?.length ?? 2,
+      escalationCardIds: escalationCards.map((card) => card.id),
+      now
+    }),
+    threatDeck: createInitialThreatDeckState(threatCards.map((card) => card.id), now),
+    updatedAt: now
+  } as CampaignState;
+}
+
+function migrateEnvelopeToV2(value: unknown): unknown {
+  const envelope = value as { appId?: unknown; schemaVersion?: unknown; campaigns?: unknown[]; activeCampaignId?: unknown };
+  if (envelope?.appId !== 'pandemic-legacy-season-zero-deck-counter') return value;
+  if (envelope.schemaVersion === 2) return value;
+  if (envelope.schemaVersion !== 1) return value;
+
+  return {
+    ...envelope,
+    schemaVersion: 2,
+    campaigns: Array.isArray(envelope.campaigns) ? envelope.campaigns.map((campaign) => migrateCampaignToV2(campaign)) : []
+  };
+}
+
 export function validatePersistedEnvelope(value: unknown): PersistedEnvelope {
-  return persistedEnvelopeSchema.parse(value) as PersistedEnvelope;
+  return persistedEnvelopeSchema.parse(migrateEnvelopeToV2(value)) as PersistedEnvelope;
 }
 
 export function createEmptyEnvelope(): PersistedEnvelope {
   return {
     appId: 'pandemic-legacy-season-zero-deck-counter',
-    schemaVersion: 1,
+    schemaVersion: 2,
     campaigns: []
   };
 }

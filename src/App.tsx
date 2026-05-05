@@ -5,7 +5,7 @@ import { DeckCounterDashboard } from './components/DeckCounterDashboard';
 import { baseRules } from './data/rules/baseRules';
 import { legacyRules } from './data/rules/legacyRules';
 import { createInitialCampaign } from './domain/createInitialCampaign';
-import { recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
+import { configureStartingHands, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
 import {
   clearThreatGameEndArea,
@@ -19,6 +19,7 @@ import { findOrCreateStateGist, pullStateFromGist, pushStateToGist } from './ser
 import { createEmptyEnvelope, loadLocalCache, saveLocalCache } from './services/localCache';
 import { pollGitHubDeviceFlowUntilComplete, startGitHubDeviceFlow } from './services/githubAuth';
 import type { LanguageCode } from './types/cards';
+import type { PlayerCardDestination, StartingHandAssignment } from './types/deck';
 import type { AuthState, DeviceFlowUiState, GistSyncMetadata, PersistedEnvelope } from './types/sync';
 
 const allRules = [...baseRules, ...legacyRules];
@@ -72,7 +73,9 @@ export function App() {
     updateEnvelope((current) => ({ ...current, campaigns: [...current.campaigns, campaign], activeCampaignId: campaign.campaignId }));
   };
 
-  const nextId = (prefix: string, count: number) => `${prefix}-${count + 1}`;
+  function updateCampaignTimestamp<T extends { updatedAt: string }>(campaign: T): T {
+    return { ...campaign, updatedAt: new Date().toISOString() };
+  }
 
   async function handleStartSignIn() {
     try {
@@ -166,17 +169,18 @@ export function App() {
           rules={allRules}
           language={language}
           text={text}
-          onPlayerDraw={() => updateActiveCampaign((campaign) => ({ ...campaign, playerDeck: recordPlayerCardDraw(campaign.playerDeck, nextId('known-player-card', Object.keys(campaign.playerDeck.cardStates).length), 'player-discard'), updatedAt: new Date().toISOString() }))}
+          onConfigureStartingHands={(assignments: StartingHandAssignment[]) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, playerDeck: configureStartingHands(campaign.playerDeck, assignments) }))}
+          onPlayerDraw={(cardId: string, destination: PlayerCardDestination) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, playerDeck: recordPlayerCardDraw(campaign.playerDeck, cardId, destination) }))}
           onResolveEscalation={() => updateActiveCampaign((campaign) => {
             const pile = campaign.playerDeck.piles[campaign.playerDeck.currentPileIndex];
             if (!pile?.escalationCardId) return campaign;
-            return { ...campaign, playerDeck: resolveEscalationDraw(campaign.playerDeck, pile.escalationCardId), updatedAt: new Date().toISOString() };
+            return updateCampaignTimestamp({ ...campaign, playerDeck: resolveEscalationDraw(campaign.playerDeck, pile.escalationCardId) });
           })}
-          onThreatDraw={() => updateActiveCampaign((campaign) => ({ ...campaign, threatDeck: recordThreatDraw(campaign.threatDeck, nextId('threat-draw', campaign.threatDeck.discardCardIds.length)), updatedAt: new Date().toISOString() }))}
-          onThreatBottomToDiscard={() => updateActiveCampaign((campaign) => ({ ...campaign, threatDeck: recordThreatBottomDrawToDiscard(campaign.threatDeck, nextId('threat-bottom', campaign.threatDeck.discardCardIds.length)), updatedAt: new Date().toISOString() }))}
-          onThreatBottomToGameEnd={() => updateActiveCampaign((campaign) => ({ ...campaign, threatDeck: recordThreatBottomDrawToGameEndArea(campaign.threatDeck, nextId('threat-incident', campaign.threatDeck.gameEndAreaCardIds.length)), updatedAt: new Date().toISOString() }))}
-          onThreatIntensify={() => updateActiveCampaign((campaign) => ({ ...campaign, threatDeck: intensifyThreatDiscard(campaign.threatDeck), updatedAt: new Date().toISOString() }))}
-          onCleanupGameEnd={() => updateActiveCampaign((campaign) => ({ ...campaign, threatDeck: clearThreatGameEndArea(campaign.threatDeck), updatedAt: new Date().toISOString() }))}
+          onThreatDraw={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: recordThreatDraw(campaign.threatDeck, cardId) }))}
+          onThreatBottomToDiscard={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: recordThreatBottomDrawToDiscard(campaign.threatDeck, cardId) }))}
+          onThreatBottomToGameEnd={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: recordThreatBottomDrawToGameEndArea(campaign.threatDeck, cardId) }))}
+          onThreatIntensify={() => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: intensifyThreatDiscard(campaign.threatDeck) }))}
+          onCleanupGameEnd={() => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: clearThreatGameEndArea(campaign.threatDeck) }))}
           onToggleRule={(ruleId, enabled) => updateActiveCampaign((campaign) => setRuleEnabled(campaign, ruleId, enabled))}
         />
       ) : (

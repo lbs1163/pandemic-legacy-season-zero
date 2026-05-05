@@ -16,12 +16,6 @@ export interface CreateInitialCampaignInput {
   fundingLevel?: number;
 }
 
-function startingHandCountForPlayers(playerCount: number): number {
-  if (playerCount <= 2) return playerCount * 4;
-  if (playerCount === 3) return playerCount * 3;
-  return playerCount * 2;
-}
-
 export function createInitialCampaign(input: CreateInitialCampaignInput): CampaignState {
   const now = new Date().toISOString();
   const toggles = [...baseRules, ...legacyRules];
@@ -33,12 +27,12 @@ export function createInitialCampaign(input: CreateInitialCampaignInput): Campai
     players: input.players,
     fundingLevel: input.fundingLevel,
     playerDeck: createInitialPlayerDeckState({
-      playerCardCount: cityCards.length + eventCards.length,
-      startingHandCardCount: startingHandCountForPlayers(input.players.length),
+      playerCardIds: [...cityCards.map((card) => card.id), ...eventCards.map((card) => card.id)],
+      playerCount: input.players.length,
       escalationCardIds: escalationCards.map((card) => card.id),
       now
     }),
-    threatDeck: createInitialThreatDeckState(threatCards.length),
+    threatDeck: createInitialThreatDeckState(threatCards.map((card) => card.id), now),
     ruleToggles: Object.fromEntries(toggles.map((toggle) => [toggle.id, toggle.defaultEnabled])),
     createdAt: now,
     updatedAt: now

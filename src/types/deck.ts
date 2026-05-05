@@ -28,19 +28,33 @@ export interface PlayerDeckPile {
   escalationResolved: boolean;
 }
 
+export interface StartingHandState {
+  requiredPerPlayer: number;
+  requiredTotal: number;
+  configured: boolean;
+}
+
 export interface PlayerDeckState {
   totalInitialCount: number;
   drawCountPerTurn: 2;
   piles: PlayerDeckPile[];
   cardStates: Record<string, CardInstanceState>;
   currentPileIndex: number;
+  startingHand: StartingHandState;
 }
 
 export interface ThreatDeckState {
   totalInitialCount: number;
-  unknownDrawPileCount: number;
+  cardStates: Record<string, CardInstanceState>;
   discardCardIds: string[];
   knownTopStackCardIds: string[];
   gameEndAreaCardIds: string[];
   removedCardIds: string[];
 }
+
+export interface StartingHandAssignment {
+  cardId: string;
+  playerId: string;
+}
+
+export type PlayerCardDestination = 'player-hand' | 'player-discard' | 'player-removed';

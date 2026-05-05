@@ -17,7 +17,7 @@ describe('campaign persistence validation', () => {
     });
     const envelope = {
       appId: 'pandemic-legacy-season-zero-deck-counter' as const,
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       activeCampaignId: campaign.campaignId,
       campaigns: [campaign]
     };
@@ -25,10 +25,41 @@ describe('campaign persistence validation', () => {
     expect(validatePersistedEnvelope(envelope).campaigns[0].campaignName).toBe('Prologue');
   });
 
+  it('migrates v1 envelopes to v2 card-state decks', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Legacy local state',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const legacyEnvelope = {
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 1 as const,
+      activeCampaignId: campaign.campaignId,
+      campaigns: [{
+        ...campaign,
+        playerDeck: { ...campaign.playerDeck, startingHand: undefined },
+        threatDeck: {
+          totalInitialCount: 28,
+          unknownDrawPileCount: 28,
+          discardCardIds: [],
+          knownTopStackCardIds: [],
+          gameEndAreaCardIds: [],
+          removedCardIds: []
+        }
+      }]
+    };
+
+    const migrated = validatePersistedEnvelope(legacyEnvelope);
+
+    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.campaigns[0].playerDeck.startingHand.configured).toBe(false);
+    expect(Object.keys(migrated.campaigns[0].threatDeck.cardStates).length).toBeGreaterThan(0);
+  });
+
   it('rejects unsupported schema versions', () => {
     expect(() => validatePersistedEnvelope({
       appId: 'pandemic-legacy-season-zero-deck-counter',
-      schemaVersion: 2,
+      schemaVersion: 3,
       campaigns: []
     })).toThrow();
   });

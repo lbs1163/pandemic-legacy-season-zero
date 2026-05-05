@@ -1,23 +1,29 @@
 import type { UiText } from '../i18n/uiText';
 import type { CampaignState } from '../types/campaign';
 import type { LanguageCode } from '../types/cards';
+import { cityCards } from '../data/cards/cities';
+import { eventCards } from '../data/cards/events';
+import { threatCards } from '../data/cards/threats';
+import type { PlayerCardDestination, StartingHandAssignment } from '../types/deck';
 import type { RuleToggle } from '../types/rules';
 import { calculateDeckCounterSummary } from '../domain/probabilities';
 import { PlayerDeckPanel } from './PlayerDeckPanel';
 import { ThreatDeckPanel } from './ThreatDeckPanel';
 import { RuleTogglePanel } from './RuleTogglePanel';
 import { RuleReferencePanel } from './RuleReferencePanel';
+import { StartingHandSetup } from './StartingHandSetup';
 
 interface Props {
   campaign: CampaignState;
   rules: RuleToggle[];
   language: LanguageCode;
   text: UiText;
-  onPlayerDraw: () => void;
+  onConfigureStartingHands: (assignments: StartingHandAssignment[]) => void;
+  onPlayerDraw: (cardId: string, destination: PlayerCardDestination) => void;
   onResolveEscalation: () => void;
-  onThreatDraw: () => void;
-  onThreatBottomToDiscard: () => void;
-  onThreatBottomToGameEnd: () => void;
+  onThreatDraw: (cardId: string) => void;
+  onThreatBottomToDiscard: (cardId: string) => void;
+  onThreatBottomToGameEnd: (cardId: string) => void;
   onThreatIntensify: () => void;
   onCleanupGameEnd: () => void;
   onToggleRule: (ruleId: string, enabled: boolean) => void;
@@ -37,10 +43,14 @@ export function DeckCounterDashboard(props: Props) {
         </div>
       </section>
       <div className="dashboard-grid">
-        <PlayerDeckPanel state={props.campaign.playerDeck} text={props.text} onDrawKnown={props.onPlayerDraw} onResolveEscalation={props.onResolveEscalation} />
+        <StartingHandSetup state={props.campaign.playerDeck} players={props.campaign.players} cityCards={cityCards} eventCards={eventCards} language={props.language} onConfigure={props.onConfigureStartingHands} />
+        <PlayerDeckPanel state={props.campaign.playerDeck} text={props.text} language={props.language} cityCards={cityCards} eventCards={eventCards} onDrawKnown={props.onPlayerDraw} onResolveEscalation={props.onResolveEscalation} />
         <ThreatDeckPanel
           state={props.campaign.threatDeck}
           text={props.text}
+          language={props.language}
+          cityCards={cityCards}
+          threatCards={threatCards}
           onDraw={props.onThreatDraw}
           onBottomToDiscard={props.onThreatBottomToDiscard}
           onBottomToGameEnd={props.onThreatBottomToGameEnd}

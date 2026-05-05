@@ -26,6 +26,12 @@ select {
   border: 1px solid #c7bda9;
   background: #fffaf0;
 }
+input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #c7bda9;
+  background: #fffaf0;
+}
 .app-shell { max-width: 1180px; margin: 0 auto; padding: 24px; }
 .app-header, .hero {
   margin-bottom: 18px;
@@ -130,4 +136,53 @@ select {
   color: #1d4f91;
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.starting-hand-card { grid-column: 1 / -1; }
+.starting-hand-grid, .hand-summary-grid, .composition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+.starting-hand-grid label, .hand-summary-grid div, .composition-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f8efde;
+}
+.composition-grid span { color: #344154; }
+.inline-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.inline-label input { width: 88px; }
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 14px 0;
+}
+.probability-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+.probability-table th, .probability-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #eadcc4;
+  text-align: left;
+  white-space: nowrap;
+}
+.probability-table th {
+  background: #efe3cc;
+  font-size: 0.85rem;
 }

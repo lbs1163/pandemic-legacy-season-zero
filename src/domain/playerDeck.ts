@@ -1,8 +1,14 @@
-import type { PlayerCardZone, PlayerDeckPile, PlayerDeckState } from '../types/deck';
+import type {
+  PlayerCardDestination,
+  PlayerCardZone,
+  PlayerDeckPile,
+  PlayerDeckState,
+  StartingHandAssignment
+} from '../types/deck';
 
 export interface PlayerDeckSetupConfig {
-  playerCardCount: number;
-  startingHandCardCount: number;
+  playerCardIds: string[];
+  playerCount: number;
   escalationCardIds: string[];
   now?: string;
 }
@@ -12,28 +18,95 @@ const nowIso = (now?: string) => now ?? new Date().toISOString();
 export function createInitialPlayerDeckState(config: PlayerDeckSetupConfig): PlayerDeckState {
   const pileCount = config.escalationCardIds.length;
   if (pileCount !== 5) throw new Error('MVP setup requires exactly 5 Escalation cards.');
-  const remainingAfterHands = Math.max(0, config.playerCardCount - config.startingHandCardCount);
-  const basePileSize = Math.floor(remainingAfterHands / pileCount);
-  const remainder = remainingAfterHands % pileCount;
-  const piles: PlayerDeckPile[] = config.escalationCardIds.map((escalationCardId, index) => ({
-    id: `pile-${index + 1}`,
-    initialUnknownCount: basePileSize + (index < remainder ? 1 : 0) + 1,
-    remainingUnknownCount: basePileSize + (index < remainder ? 1 : 0) + 1,
-    escalationCardId,
-    escalationResolved: false
-  }));
+  const requiredPerPlayer = startingHandSizeForPlayers(config.playerCount);
+  const piles = buildPiles(config.playerCardIds.length, config.escalationCardIds);
+  const timestamp = nowIso(config.now);
 
   return {
-    totalInitialCount: remainingAfterHands + pileCount,
+    totalInitialCount: config.playerCardIds.length + pileCount,
     drawCountPerTurn: 2,
     piles,
     cardStates: Object.fromEntries(
-      config.escalationCardIds.map((cardId) => [
+      [...config.playerCardIds, ...config.escalationCardIds].map((cardId) => [
         cardId,
-        { cardId, zone: 'player-deck-unknown', updatedAt: nowIso(config.now) }
+        { cardId, zone: 'player-deck-unknown', updatedAt: timestamp }
       ])
     ),
-    currentPileIndex: 0
+    currentPileIndex: 0,
+    startingHand: {
+      requiredPerPlayer,
+      requiredTotal: requiredPerPlayer * config.playerCount,
+      configured: false
+    }
+  };
+}
+
+function startingHandSizeForPlayers(playerCount: number): number {
+  if (playerCount <= 2) return 4;
+  if (playerCount === 3) return 3;
+  return 2;
+}
+
+function buildPiles(deckCardCountAfterHands: number, escalationCardIds: string[]): PlayerDeckPile[] {
+  const pileCount = escalationCardIds.length;
+  const basePileSize = Math.floor(deckCardCountAfterHands / pileCount);
+  const remainder = deckCardCountAfterHands % pileCount;
+  return escalationCardIds.map((escalationCardId, index) => {
+    const cityEventCount = basePileSize + (index < remainder ? 1 : 0);
+    return {
+      id: `pile-${index + 1}`,
+      initialUnknownCount: cityEventCount + 1,
+      remainingUnknownCount: cityEventCount + 1,
+      escalationCardId,
+      escalationResolved: false
+    };
+  });
+}
+
+function getEscalationCardIds(state: PlayerDeckState): string[] {
+  return state.piles.map((pile) => pile.escalationCardId).filter((cardId): cardId is string => Boolean(cardId));
+}
+
+function isEscalationCardId(state: PlayerDeckState, cardId: string): boolean {
+  return getEscalationCardIds(state).includes(cardId);
+}
+
+export function configureStartingHands(
+  state: PlayerDeckState,
+  assignments: StartingHandAssignment[]
+): PlayerDeckState {
+  if (assignments.length !== state.startingHand.requiredTotal) {
+    throw new Error(`Starting hands require exactly ${state.startingHand.requiredTotal} cards.`);
+  }
+  const seen = new Set<string>();
+  for (const assignment of assignments) {
+    if (seen.has(assignment.cardId)) throw new Error(`Duplicate starting hand card: ${assignment.cardId}`);
+    seen.add(assignment.cardId);
+    const existing = state.cardStates[assignment.cardId];
+    if (!existing) throw new Error(`Unknown player card: ${assignment.cardId}`);
+    if (isEscalationCardId(state, assignment.cardId)) throw new Error('Escalation cards cannot be in starting hands.');
+  }
+
+  const now = nowIso();
+  const escalationCardIds = getEscalationCardIds(state);
+  const assignmentMap = new Map(assignments.map((assignment) => [assignment.cardId, assignment.playerId]));
+  const cardStates = Object.fromEntries(Object.entries(state.cardStates).map(([cardId, cardState]) => {
+    const ownerPlayerId = assignmentMap.get(cardId);
+    if (ownerPlayerId) {
+      return [cardId, { cardId, zone: 'player-hand' as const, ownerPlayerId, updatedAt: now }];
+    }
+    return [cardId, { ...cardState, zone: 'player-deck-unknown' as const, ownerPlayerId: undefined, updatedAt: now }];
+  }));
+  const nonEscalationDeckCount = Object.keys(state.cardStates).filter(
+    (cardId) => !escalationCardIds.includes(cardId) && !assignmentMap.has(cardId)
+  ).length;
+
+  return {
+    ...state,
+    piles: buildPiles(nonEscalationDeckCount, escalationCardIds),
+    cardStates,
+    currentPileIndex: 0,
+    startingHand: { ...state.startingHand, configured: true }
   };
 }
 
@@ -57,8 +130,11 @@ function advancePastResolvedEmptyPiles(state: PlayerDeckState): PlayerDeckState 
 export function recordPlayerCardDraw(
   state: PlayerDeckState,
   cardId: string,
-  destination: 'player-hand' | 'player-discard' | 'player-removed'
+  destination: PlayerCardDestination
 ): PlayerDeckState {
+  const existing = state.cardStates[cardId];
+  if (!existing) throw new Error(`Unknown player card: ${cardId}`);
+  if (existing.zone !== 'player-deck-unknown') throw new Error(`Player card is not in the unknown deck: ${cardId}`);
   const updated = updateCurrentPile(state, (pile) => ({
     ...pile,
     remainingUnknownCount: Math.max(0, pile.remainingUnknownCount - 1)
@@ -75,6 +151,9 @@ export function recordPlayerCardDraw(
 export function resolveEscalationDraw(state: PlayerDeckState, escalationCardId: string): PlayerDeckState {
   const pileIndex = state.piles.findIndex((pile) => pile.escalationCardId === escalationCardId);
   if (pileIndex === -1) throw new Error(`Unknown Escalation card: ${escalationCardId}`);
+  if (state.cardStates[escalationCardId]?.zone !== 'player-deck-unknown') {
+    throw new Error(`Escalation card is not hidden in the player deck: ${escalationCardId}`);
+  }
   const piles = state.piles.map((pile, index) => index === pileIndex ? {
     ...pile,
     escalationResolved: true,
@@ -108,4 +187,8 @@ export function movePlayerCard(
 
 export function getPlayerDeckRemaining(state: PlayerDeckState): number {
   return state.piles.reduce((sum, pile) => sum + pile.remainingUnknownCount, 0);
+}
+
+export function getPlayerCardsInZone(state: PlayerDeckState, zone: PlayerCardZone): string[] {
+  return Object.values(state.cardStates).filter((card) => card.zone === zone).map((card) => card.cardId);
 }

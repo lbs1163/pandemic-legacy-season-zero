@@ -1,9 +1,15 @@
 import type { ThreatDeckState } from '../types/deck';
 
-export function createInitialThreatDeckState(threatCardCount: number): ThreatDeckState {
+const nowIso = (now?: string) => now ?? new Date().toISOString();
+
+export function createInitialThreatDeckState(threatCardIds: string[], now?: string): ThreatDeckState {
+  const timestamp = nowIso(now);
   return {
-    totalInitialCount: threatCardCount,
-    unknownDrawPileCount: threatCardCount,
+    totalInitialCount: threatCardIds.length,
+    cardStates: Object.fromEntries(threatCardIds.map((cardId) => [
+      cardId,
+      { cardId, zone: 'threat-deck-unknown', updatedAt: timestamp }
+    ])),
     discardCardIds: [],
     knownTopStackCardIds: [],
     gameEndAreaCardIds: [],
@@ -13,45 +19,104 @@ export function createInitialThreatDeckState(threatCardCount: number): ThreatDec
 
 function drawFromThreatDeck(state: ThreatDeckState): ThreatDeckState {
   if (state.knownTopStackCardIds.length > 0) {
-    return { ...state, knownTopStackCardIds: state.knownTopStackCardIds.slice(1) };
+    const [cardId, ...rest] = state.knownTopStackCardIds;
+    return {
+      ...state,
+      knownTopStackCardIds: rest,
+      cardStates: {
+        ...state.cardStates,
+        [cardId]: { cardId, zone: 'threat-discard', updatedAt: nowIso() }
+      }
+    };
   }
-  return { ...state, unknownDrawPileCount: Math.max(0, state.unknownDrawPileCount - 1) };
+  return state;
+}
+
+function assertThreatCardInUnknownDeck(state: ThreatDeckState, cardId: string) {
+  const existing = state.cardStates[cardId];
+  if (!existing) throw new Error(`Unknown threat card: ${cardId}`);
+  if (existing.zone !== 'threat-deck-unknown') throw new Error(`Threat card is not in the unknown deck: ${cardId}`);
 }
 
 export function recordThreatDraw(state: ThreatDeckState, cardId: string): ThreatDeckState {
-  const drawn = drawFromThreatDeck(state);
-  return { ...drawn, discardCardIds: [...drawn.discardCardIds, cardId] };
+  if (state.knownTopStackCardIds.length > 0) {
+    if (state.knownTopStackCardIds[0] !== cardId) {
+      throw new Error(`Next known threat card must be ${state.knownTopStackCardIds[0]}.`);
+    }
+    const drawn = drawFromThreatDeck(state);
+    return { ...drawn, discardCardIds: [...drawn.discardCardIds, cardId] };
+  }
+  assertThreatCardInUnknownDeck(state, cardId);
+  return {
+    ...state,
+    discardCardIds: [...state.discardCardIds, cardId],
+    cardStates: {
+      ...state.cardStates,
+      [cardId]: { cardId, zone: 'threat-discard', updatedAt: nowIso() }
+    }
+  };
 }
 
 export function recordThreatBottomDrawToDiscard(state: ThreatDeckState, cardId: string): ThreatDeckState {
+  assertThreatCardInUnknownDeck(state, cardId);
   return {
     ...state,
-    unknownDrawPileCount: Math.max(0, state.unknownDrawPileCount - 1),
-    discardCardIds: [...state.discardCardIds, cardId]
+    discardCardIds: [...state.discardCardIds, cardId],
+    cardStates: {
+      ...state.cardStates,
+      [cardId]: { cardId, zone: 'threat-discard', updatedAt: nowIso() }
+    }
   };
 }
 
 export function recordThreatBottomDrawToGameEndArea(state: ThreatDeckState, cardId: string): ThreatDeckState {
+  assertThreatCardInUnknownDeck(state, cardId);
   return {
     ...state,
-    unknownDrawPileCount: Math.max(0, state.unknownDrawPileCount - 1),
-    gameEndAreaCardIds: [...state.gameEndAreaCardIds, cardId]
+    gameEndAreaCardIds: [...state.gameEndAreaCardIds, cardId],
+    cardStates: {
+      ...state.cardStates,
+      [cardId]: { cardId, zone: 'threat-game-end-area', updatedAt: nowIso() }
+    }
   };
 }
 
 export function intensifyThreatDiscard(state: ThreatDeckState, orderedCardIds?: string[]): ThreatDeckState {
   const stack = orderedCardIds?.length ? orderedCardIds : [...state.discardCardIds];
+  const discardSet = new Set(state.discardCardIds);
+  for (const cardId of stack) {
+    if (!discardSet.has(cardId)) throw new Error(`Cannot intensify non-discarded threat card: ${cardId}`);
+  }
   return {
     ...state,
     discardCardIds: [],
-    knownTopStackCardIds: [...stack, ...state.knownTopStackCardIds]
+    knownTopStackCardIds: [...stack, ...state.knownTopStackCardIds],
+    cardStates: {
+      ...state.cardStates,
+      ...Object.fromEntries(stack.map((cardId, order) => [
+        cardId,
+        { cardId, zone: 'threat-top-stack-known' as const, order, updatedAt: nowIso() }
+      ]))
+    }
   };
 }
 
 export function clearThreatGameEndArea(state: ThreatDeckState): ThreatDeckState {
+  const now = nowIso();
   return {
     ...state,
     discardCardIds: [...state.discardCardIds, ...state.gameEndAreaCardIds],
-    gameEndAreaCardIds: []
+    gameEndAreaCardIds: [],
+    cardStates: {
+      ...state.cardStates,
+      ...Object.fromEntries(state.gameEndAreaCardIds.map((cardId) => [
+        cardId,
+        { cardId, zone: 'threat-discard' as const, updatedAt: now }
+      ]))
+    }
   };
+}
+
+export function getThreatDeckUnknownCount(state: ThreatDeckState): number {
+  return Object.values(state.cardStates).filter((card) => card.zone === 'threat-deck-unknown').length;
 }
