@@ -4,7 +4,7 @@ export const baseRules: RuleToggle[] = [
   {
     id: 'base.player-deck-setup',
     label: { en: 'Player deck setup', ko: '플레이어 덱 준비' },
-    description: { en: 'Five piles with one Escalation card in each pile.', ko: '5개 더미 각각에 에스컬레이션 카드 1장을 섞습니다.' },
+    description: { en: 'Five piles with one Escalation card in each pile.', ko: '5개 더미 각각에 악화 카드 1장을 섞습니다.' },
     category: 'base',
     defaultEnabled: true,
     enabled: true,
@@ -16,8 +16,8 @@ export const baseRules: RuleToggle[] = [
   },
   {
     id: 'base.escalation',
-    label: { en: 'Escalation resolution', ko: '에스컬레이션 처리' },
-    description: { en: 'Bottom Threat draw to discard, then intensify Threat discard onto deck top.', ko: '위협 덱 맨 아래 카드를 버림 더미로 보낸 뒤 버림 더미를 섞어 맨 위에 올립니다.' },
+    label: { en: 'Escalation resolution', ko: '악화 처리' },
+    description: { en: 'Bottom Threat draw to discard, then intensify Threat discard onto deck top.', ko: '위협 덱 맨 아래 카드를 버린 위협 카드 구획으로 보낸 뒤 버린 위협 카드 구획을 섞어 맨 위에 올립니다.' },
     category: 'base',
     defaultEnabled: true,
     enabled: true,
@@ -30,7 +30,7 @@ export const baseRules: RuleToggle[] = [
   {
     id: 'base.threat-draws',
     label: { en: 'Threat draws', ko: '위협 카드 뽑기' },
-    description: { en: 'Threat cards move from the draw pile to discard unless another rule redirects them.', ko: '별도 규칙이 없다면 위협 카드는 덱에서 버림 더미로 이동합니다.' },
+    description: { en: 'Threat cards move from the draw pile to discard unless another rule redirects them.', ko: '별도 규칙이 없다면 위협 카드는 덱에서 버린 위협 카드 구획으로 이동합니다.' },
     category: 'base',
     defaultEnabled: true,
     enabled: true,
@@ -42,8 +42,8 @@ export const baseRules: RuleToggle[] = [
   },
   {
     id: 'base.incident-game-end-area',
-    label: { en: 'Incident Game End area', ko: '사건 게임 종료 구역' },
-    description: { en: 'Some bottom Threat draws are stored separately until after-game cleanup.', ko: '일부 맨 아래 위협 카드는 게임 후 정리 전까지 별도 구역에 둡니다.' },
+    label: { en: 'Incident Game End area', ko: '사건 게임 종료 구획' },
+    description: { en: 'Some bottom Threat draws are stored separately until after-game cleanup.', ko: '일부 맨 아래 위협 카드는 게임 후 정리 전까지 게임 종료 구획에 둡니다.' },
     category: 'base',
     defaultEnabled: true,
     enabled: true,
