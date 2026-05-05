@@ -1,0 +1,35 @@
+import { describe, expect, it } from 'vitest';
+import { createInitialCampaign } from '../domain/createInitialCampaign';
+import { createEmptyEnvelope, validatePersistedEnvelope } from '../services/localCache';
+
+describe('campaign persistence validation', () => {
+  it('validates an empty envelope', () => {
+    const envelope = createEmptyEnvelope();
+
+    expect(validatePersistedEnvelope(envelope)).toEqual(envelope);
+  });
+
+  it('validates an envelope with a campaign', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Prologue',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const envelope = {
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 1 as const,
+      activeCampaignId: campaign.campaignId,
+      campaigns: [campaign]
+    };
+
+    expect(validatePersistedEnvelope(envelope).campaigns[0].campaignName).toBe('Prologue');
+  });
+
+  it('rejects unsupported schema versions', () => {
+    expect(() => validatePersistedEnvelope({
+      appId: 'pandemic-legacy-season-zero-deck-counter',
+      schemaVersion: 2,
+      campaigns: []
+    })).toThrow();
+  });
+});

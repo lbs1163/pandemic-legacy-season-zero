@@ -1,0 +1,32 @@
+import type { CityCard } from '../../types/cards';
+
+export const cityCards: CityCard[] = [
+  { id: 'atlanta', kind: 'city', name: { en: 'Atlanta', ko: '애틀랜타' }, region: 'north-america', affiliation: 'allied', country: { en: 'United States', ko: '미국' } },
+  { id: 'chicago', kind: 'city', name: { en: 'Chicago', ko: '시카고' }, region: 'north-america', affiliation: 'allied', country: { en: 'United States', ko: '미국' } },
+  { id: 'new-york', kind: 'city', name: { en: 'New York', ko: '뉴욕' }, region: 'north-america', affiliation: 'allied', country: { en: 'United States', ko: '미국' } },
+  { id: 'washington', kind: 'city', name: { en: 'Washington', ko: '워싱턴' }, region: 'north-america', affiliation: 'allied', country: { en: 'United States', ko: '미국' } },
+  { id: 'london', kind: 'city', name: { en: 'London', ko: '런던' }, region: 'europe', affiliation: 'allied', country: { en: 'United Kingdom', ko: '영국' } },
+  { id: 'paris', kind: 'city', name: { en: 'Paris', ko: '파리' }, region: 'europe', affiliation: 'neutral', country: { en: 'France', ko: '프랑스' } },
+  { id: 'moscow', kind: 'city', name: { en: 'Moscow', ko: '모스크바' }, region: 'europe', affiliation: 'soviet', country: { en: 'Soviet Union', ko: '소련' } },
+  { id: 'istanbul', kind: 'city', name: { en: 'Istanbul', ko: '이스탄불' }, region: 'europe', affiliation: 'neutral', country: { en: 'Turkey', ko: '튀르키예' } },
+  { id: 'cairo', kind: 'city', name: { en: 'Cairo', ko: '카이로' }, region: 'africa', affiliation: 'neutral', country: { en: 'Egypt', ko: '이집트' } },
+  { id: 'lagos', kind: 'city', name: { en: 'Lagos', ko: '라고스' }, region: 'africa', affiliation: 'neutral', country: { en: 'Nigeria', ko: '나이지리아' } },
+  { id: 'johannesburg', kind: 'city', name: { en: 'Johannesburg', ko: '요하네스버그' }, region: 'africa', affiliation: 'neutral', country: { en: 'South Africa', ko: '남아프리카' } },
+  { id: 'baghdad', kind: 'city', name: { en: 'Baghdad', ko: '바그다드' }, region: 'asia', affiliation: 'neutral', country: { en: 'Iraq', ko: '이라크' } },
+  { id: 'tehran', kind: 'city', name: { en: 'Tehran', ko: '테헤란' }, region: 'asia', affiliation: 'neutral', country: { en: 'Iran', ko: '이란' } },
+  { id: 'karachi', kind: 'city', name: { en: 'Karachi', ko: '카라치' }, region: 'asia', affiliation: 'neutral', country: { en: 'Pakistan', ko: '파키스탄' } },
+  { id: 'delhi', kind: 'city', name: { en: 'Delhi', ko: '델리' }, region: 'asia', affiliation: 'neutral', country: { en: 'India', ko: '인도' } },
+  { id: 'kolkata', kind: 'city', name: { en: 'Kolkata', ko: '콜카타' }, region: 'asia', affiliation: 'neutral', country: { en: 'India', ko: '인도' } },
+  { id: 'bangkok', kind: 'city', name: { en: 'Bangkok', ko: '방콕' }, region: 'asia', affiliation: 'neutral', country: { en: 'Thailand', ko: '태국' } },
+  { id: 'hong-kong', kind: 'city', name: { en: 'Hong Kong', ko: '홍콩' }, region: 'asia', affiliation: 'neutral', country: { en: 'Hong Kong', ko: '홍콩' } },
+  { id: 'shanghai', kind: 'city', name: { en: 'Shanghai', ko: '상하이' }, region: 'asia', affiliation: 'soviet', country: { en: 'China', ko: '중국' } },
+  { id: 'tokyo', kind: 'city', name: { en: 'Tokyo', ko: '도쿄' }, region: 'pacific', affiliation: 'allied', country: { en: 'Japan', ko: '일본' } },
+  { id: 'sydney', kind: 'city', name: { en: 'Sydney', ko: '시드니' }, region: 'pacific', affiliation: 'allied', country: { en: 'Australia', ko: '호주' } },
+  { id: 'los-angeles', kind: 'city', name: { en: 'Los Angeles', ko: '로스앤젤레스' }, region: 'north-america', affiliation: 'allied', country: { en: 'United States', ko: '미국' } },
+  { id: 'mexico-city', kind: 'city', name: { en: 'Mexico City', ko: '멕시코시티' }, region: 'north-america', affiliation: 'neutral', country: { en: 'Mexico', ko: '멕시코' } },
+  { id: 'bogota', kind: 'city', name: { en: 'Bogota', ko: '보고타' }, region: 'south-america', affiliation: 'neutral', country: { en: 'Colombia', ko: '콜롬비아' } },
+  { id: 'lima', kind: 'city', name: { en: 'Lima', ko: '리마' }, region: 'south-america', affiliation: 'neutral', country: { en: 'Peru', ko: '페루' } },
+  { id: 'santiago', kind: 'city', name: { en: 'Santiago', ko: '산티아고' }, region: 'south-america', affiliation: 'neutral', country: { en: 'Chile', ko: '칠레' } },
+  { id: 'buenos-aires', kind: 'city', name: { en: 'Buenos Aires', ko: '부에노스아이레스' }, region: 'south-america', affiliation: 'neutral', country: { en: 'Argentina', ko: '아르헨티나' } },
+  { id: 'sao-paulo', kind: 'city', name: { en: 'Sao Paulo', ko: '상파울루' }, region: 'south-america', affiliation: 'neutral', country: { en: 'Brazil', ko: '브라질' } }
+];
