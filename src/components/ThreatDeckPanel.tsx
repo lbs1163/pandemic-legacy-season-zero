@@ -4,6 +4,12 @@ import type { UiText } from '../i18n/uiText';
 import type { CityCard, LanguageCode, ThreatCard } from '../types/cards';
 import type { ThreatDeckState } from '../types/deck';
 import { getThreatDeckUnknownCount } from '../domain/threatDeck';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { NativeSelect } from './ui/native-select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { SearchableSelect } from './SearchableSelect';
 
 interface Props {
   state: ThreatDeckState;
@@ -36,41 +42,56 @@ export function ThreatDeckPanel({ state, text, language, cityCards, threatCards,
     handler(selectedCardId);
     setSelectedCardId('');
   };
+  const selectableThreats = state.knownTopStackCardIds.length
+    ? state.knownTopStackCardIds.slice(0, 1).map((cardId) => threatMap.get(cardId)).filter((card): card is ThreatCard => Boolean(card))
+    : unknownCards;
+  const threatOptions = useMemo(() => selectableThreats.map((card) => {
+    const city = cityMap.get(card.cityCardId);
+    return {
+      value: card.id,
+      label: city?.name[language] ?? card.id,
+      description: language === 'ko' ? '위협 카드' : 'Threat card'
+    };
+  }), [cityMap, language, selectableThreats]);
+
   return (
-    <section className="card">
-      <h2>{text.threatDeck}</h2>
-      <div className="stat-grid">
-        <div><span>{text.unknownDrawPile}</span><strong>{getThreatDeckUnknownCount(state)}</strong></div>
-        <div><span>{text.knownTopStack}</span><strong>{state.knownTopStackCardIds.length}</strong></div>
-        <div><span>{text.discard}</span><strong>{state.discardCardIds.length}</strong></div>
-        <div><span>{text.gameEndArea}</span><strong>{state.gameEndAreaCardIds.length}</strong></div>
-      </div>
-      <div className="row wrap">
-        <label className="inline-label"><span>{language === 'ko' ? '확률 드로우 수' : 'Probability draws'}</span><input type="number" min={1} max={6} value={drawCount} onChange={(event) => setDrawCount(Math.max(1, Number(event.target.value) || 1))} /></label>
-      </div>
-      <div className="table-wrap">
-        <table className="probability-table">
-          <thead><tr><th>{language === 'ko' ? '도시' : 'City'}</th><th>{language === 'ko' ? '1장 이상' : 'At least one'}</th>{Array.from({ length: drawCount }, (_, index) => <th key={index}>{index + 1}</th>)}</tr></thead>
-          <tbody>
+    <Card>
+      <CardHeader><CardTitle>{text.threatDeck}</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-lg bg-muted p-3"><span className="text-sm text-muted-foreground">{text.unknownDrawPile}</span><strong className="block text-2xl">{getThreatDeckUnknownCount(state)}</strong></div>
+          <div className="rounded-lg bg-muted p-3"><span className="text-sm text-muted-foreground">{text.knownTopStack}</span><strong className="block text-2xl">{state.knownTopStackCardIds.length}</strong></div>
+          <div className="rounded-lg bg-muted p-3"><span className="text-sm text-muted-foreground">{text.discard}</span><strong className="block text-2xl">{state.discardCardIds.length}</strong></div>
+          <div className="rounded-lg bg-muted p-3"><span className="text-sm text-muted-foreground">{text.gameEndArea}</span><strong className="block text-2xl">{state.gameEndAreaCardIds.length}</strong></div>
+        </div>
+        <label className="flex max-w-xs items-center gap-2 text-sm font-semibold"><span>{language === 'ko' ? '확률 드로우 수' : 'Probability draws'}</span><Input className="w-24" type="number" min={1} max={6} value={drawCount} onChange={(event) => setDrawCount(Math.max(1, Number(event.target.value) || 1))} /></label>
+        <Table>
+          <TableHeader><TableRow><TableHead>{language === 'ko' ? '도시' : 'City'}</TableHead><TableHead>{language === 'ko' ? '1장 이상' : 'At least one'}</TableHead>{Array.from({ length: drawCount }, (_, index) => <TableHead key={index}>{index + 1}</TableHead>)}</TableRow></TableHeader>
+          <TableBody>
             {probabilities.map((probability) => {
               const city = cityMap.get(probability.cityCardId);
-              return <tr key={probability.cityCardId}><td>{city?.name[language] ?? probability.cityCardId}</td><td>{formatter.format(probability.atLeastOne)}</td>{Array.from({ length: drawCount }, (_, index) => <td key={index}>{formatter.format(probability.probs.find((entry) => entry.draw === index + 1)?.probability ?? 0)}</td>)}</tr>;
+              return <TableRow key={probability.cityCardId}><TableCell>{city?.name[language] ?? probability.cityCardId}</TableCell><TableCell>{formatter.format(probability.atLeastOne)}</TableCell>{Array.from({ length: drawCount }, (_, index) => <TableCell key={index}>{formatter.format(probability.probs.find((entry) => entry.draw === index + 1)?.probability ?? 0)}</TableCell>)}</TableRow>;
             })}
-          </tbody>
-        </table>
-      </div>
-      <div className="row wrap">
-        <select value={selectedCardId} onChange={(event) => setSelectedCardId(event.target.value)}>
-          <option value="">{language === 'ko' ? '위협 카드 선택' : 'Select threat card'}</option>
-          {(state.knownTopStackCardIds.length ? state.knownTopStackCardIds.slice(0, 1).map((cardId) => threatMap.get(cardId)).filter((card): card is ThreatCard => Boolean(card)) : unknownCards).map((card) => <option key={card.id} value={card.id}>{cardLabel(card.id)}</option>)}
-        </select>
-        <button onClick={() => execute(onDraw)} disabled={!selectedCardId}>{text.drawThreat}</button>
-        <button onClick={() => execute(onBottomToDiscard)} disabled={!selectedCardId || state.knownTopStackCardIds.length > 0}>{text.bottomDrawToDiscard}</button>
-        <button onClick={() => execute(onBottomToGameEnd)} disabled={!selectedCardId || state.knownTopStackCardIds.length > 0}>{text.bottomDrawToGameEnd}</button>
-        <button onClick={onIntensify} disabled={state.discardCardIds.length === 0}>{text.intensifyDiscard}</button>
-        <button onClick={onCleanupGameEnd} disabled={state.gameEndAreaCardIds.length === 0}>{text.afterGameCleanup}</button>
-      </div>
-      <p className="muted">{text.knownTop}: {state.knownTopStackCardIds.map(cardLabel).join(', ') || text.none}</p>
-    </section>
+          </TableBody>
+        </Table>
+        <div className="flex flex-wrap gap-2">
+          <SearchableSelect
+            className="max-w-xs"
+            value={selectedCardId}
+            placeholder={language === 'ko' ? '위협 카드 선택' : 'Select threat card'}
+            searchPlaceholder={language === 'ko' ? '도시 검색...' : 'Search cities...'}
+            emptyText={language === 'ko' ? '위협 카드가 없습니다.' : 'No threat cards found.'}
+            options={threatOptions}
+            onChange={setSelectedCardId}
+          />
+          <Button onClick={() => execute(onDraw)} disabled={!selectedCardId}>{text.drawThreat}</Button>
+          <Button variant="secondary" onClick={() => execute(onBottomToDiscard)} disabled={!selectedCardId || state.knownTopStackCardIds.length > 0}>{text.bottomDrawToDiscard}</Button>
+          <Button variant="secondary" onClick={() => execute(onBottomToGameEnd)} disabled={!selectedCardId || state.knownTopStackCardIds.length > 0}>{text.bottomDrawToGameEnd}</Button>
+          <Button variant="outline" onClick={onIntensify} disabled={state.discardCardIds.length === 0}>{text.intensifyDiscard}</Button>
+          <Button variant="outline" onClick={onCleanupGameEnd} disabled={state.gameEndAreaCardIds.length === 0}>{text.afterGameCleanup}</Button>
+        </div>
+        <p className="text-sm text-muted-foreground">{text.knownTop}: {state.knownTopStackCardIds.map(cardLabel).join(', ') || text.none}</p>
+      </CardContent>
+    </Card>
   );
 }
