@@ -13,6 +13,7 @@ import { setRuleEnabled } from './domain/ruleToggles';
 import {
   clearThreatGameEndArea,
   intensifyThreatDiscard,
+  recordInitialThreatSetup,
   recordThreatBottomDrawToDiscard,
   recordThreatBottomDrawToGameEndArea,
   recordThreatDraw
@@ -152,6 +153,7 @@ export function App() {
     campaignName: string;
     players: PlayerProfile[];
     startingHands: StartingHandAssignment[];
+    initialThreatCardIds: string[];
   }) {
     const campaign = createInitialCampaign({
       campaignName: input.campaignName,
@@ -161,6 +163,7 @@ export function App() {
     const configured = {
       ...campaign,
       playerDeck: configureStartingHands(campaign.playerDeck, input.startingHands),
+      threatDeck: recordInitialThreatSetup(campaign.threatDeck, input.initialThreatCardIds),
       updatedAt: new Date().toISOString()
     };
     updateEnvelope((current) => ({

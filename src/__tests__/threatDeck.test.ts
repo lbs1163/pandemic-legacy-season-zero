@@ -3,12 +3,31 @@ import {
   clearThreatGameEndArea,
   createInitialThreatDeckState,
   intensifyThreatDiscard,
+  recordInitialThreatSetup,
   recordThreatBottomDrawToDiscard,
   recordThreatBottomDrawToGameEndArea,
   recordThreatDraw
 } from '../domain/threatDeck';
 
 describe('threat deck domain', () => {
+  it('records initial threat setup with exactly 9 revealed cards to discard', () => {
+    const initialThreats = Array.from({ length: 12 }, (_, index) => `threat-${index + 1}`);
+    const setupThreats = initialThreats.slice(0, 9);
+    const state = createInitialThreatDeckState(initialThreats);
+    const next = recordInitialThreatSetup(state, setupThreats);
+
+    expect(next.discardCardIds).toEqual(setupThreats);
+    expect(Object.values(next.cardStates).filter((card) => card.zone === 'threat-discard')).toHaveLength(9);
+    expect(Object.values(next.cardStates).filter((card) => card.zone === 'threat-deck-unknown')).toHaveLength(3);
+  });
+
+  it('rejects invalid initial threat setup card counts and duplicates', () => {
+    const state = createInitialThreatDeckState(Array.from({ length: 12 }, (_, index) => `threat-${index + 1}`));
+
+    expect(() => recordInitialThreatSetup(state, Array.from({ length: 8 }, (_, index) => `threat-${index + 1}`))).toThrow(/exactly 9/);
+    expect(() => recordInitialThreatSetup(state, ['threat-1', 'threat-1', ...Array.from({ length: 7 }, (_, index) => `threat-${index + 2}`)])).toThrow(/duplicate/);
+  });
+
   it('records normal threat draws to discard', () => {
     const state = createInitialThreatDeckState(['threat-atlanta', ...Array.from({ length: 9 }, (_, index) => `threat-${index + 1}`)]);
     const next = recordThreatDraw(state, 'threat-atlanta');

@@ -17,6 +17,27 @@ export function createInitialThreatDeckState(threatCardIds: string[], now?: stri
   };
 }
 
+export function recordInitialThreatSetup(state: ThreatDeckState, cardIds: string[]): ThreatDeckState {
+  if (cardIds.length !== 9) throw new Error('Initial threat setup requires exactly 9 Threat cards.');
+  const uniqueCardIds = new Set(cardIds);
+  if (uniqueCardIds.size !== cardIds.length) throw new Error('Initial threat setup cannot contain duplicate Threat cards.');
+  for (const cardId of cardIds) {
+    assertThreatCardInUnknownDeck(state, cardId);
+  }
+  const now = nowIso();
+  return {
+    ...state,
+    discardCardIds: [...state.discardCardIds, ...cardIds],
+    cardStates: {
+      ...state.cardStates,
+      ...Object.fromEntries(cardIds.map((cardId) => [
+        cardId,
+        { cardId, zone: 'threat-discard' as const, updatedAt: now }
+      ]))
+    }
+  };
+}
+
 function drawFromThreatDeck(state: ThreatDeckState): ThreatDeckState {
   if (state.knownTopStackCardIds.length > 0) {
     const [cardId, ...rest] = state.knownTopStackCardIds;
