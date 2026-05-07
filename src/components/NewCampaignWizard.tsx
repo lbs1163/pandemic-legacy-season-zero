@@ -88,8 +88,8 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
       : step === 2
         ? !unidentifiedTargetEnabled || unidentifiedCandidates.length > 0
         : step === 3
-          ? startingHands.length === requiredTotal
-          : initialThreatCardIds.length === initialThreatSetupCount;
+          ? initialThreatCardIds.length === initialThreatSetupCount
+          : startingHands.length === requiredTotal;
   const stepLabel = language === 'ko' ? `${step + 1} / 5단계` : `Step ${step + 1} of 5`;
 
   const summaryText = useMemo(() => {
@@ -256,25 +256,6 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
           {step === 3 ? (
             <section className="space-y-4">
               <div>
-                <h3 className="font-semibold">{language === 'ko' ? '시작 손패 설정' : 'Starting hands'}</h3>
-                <p className="text-sm text-muted-foreground">{language === 'ko' ? '미식별 표적 도시를 먼저 제외한 뒤 받은 도시/이벤트 카드를 선택하세요. 같은 카드는 중복 선택할 수 없습니다.' : 'After resolving the unidentified target city setup, choose the city/event cards dealt as starting hands. Duplicate cards are disabled.'}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p>
-              <StartingHandAssignmentEditor
-                players={players}
-                requiredPerPlayer={requiredPerPlayer}
-                selectedAssignments={startingHands}
-                cityCards={cityCards}
-                eventCards={eventCards}
-                language={language}
-                onChange={setStartingHands}
-              />
-            </section>
-          ) : null}
-
-          {step === 4 ? (
-            <section className="space-y-4">
-              <div>
                 <h3 className="font-semibold">{language === 'ko' ? '초기 위협 카드 공개' : 'Initial threat reveal'}</h3>
                 <p className="text-sm text-muted-foreground">{language === 'ko' ? '게임 준비 단계에서 공개한 위협 카드 9장을 선택하세요. 선택한 카드는 버린 위협 카드 구획에 기록됩니다.' : 'Choose the 9 Threat cards revealed during setup. Selected cards will start in the Threat discard.'}</p>
               </div>
@@ -285,6 +266,25 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
                 threatCards={threatCards}
                 language={language}
                 onChange={setInitialThreatCardIds}
+              />
+            </section>
+          ) : null}
+
+          {step === 4 ? (
+            <section className="space-y-4">
+              <div>
+                <h3 className="font-semibold">{language === 'ko' ? '시작 손패 설정' : 'Starting hands'}</h3>
+                <p className="text-sm text-muted-foreground">{language === 'ko' ? '미식별 표적 도시를 먼저 제외하고 초기 위협 카드 9장을 공개한 뒤 받은 도시/이벤트 카드를 선택하세요. 같은 카드는 중복 선택할 수 없습니다.' : 'After resolving the unidentified target city setup and revealing the 9 initial Threat cards, choose the city/event cards dealt as starting hands. Duplicate cards are disabled.'}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p>
+              <StartingHandAssignmentEditor
+                players={players}
+                requiredPerPlayer={requiredPerPlayer}
+                selectedAssignments={startingHands}
+                cityCards={cityCards}
+                eventCards={eventCards}
+                language={language}
+                onChange={setStartingHands}
               />
             </section>
           ) : null}
