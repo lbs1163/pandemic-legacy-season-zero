@@ -44,6 +44,7 @@ export interface UnidentifiedTargetCitySetup {
   configured: boolean;
   filter?: UnidentifiedTargetCityFilter;
   candidateCardIds: string[];
+  hiddenRemovedCount?: number;
   removedCardId?: string;
 }
 
@@ -81,7 +82,6 @@ export interface StartingHandAssignment {
 
 export interface UnidentifiedTargetCitySelection {
   filter: UnidentifiedTargetCityFilter;
-  removedCardId: string;
 }
 
 export type PlayerCardDestination = 'player-hand' | 'player-discard' | 'player-removed';

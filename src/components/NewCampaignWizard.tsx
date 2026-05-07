@@ -69,7 +69,6 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
   const [unidentifiedFilterType, setUnidentifiedFilterType] = useState<UnidentifiedTargetCityFilter['type']>('region');
   const [unidentifiedRegion, setUnidentifiedRegion] = useState<Region>('asia');
   const [unidentifiedAffiliation, setUnidentifiedAffiliation] = useState<Affiliation>('neutral');
-  const [unidentifiedRemovedCardId, setUnidentifiedRemovedCardId] = useState('');
   const [initialThreatCardIds, setInitialThreatCardIds] = useState<string[]>([]);
 
   const requiredPerPlayer = startingHandSizeForPlayers(playerCount);
@@ -91,7 +90,7 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
       : step === 2
         ? startingHands.length === requiredTotal
         : step === 3
-          ? !unidentifiedTargetEnabled || unidentifiedCandidates.some((city) => city.id === unidentifiedRemovedCardId)
+          ? !unidentifiedTargetEnabled || unidentifiedCandidates.length > 0
           : initialThreatCardIds.length === initialThreatSetupCount;
   const stepLabel = language === 'ko' ? `${step + 1} / 5단계` : `Step ${step + 1} of 5`;
 
@@ -111,7 +110,6 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
     setUnidentifiedFilterType('region');
     setUnidentifiedRegion('asia');
     setUnidentifiedAffiliation('neutral');
-    setUnidentifiedRemovedCardId('');
     setInitialThreatCardIds([]);
   }, [existingCampaignCount, language, open]);
 
@@ -119,7 +117,6 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
     setPlayerCount(count);
     setPlayers((current) => Array.from({ length: count }, (_, index) => current[index] ?? { id: `p${index + 1}`, name: defaultPlayerName(language, index) }));
     setStartingHands([]);
-    setUnidentifiedRemovedCardId('');
   };
 
   const changePlayerName = (playerId: string, name: string) => {
@@ -132,7 +129,7 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
       campaignName: trimmedCampaignName,
       players: players.map((player) => ({ ...player, name: player.name.trim() })),
       startingHands,
-      unidentifiedTargetCitySelection: unidentifiedTargetEnabled ? { filter: unidentifiedFilter, removedCardId: unidentifiedRemovedCardId } : undefined,
+      unidentifiedTargetCitySelection: unidentifiedTargetEnabled ? { filter: unidentifiedFilter } : undefined,
       initialThreatCardIds
     });
     onOpenChange(false);
@@ -212,8 +209,8 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
                 <h3 className="font-semibold">{language === 'ko' ? '미식별 표적 도시 준비' : 'Unidentified target city setup'}</h3>
                 <p className="text-sm text-muted-foreground">
                   {language === 'ko'
-                    ? '임무에서 지시한 대륙 또는 세력의 도시 카드를 플레이어 덱에서 꺼내 후보를 확인한 뒤, 랜덤하게 제외한 도시 1장을 기록합니다. 시작 손패에 나온 도시는 후보에서 제외됩니다.'
-                    : 'When a mission instructs this setup, inspect matching city cards from the player deck, then record the one city randomly removed. Cities in starting hands are excluded from candidates.'}
+                    ? '임무에서 지시한 대륙 또는 세력의 도시 카드를 플레이어 덱에서 꺼내 후보를 확인한 뒤, 무작위로 1장을 비공개 제외합니다. 앱에는 제외된 도시를 입력하지 않습니다. 시작 손패에 나온 도시는 후보에서 제외됩니다.'
+                    : 'When a mission instructs this setup, inspect matching city cards from the player deck, then secretly remove one random city. Do not enter which city was removed. Cities in starting hands are excluded from candidates.'}
                 </p>
               </div>
 
@@ -224,7 +221,6 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
                   checked={unidentifiedTargetEnabled}
                   onChange={(event) => {
                     setUnidentifiedTargetEnabled(event.target.checked);
-                    setUnidentifiedRemovedCardId('');
                   }}
                 />
                 <span>
@@ -238,7 +234,7 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
                   <div className="grid gap-3 md:grid-cols-3">
                     <label className="space-y-2">
                       <span className="text-sm font-medium">{language === 'ko' ? '조건 종류' : 'Filter type'}</span>
-                      <NativeSelect value={unidentifiedFilterType} onChange={(event) => { setUnidentifiedFilterType(event.target.value as UnidentifiedTargetCityFilter['type']); setUnidentifiedRemovedCardId(''); }}>
+                      <NativeSelect value={unidentifiedFilterType} onChange={(event) => { setUnidentifiedFilterType(event.target.value as UnidentifiedTargetCityFilter['type']); }}>
                         <option value="region">{language === 'ko' ? '대륙' : 'Region'}</option>
                         <option value="affiliation">{language === 'ko' ? '세력' : 'Affiliation'}</option>
                       </NativeSelect>
@@ -246,33 +242,26 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
                     {unidentifiedFilterType === 'region' ? (
                       <label className="space-y-2">
                         <span className="text-sm font-medium">{language === 'ko' ? '대륙' : 'Region'}</span>
-                        <NativeSelect value={unidentifiedRegion} onChange={(event) => { setUnidentifiedRegion(event.target.value as Region); setUnidentifiedRemovedCardId(''); }}>
+                        <NativeSelect value={unidentifiedRegion} onChange={(event) => { setUnidentifiedRegion(event.target.value as Region); }}>
                           {regions.map((region) => <option key={region} value={region}>{regionLabels[language][region]}</option>)}
                         </NativeSelect>
                       </label>
                     ) : (
                       <label className="space-y-2">
                         <span className="text-sm font-medium">{language === 'ko' ? '세력' : 'Affiliation'}</span>
-                        <NativeSelect value={unidentifiedAffiliation} onChange={(event) => { setUnidentifiedAffiliation(event.target.value as Affiliation); setUnidentifiedRemovedCardId(''); }}>
+                        <NativeSelect value={unidentifiedAffiliation} onChange={(event) => { setUnidentifiedAffiliation(event.target.value as Affiliation); }}>
                           {affiliations.map((affiliation) => <option key={affiliation} value={affiliation}>{affiliationLabels[language][affiliation]}</option>)}
                         </NativeSelect>
                       </label>
                     )}
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium">{language === 'ko' ? '제외된 도시' : 'Removed city'}</span>
-                      <NativeSelect value={unidentifiedRemovedCardId} onChange={(event) => setUnidentifiedRemovedCardId(event.target.value)}>
-                        <option value="">{language === 'ko' ? '도시 선택' : 'Select city'}</option>
-                        {unidentifiedCandidates.map((city) => <option key={city.id} value={city.id}>{city.name[language]}</option>)}
-                      </NativeSelect>
-                    </label>
                   </div>
 
                   <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-                    {language === 'ko' ? `후보 ${unidentifiedCandidates.length}장` : `${unidentifiedCandidates.length} candidates`}
+                    {language === 'ko' ? `후보 ${unidentifiedCandidates.length}장 · 이 중 1장을 비공개 제외` : `${unidentifiedCandidates.length} candidates · secretly remove 1 of them`}
                   </div>
                   <div className="grid max-h-56 gap-2 overflow-auto rounded-lg border p-3 md:grid-cols-2 lg:grid-cols-3">
                     {unidentifiedCandidates.length > 0 ? unidentifiedCandidates.map((city) => (
-                      <div key={city.id} className={city.id === unidentifiedRemovedCardId ? 'rounded-md border border-primary bg-primary/10 p-2' : 'rounded-md border p-2'}>
+                      <div key={city.id} className="rounded-md border p-2">
                         <strong className="block">{city.name[language]}</strong>
                         <span className="text-xs text-muted-foreground">{regionLabels[language][city.region]} · {affiliationLabels[language][city.affiliation]}</span>
                       </div>

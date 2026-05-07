@@ -156,5 +156,17 @@ export function calculatePlayerDeckComposition(
     if (cardState.zone === 'player-removed') removedCount += 1;
   });
 
+  const unidentifiedTargetCity = state.unidentifiedTargetCity;
+  if (unidentifiedTargetCity?.configured && unidentifiedTargetCity.filter && unidentifiedTargetCity.hiddenRemovedCount) {
+    const hiddenRemovedCount = unidentifiedTargetCity.hiddenRemovedCount;
+    remainingCities = Math.max(0, remainingCities - hiddenRemovedCount);
+    removedCount += hiddenRemovedCount;
+    if (unidentifiedTargetCity.filter.type === 'region') {
+      remainingByRegion[unidentifiedTargetCity.filter.value] = Math.max(0, remainingByRegion[unidentifiedTargetCity.filter.value] - hiddenRemovedCount);
+    } else {
+      remainingByAffiliation[unidentifiedTargetCity.filter.value] = Math.max(0, remainingByAffiliation[unidentifiedTargetCity.filter.value] - hiddenRemovedCount);
+    }
+  }
+
   return { remainingCities, remainingEvents, remainingByRegion, remainingByAffiliation, handByPlayer, discardCount, removedCount };
 }

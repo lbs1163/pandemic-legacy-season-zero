@@ -42,6 +42,7 @@ const playerDeckSchema = z.object({
       z.object({ type: z.literal('affiliation'), value: z.union([z.literal('allied'), z.literal('neutral'), z.literal('soviet')]) })
     ]).optional(),
     candidateCardIds: z.array(z.string()),
+    hiddenRemovedCount: z.number().int().nonnegative().optional(),
     removedCardId: z.string().optional()
   }).optional()
 });

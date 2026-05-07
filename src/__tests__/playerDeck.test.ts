@@ -100,7 +100,7 @@ describe('player deck domain', () => {
     expect(getUnidentifiedTargetCityCandidates(configured, testCities, { type: 'region', value: 'asia' })).toEqual(['asia-2']);
   });
 
-  it('removes the selected unidentified target city and rebuilds piles', () => {
+  it('records a hidden unidentified target city removal without revealing which city', () => {
     const state = createInitialPlayerDeckState({
       playerCardIds: [...testCities.map((city) => city.id), ...Array.from({ length: 10 }, (_, index) => `event-${index + 1}`)],
       playerCount: 2,
@@ -112,13 +112,13 @@ describe('player deck domain', () => {
     ]);
     const beforeRemaining = getPlayerDeckRemaining(configured);
     const next = prepareUnidentifiedTargetCity(configured, testCities, {
-      filter: { type: 'affiliation', value: 'neutral' },
-      removedCardId: 'europe-1'
+      filter: { type: 'affiliation', value: 'neutral' }
     });
 
-    expect(next.cardStates['europe-1'].zone).toBe('player-removed');
+    expect(next.cardStates['europe-1'].zone).toBe('player-deck-unknown');
     expect(next.unidentifiedTargetCity?.configured).toBe(true);
-    expect(next.unidentifiedTargetCity?.removedCardId).toBe('europe-1');
+    expect(next.unidentifiedTargetCity?.removedCardId).toBeUndefined();
+    expect(next.unidentifiedTargetCity?.hiddenRemovedCount).toBe(1);
     expect(getPlayerDeckRemaining(next)).toBe(beforeRemaining - 1);
     expect(next.piles).toHaveLength(5);
   });

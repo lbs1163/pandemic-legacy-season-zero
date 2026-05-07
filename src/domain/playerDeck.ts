@@ -82,6 +82,14 @@ function rebuildPilesForCurrentDeck(state: PlayerDeckState): PlayerDeckPile[] {
   return buildPiles(nonEscalationDeckCount, escalationCardIds);
 }
 
+function rebuildPilesForHiddenRemovedCard(state: PlayerDeckState): PlayerDeckPile[] {
+  const escalationCardIds = getEscalationCardIds(state);
+  const nonEscalationDeckCount = Object.values(state.cardStates).filter(
+    (cardState) => cardState.zone === 'player-deck-unknown' && !escalationCardIds.includes(cardState.cardId)
+  ).length;
+  return buildPiles(Math.max(0, nonEscalationDeckCount - 1), escalationCardIds);
+}
+
 function isEscalationCardId(state: PlayerDeckState, cardId: string): boolean {
   return getEscalationCardIds(state).includes(cardId);
 }
@@ -146,25 +154,19 @@ export function prepareUnidentifiedTargetCity(
   selection: UnidentifiedTargetCitySelection
 ): PlayerDeckState {
   const candidates = getUnidentifiedTargetCityCandidates(state, cities, selection.filter);
-  if (!candidates.includes(selection.removedCardId)) {
-    throw new Error(`Removed city is not an unidentified target candidate: ${selection.removedCardId}`);
+  if (candidates.length === 0) {
+    throw new Error('Unidentified target city setup requires at least one candidate.');
   }
-  const now = nowIso();
-  const cardStates = {
-    ...state.cardStates,
-    [selection.removedCardId]: { cardId: selection.removedCardId, zone: 'player-removed' as const, updatedAt: now }
-  };
-  const nextState = { ...state, cardStates };
 
   return {
-    ...nextState,
-    piles: rebuildPilesForCurrentDeck(nextState),
+    ...state,
+    piles: rebuildPilesForHiddenRemovedCard(state),
     currentPileIndex: 0,
     unidentifiedTargetCity: {
       configured: true,
       filter: selection.filter,
       candidateCardIds: candidates,
-      removedCardId: selection.removedCardId
+      hiddenRemovedCount: 1
     }
   };
 }
