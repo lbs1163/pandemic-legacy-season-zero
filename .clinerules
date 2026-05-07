@@ -1,0 +1,21 @@
+# Cline Project Rules
+
+## Commit workflow
+
+- For future implementation requests in this repository, work in small, coherent units and create atomic commits whenever a unit is complete.
+- Before each commit, run the relevant validation commands for the touched area. Prefer:
+  - `npm test` for behavior/domain/test changes.
+  - `npm run build` for TypeScript, React, or production-build-impacting changes.
+- Only commit after validations pass, unless the user explicitly asks to commit a known failing state.
+- Use concise imperative commit messages that describe one logical change, for example:
+  - `Add initial threat setup to campaign wizard`
+  - `Fix threat discard count migration`
+- Do not mix unrelated changes in one commit. If a request naturally spans multiple independent changes, split them into multiple atomic commits.
+- After committing, push to the current branch when the user asks for persistence or delivery, or when the request explicitly includes push/deploy language.
+- Report the commit hash, branch, push result, and validation commands in the completion response.
+
+## Safety checks
+
+- Check `git status --short` before staging to avoid accidentally committing unrelated user changes.
+- Stage only files relevant to the current task.
+- If unrelated modified/untracked files are present, ask the user before staging or committing them.
