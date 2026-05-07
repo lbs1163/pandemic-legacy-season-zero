@@ -7,10 +7,24 @@ export type PlayerDrawSelection =
   | { kind: 'player-card'; cardId: string; destination: PlayerCardDestination }
   | { kind: 'escalation'; cardId: string; bottomThreatCardId: string };
 
+function assertUniqueCardIds(cardIds: string[], message: string) {
+  if (new Set(cardIds).size !== cardIds.length) {
+    throw new Error(message);
+  }
+}
+
 export function completePlayerDrawStep(campaign: CampaignState, selections: PlayerDrawSelection[]): CampaignState {
   if (selections.length !== campaign.playerDeck.drawCountPerTurn) {
     throw new Error(`Player draw step requires exactly ${campaign.playerDeck.drawCountPerTurn} cards.`);
   }
+
+  assertUniqueCardIds(selections.map((selection) => selection.cardId), 'Player draw step cannot contain duplicate Player cards.');
+  assertUniqueCardIds(
+    selections
+      .filter((selection): selection is Extract<PlayerDrawSelection, { kind: 'escalation' }> => selection.kind === 'escalation')
+      .map((selection) => selection.bottomThreatCardId),
+    'Escalation draws cannot reveal the same bottom Threat card more than once.'
+  );
 
   let playerDeck = campaign.playerDeck;
   let threatDeck = campaign.threatDeck;
@@ -37,6 +51,8 @@ export function completeThreatDrawStep(campaign: CampaignState, threatCardIds: s
   if (threatCardIds.length !== requiredCount) {
     throw new Error(`Threat draw step requires exactly ${requiredCount} cards.`);
   }
+
+  assertUniqueCardIds(threatCardIds, 'Threat draw step cannot contain duplicate Threat cards.');
 
   let threatDeck = campaign.threatDeck;
   for (const cardId of threatCardIds) {

@@ -68,6 +68,15 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
     return threat ? cityMap.get(threat.cityCardId)?.name[language] ?? cardId : cardId;
   };
   const isEscalation = (cardId: string) => escalationCards.some((card) => card.id === cardId);
+  const playerCardIdsSelectedByOtherSlots = (index: number) => new Set(playerSlots
+    .map((slot, slotIndex) => slotIndex === index ? '' : slot.cardId)
+    .filter(Boolean));
+  const bottomThreatCardIdsSelectedByOtherSlots = (index: number) => new Set(playerSlots
+    .map((slot, slotIndex) => slotIndex === index ? '' : slot.bottomThreatCardId)
+    .filter(Boolean));
+  const threatCardIdsSelectedByOtherSlots = (index: number) => new Set(threatSlots
+    .map((cardId, slotIndex) => slotIndex === index ? '' : cardId)
+    .filter(Boolean));
   const playerDrawReady = playerSlots.every((slot) => slot.cardId && (!isEscalation(slot.cardId) || slot.bottomThreatCardId));
   const threatDrawReady = threatSlots.length === threatLevel && threatSlots.every(Boolean);
 
@@ -104,26 +113,32 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
         {step === 'player-draw' ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{language === 'ko' ? '플레이어 카드 2장을 순서대로 선택하세요. 악화 카드가 있으면 각 악화마다 위협 덱 맨 아래에서 공개한 카드를 함께 선택합니다.' : 'Select exactly 2 Player deck cards in order. For each Escalation, also select the Threat card revealed from the bottom of the Threat deck.'}</p>
-            {playerSlots.map((slot, index) => (
-              <div key={index} className="grid gap-2 rounded-lg border p-3 md:grid-cols-2">
-                <SearchableSelect
-                  value={slot.cardId}
-                  placeholder={language === 'ko' ? `${index + 1}번째 플레이어 카드` : `Player card ${index + 1}`}
-                  searchPlaceholder={language === 'ko' ? '플레이어 카드 검색...' : 'Search Player cards...'}
-                  options={playerOptions}
-                  onChange={(cardId) => updatePlayerSlot(index, { cardId, bottomThreatCardId: '' })}
-                />
-                {isEscalation(slot.cardId) ? (
+            {playerSlots.map((slot, index) => {
+              const selectedPlayerCardIds = playerCardIdsSelectedByOtherSlots(index);
+              const selectedBottomThreatCardIds = bottomThreatCardIdsSelectedByOtherSlots(index);
+              const availablePlayerOptions = playerOptions.filter((option) => !selectedPlayerCardIds.has(option.value));
+              const availableBottomThreatOptions = unknownThreatOptions.filter((option) => !selectedBottomThreatCardIds.has(option.value));
+              return (
+                <div key={index} className="grid gap-2 rounded-lg border p-3 md:grid-cols-2">
                   <SearchableSelect
-                    value={slot.bottomThreatCardId}
-                    placeholder={language === 'ko' ? '맨 아래 위협 카드 선택' : 'Select bottom Threat card'}
-                    searchPlaceholder={language === 'ko' ? '위협 카드 검색...' : 'Search Threat cards...'}
-                    options={unknownThreatOptions}
-                    onChange={(bottomThreatCardId) => updatePlayerSlot(index, { bottomThreatCardId })}
+                    value={slot.cardId}
+                    placeholder={language === 'ko' ? `${index + 1}번째 플레이어 카드` : `Player card ${index + 1}`}
+                    searchPlaceholder={language === 'ko' ? '플레이어 카드 검색...' : 'Search Player cards...'}
+                    options={availablePlayerOptions}
+                    onChange={(cardId) => updatePlayerSlot(index, { cardId, bottomThreatCardId: '' })}
                   />
-                ) : <span className="self-center text-sm text-muted-foreground">{language === 'ko' ? '도시/이벤트는 손패로 기록됩니다.' : 'City/Event cards are recorded to hand.'}</span>}
-              </div>
-            ))}
+                  {isEscalation(slot.cardId) ? (
+                    <SearchableSelect
+                      value={slot.bottomThreatCardId}
+                      placeholder={language === 'ko' ? '맨 아래 위협 카드 선택' : 'Select bottom Threat card'}
+                      searchPlaceholder={language === 'ko' ? '위협 카드 검색...' : 'Search Threat cards...'}
+                      options={availableBottomThreatOptions}
+                      onChange={(bottomThreatCardId) => updatePlayerSlot(index, { bottomThreatCardId })}
+                    />
+                  ) : <span className="self-center text-sm text-muted-foreground">{language === 'ko' ? '도시/이벤트는 손패로 기록됩니다.' : 'City/Event cards are recorded to hand.'}</span>}
+                </div>
+              );
+            })}
             <Button onClick={submitPlayerDraw} disabled={!playerDrawReady}>{language === 'ko' ? '플레이어 드로우 완료 → 위협 공개 단계' : 'Complete Player draw → Threat reveal'}</Button>
           </div>
         ) : (
@@ -133,7 +148,9 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
               const forcedKnownCardId = campaign.threatDeck.knownTopStackCardIds[index];
               const options = forcedKnownCardId
                 ? [{ value: forcedKnownCardId, label: threatLabel(forcedKnownCardId), description: language === 'ko' ? '알려진 상단 카드' : 'Known top card' }]
-                : unknownThreatOptions.map((option) => ({ ...option, description: language === 'ko' ? '위협 카드' : 'Threat card' }));
+                : unknownThreatOptions
+                  .filter((option) => !threatCardIdsSelectedByOtherSlots(index).has(option.value))
+                  .map((option) => ({ ...option, description: language === 'ko' ? '위협 카드' : 'Threat card' }));
               const selectedThreat = threatMap.get(cardId);
               return (
                 <div key={index} className="grid gap-2 rounded-lg border p-3 md:grid-cols-[1fr_1fr]">

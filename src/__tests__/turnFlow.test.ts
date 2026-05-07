@@ -51,6 +51,13 @@ describe('turn flow domain', () => {
     expect(next.turnFlow).toEqual({ step: 'threat-draw', turnNumber: 1 });
   });
 
+  it('rejects duplicate player card selections', () => {
+    expect(() => completePlayerDrawStep(createCampaign(), [
+      { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' },
+      { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' }
+    ])).toThrow(/duplicate Player cards/);
+  });
+
   it('resolves one escalation with threat level increase, bottom draw, and intensify', () => {
     const next = completePlayerDrawStep(createCampaign(), [
       { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' },
@@ -76,6 +83,13 @@ describe('turn flow domain', () => {
     expect(next.threatDeck.knownTopStackCardIds).toContain('threat-10');
   });
 
+  it('rejects duplicate bottom threat cards for escalations', () => {
+    expect(() => completePlayerDrawStep(createCampaign(), [
+      { kind: 'escalation', cardId: 'e1', bottomThreatCardId: 'threat-10' },
+      { kind: 'escalation', cardId: 'e2', bottomThreatCardId: 'threat-10' }
+    ])).toThrow(/same bottom Threat card/);
+  });
+
   it('reveals current threat level count and advances the turn', () => {
     const afterPlayerDraw = completePlayerDrawStep(createCampaign(), [
       { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' },
@@ -85,5 +99,14 @@ describe('turn flow domain', () => {
 
     expect(next.threatDeck.discardCardIds.slice(-2)).toEqual(['threat-10', 'threat-11']);
     expect(next.turnFlow).toEqual({ step: 'player-draw', turnNumber: 2 });
+  });
+
+  it('rejects duplicate threat card selections', () => {
+    const afterPlayerDraw = completePlayerDrawStep(createCampaign(), [
+      { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' },
+      { kind: 'player-card', cardId: 'card-2', destination: 'player-hand' }
+    ]);
+
+    expect(() => completeThreatDrawStep(afterPlayerDraw, ['threat-10', 'threat-10'])).toThrow(/duplicate Threat cards/);
   });
 });
