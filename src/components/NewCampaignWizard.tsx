@@ -78,19 +78,17 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
   const unidentifiedFilter: UnidentifiedTargetCityFilter = unidentifiedFilterType === 'region'
     ? { type: 'region', value: unidentifiedRegion }
     : { type: 'affiliation', value: unidentifiedAffiliation };
-  const startingHandCardIds = useMemo(() => new Set(startingHands.map((assignment) => assignment.cardId)), [startingHands]);
   const unidentifiedCandidates = useMemo(() => cityCards.filter((city) => {
-    if (startingHandCardIds.has(city.id)) return false;
     return unidentifiedFilter.type === 'region' ? city.region === unidentifiedFilter.value : city.affiliation === unidentifiedFilter.value;
-  }), [startingHandCardIds, unidentifiedFilter]);
+  }), [unidentifiedFilter]);
   const canContinue = step === 0
     ? trimmedCampaignName.length > 0
     : step === 1
       ? validPlayers
       : step === 2
-        ? startingHands.length === requiredTotal
+        ? !unidentifiedTargetEnabled || unidentifiedCandidates.length > 0
         : step === 3
-          ? !unidentifiedTargetEnabled || unidentifiedCandidates.length > 0
+          ? startingHands.length === requiredTotal
           : initialThreatCardIds.length === initialThreatSetupCount;
   const stepLabel = language === 'ko' ? `${step + 1} / 5단계` : `Step ${step + 1} of 5`;
 
@@ -187,30 +185,11 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
           {step === 2 ? (
             <section className="space-y-4">
               <div>
-                <h3 className="font-semibold">{language === 'ko' ? '시작 손패 설정' : 'Starting hands'}</h3>
-                <p className="text-sm text-muted-foreground">{language === 'ko' ? '도시/이벤트 카드를 선택하세요. 같은 카드는 중복 선택할 수 없습니다.' : 'Choose city/event cards. Duplicate cards are disabled.'}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p>
-              <StartingHandAssignmentEditor
-                players={players}
-                requiredPerPlayer={requiredPerPlayer}
-                selectedAssignments={startingHands}
-                cityCards={cityCards}
-                eventCards={eventCards}
-                language={language}
-                onChange={setStartingHands}
-              />
-            </section>
-          ) : null}
-
-          {step === 3 ? (
-            <section className="space-y-4">
-              <div>
                 <h3 className="font-semibold">{language === 'ko' ? '미식별 표적 도시 준비' : 'Unidentified target city setup'}</h3>
                 <p className="text-sm text-muted-foreground">
                   {language === 'ko'
-                    ? '임무에서 지시한 대륙 또는 세력의 도시 카드를 플레이어 덱에서 꺼내 후보를 확인한 뒤, 무작위로 1장을 비공개 제외합니다. 앱에는 제외된 도시를 입력하지 않습니다. 시작 손패에 나온 도시는 후보에서 제외됩니다.'
-                    : 'When a mission instructs this setup, inspect matching city cards from the player deck, then secretly remove one random city. Do not enter which city was removed. Cities in starting hands are excluded from candidates.'}
+                    ? '시작 손패를 나누기 전에, 임무에서 지시한 대륙 또는 세력의 도시 카드를 플레이어 덱에서 꺼내 후보를 확인한 뒤 무작위로 1장을 비공개 제외합니다. 앱에는 제외된 도시를 입력하지 않습니다.'
+                    : 'Before dealing starting hands, inspect matching city cards from the player deck, then secretly remove one random city. Do not enter which city was removed.'}
                 </p>
               </div>
 
@@ -271,6 +250,25 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
                   </div>
                 </div>
               ) : null}
+            </section>
+          ) : null}
+
+          {step === 3 ? (
+            <section className="space-y-4">
+              <div>
+                <h3 className="font-semibold">{language === 'ko' ? '시작 손패 설정' : 'Starting hands'}</h3>
+                <p className="text-sm text-muted-foreground">{language === 'ko' ? '미식별 표적 도시를 먼저 제외한 뒤 받은 도시/이벤트 카드를 선택하세요. 같은 카드는 중복 선택할 수 없습니다.' : 'After resolving the unidentified target city setup, choose the city/event cards dealt as starting hands. Duplicate cards are disabled.'}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p>
+              <StartingHandAssignmentEditor
+                players={players}
+                requiredPerPlayer={requiredPerPlayer}
+                selectedAssignments={startingHands}
+                cityCards={cityCards}
+                eventCards={eventCards}
+                language={language}
+                onChange={setStartingHands}
+              />
             </section>
           ) : null}
 

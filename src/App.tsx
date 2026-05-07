@@ -162,9 +162,10 @@ export function App() {
       language,
       players: input.players
     });
-    const configuredPlayerDeck = input.unidentifiedTargetCitySelection
-      ? prepareUnidentifiedTargetCity(configureStartingHands(campaign.playerDeck, input.startingHands), cityCards, input.unidentifiedTargetCitySelection)
-      : configureStartingHands(campaign.playerDeck, input.startingHands);
+    const playerDeckWithUnidentifiedTarget = input.unidentifiedTargetCitySelection
+      ? prepareUnidentifiedTargetCity(campaign.playerDeck, cityCards, input.unidentifiedTargetCitySelection)
+      : campaign.playerDeck;
+    const configuredPlayerDeck = configureStartingHands(playerDeckWithUnidentifiedTarget, input.startingHands);
     const configured = {
       ...campaign,
       playerDeck: configuredPlayerDeck,

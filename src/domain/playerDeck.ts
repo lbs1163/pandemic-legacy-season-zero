@@ -128,6 +128,12 @@ export function configureStartingHands(
   const now = nowIso();
   const escalationCardIds = getEscalationCardIds(state);
   const assignmentMap = new Map(assignments.map((assignment) => [assignment.cardId, assignment.playerId]));
+  const hiddenRemovedCount = state.unidentifiedTargetCity?.hiddenRemovedCount ?? 0;
+  const hiddenRemovedCandidatesRemaining = (state.unidentifiedTargetCity?.candidateCardIds ?? [])
+    .filter((cardId) => !assignmentMap.has(cardId)).length;
+  if (hiddenRemovedCandidatesRemaining < hiddenRemovedCount) {
+    throw new Error('Starting hands cannot include every unidentified target city candidate because one was secretly removed first.');
+  }
   const cardStates = Object.fromEntries(Object.entries(state.cardStates).map(([cardId, cardState]) => {
     const ownerPlayerId = assignmentMap.get(cardId);
     if (ownerPlayerId) {
@@ -141,7 +147,7 @@ export function configureStartingHands(
 
   return {
     ...state,
-    piles: buildPiles(nonEscalationDeckCount, escalationCardIds),
+    piles: buildPiles(Math.max(0, nonEscalationDeckCount - hiddenRemovedCount), escalationCardIds),
     cardStates,
     currentPileIndex: 0,
     startingHand: { ...state.startingHand, configured: true }

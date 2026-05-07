@@ -122,4 +122,23 @@ describe('player deck domain', () => {
     expect(getPlayerDeckRemaining(next)).toBe(beforeRemaining - 1);
     expect(next.piles).toHaveLength(5);
   });
+
+  it('preserves a hidden unidentified target city removal when starting hands are configured afterward', () => {
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...testCities.map((city) => city.id), ...Array.from({ length: 10 }, (_, index) => `event-${index + 1}`)],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+    const prepared = prepareUnidentifiedTargetCity(state, testCities, {
+      filter: { type: 'region', value: 'asia' }
+    });
+    const next = configureStartingHands(prepared, [
+      { cardId: 'asia-1', playerId: 'p1' },
+      ...Array.from({ length: 7 }, (_, index) => ({ cardId: `event-${index + 1}`, playerId: index < 3 ? 'p1' : 'p2' }))
+    ]);
+
+    expect(next.unidentifiedTargetCity?.hiddenRemovedCount).toBe(1);
+    expect(next.unidentifiedTargetCity?.candidateCardIds).toEqual(['asia-1', 'asia-2']);
+    expect(getPlayerDeckRemaining(next)).toBe(9);
+  });
 });
