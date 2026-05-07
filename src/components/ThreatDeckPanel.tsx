@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { calculateThreatCityProbabilities } from '../domain/probabilities';
 import type { UiText } from '../i18n/uiText';
 import type { CityCard, LanguageCode, ThreatCard } from '../types/cards';
 import type { ThreatDeckState } from '../types/deck';
@@ -7,8 +6,6 @@ import { getThreatDeckUnknownCount } from '../domain/threatDeck';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
-import { NativeSelect } from './ui/native-select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { SearchableSelect } from './SearchableSelect';
 
 interface Props {
@@ -26,12 +23,27 @@ interface Props {
 
 export function ThreatDeckPanel({ state, text, language, cityCards, threatCards, onDraw, onBottomToDiscard, onBottomToGameEnd, onIntensify, onCleanupGameEnd }: Props) {
   const [selectedCardId, setSelectedCardId] = useState('');
-  const [drawCount, setDrawCount] = useState(2);
+  const [remainingSearch, setRemainingSearch] = useState('');
   const cityMap = useMemo(() => new Map(cityCards.map((card) => [card.id, card])), [cityCards]);
   const threatMap = useMemo(() => new Map(threatCards.map((card) => [card.id, card])), [threatCards]);
   const unknownCards = useMemo(() => threatCards.filter((card) => state.cardStates[card.id]?.zone === 'threat-deck-unknown'), [state.cardStates, threatCards]);
-  const probabilities = useMemo(() => calculateThreatCityProbabilities(state, threatCards, drawCount), [drawCount, state, threatCards]);
-  const formatter = useMemo(() => new Intl.NumberFormat(language === 'ko' ? 'ko-KR' : 'en-US', { style: 'percent', maximumFractionDigits: 1 }), [language]);
+  const remainingCards = useMemo(() => [...unknownCards].sort((a, b) => {
+    const aName = cityMap.get(a.cityCardId)?.name[language] ?? a.id;
+    const bName = cityMap.get(b.cityCardId)?.name[language] ?? b.id;
+    return aName.localeCompare(bName, language === 'ko' ? 'ko-KR' : 'en-US');
+  }), [cityMap, language, unknownCards]);
+  const normalizedRemainingSearch = remainingSearch.trim().toLocaleLowerCase();
+  const filteredRemainingCards = useMemo(() => {
+    if (!normalizedRemainingSearch) return remainingCards;
+    return remainingCards.filter((card) => {
+      const city = cityMap.get(card.cityCardId);
+      const localizedName = city?.name[language] ?? '';
+      const englishName = city?.name.en ?? '';
+      const koreanName = city?.name.ko ?? '';
+      return [localizedName, englishName, koreanName, card.id, card.cityCardId]
+        .some((value) => value.toLocaleLowerCase().includes(normalizedRemainingSearch));
+    });
+  }, [cityMap, language, normalizedRemainingSearch, remainingCards]);
   const cardLabel = (cardId: string) => {
     const threat = threatMap.get(cardId);
     const city = threat ? cityMap.get(threat.cityCardId) : undefined;
@@ -64,16 +76,38 @@ export function ThreatDeckPanel({ state, text, language, cityCards, threatCards,
           <div className="rounded-lg bg-muted p-3"><span className="text-sm text-muted-foreground">{text.discard}</span><strong className="block text-2xl">{state.discardCardIds.length}</strong></div>
           <div className="rounded-lg bg-muted p-3"><span className="text-sm text-muted-foreground">{text.gameEndArea}</span><strong className="block text-2xl">{state.gameEndAreaCardIds.length}</strong></div>
         </div>
-        <label className="flex max-w-xs items-center gap-2 text-sm font-semibold"><span>{language === 'ko' ? '확률 드로우 수' : 'Probability draws'}</span><Input className="w-24" type="number" min={1} max={6} value={drawCount} onChange={(event) => setDrawCount(Math.max(1, Number(event.target.value) || 1))} /></label>
-        <Table>
-          <TableHeader><TableRow><TableHead>{language === 'ko' ? '도시' : 'City'}</TableHead><TableHead>{language === 'ko' ? '1장 이상' : 'At least one'}</TableHead>{Array.from({ length: drawCount }, (_, index) => <TableHead key={index}>{index + 1}</TableHead>)}</TableRow></TableHeader>
-          <TableBody>
-            {probabilities.map((probability) => {
-              const city = cityMap.get(probability.cityCardId);
-              return <TableRow key={probability.cityCardId}><TableCell>{city?.name[language] ?? probability.cityCardId}</TableCell><TableCell>{formatter.format(probability.atLeastOne)}</TableCell>{Array.from({ length: drawCount }, (_, index) => <TableCell key={index}>{formatter.format(probability.probs.find((entry) => entry.draw === index + 1)?.probability ?? 0)}</TableCell>)}</TableRow>;
+        <div className="grid gap-3 rounded-lg border p-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <label className="grid flex-1 gap-1 text-sm font-semibold md:max-w-sm">
+              <span>{language === 'ko' ? '남은 위협 카드 검색' : 'Search remaining threat cards'}</span>
+              <Input value={remainingSearch} placeholder={language === 'ko' ? '도시 이름 입력...' : 'Enter a city name...'} onChange={(event) => setRemainingSearch(event.target.value)} />
+            </label>
+            <div className="rounded-lg bg-muted px-3 py-2 text-sm">
+              <span className="text-muted-foreground">{language === 'ko' ? '표시' : 'Showing'}</span>{' '}
+              <strong>{filteredRemainingCards.length}</strong>
+              <span className="text-muted-foreground"> / {remainingCards.length}</span>
+            </div>
+          </div>
+          {normalizedRemainingSearch ? (
+            <p className={filteredRemainingCards.length ? 'text-sm font-semibold text-emerald-600' : 'text-sm font-semibold text-destructive'}>
+              {filteredRemainingCards.length
+                ? (language === 'ko' ? '남은 카드에 있습니다.' : 'This card is still remaining.')
+                : (language === 'ko' ? '남은 카드에 없습니다.' : 'This card is not in the remaining pile.')}
+            </p>
+          ) : null}
+          <div className="grid max-h-72 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
+            {filteredRemainingCards.map((card) => {
+              const city = cityMap.get(card.cityCardId);
+              return (
+                <div key={card.id} className="rounded-lg border bg-card p-3">
+                  <strong className="block">{city?.name[language] ?? card.id}</strong>
+                  <span className="text-sm text-muted-foreground">{language === 'ko' ? '위협 카드' : 'Threat card'}</span>
+                </div>
+              );
             })}
-          </TableBody>
-        </Table>
+            {filteredRemainingCards.length === 0 ? <p className="text-sm text-muted-foreground">{language === 'ko' ? '표시할 남은 카드가 없습니다.' : 'No remaining cards to show.'}</p> : null}
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
           <SearchableSelect
             className="max-w-xs"
