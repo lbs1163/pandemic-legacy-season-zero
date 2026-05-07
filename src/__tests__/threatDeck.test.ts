@@ -75,7 +75,7 @@ describe('threat deck domain', () => {
     expect(next.knownTopStackCardIds).toEqual(['d', 'c', 'b', 'a']);
   });
 
-  it('draws through the newest known top stack before older known stacks', () => {
+  it('draws any card from the newest known top shuffled stack before older known stacks', () => {
     const state = {
       ...createInitialThreatDeckState(['a', 'b', 'c']),
       knownTopStacks: [['c', 'b'], ['a']],
@@ -87,14 +87,29 @@ describe('threat deck domain', () => {
       }
     };
 
-    const afterC = recordThreatDraw(state, 'c');
-    const afterB = recordThreatDraw(afterC, 'b');
-    const afterA = recordThreatDraw(afterB, 'a');
+    const afterB = recordThreatDraw(state, 'b');
+    const afterC = recordThreatDraw(afterB, 'c');
+    const afterA = recordThreatDraw(afterC, 'a');
 
-    expect(afterC.knownTopStacks).toEqual([['b'], ['a']]);
-    expect(afterB.knownTopStacks).toEqual([['a']]);
+    expect(afterB.knownTopStacks).toEqual([['c'], ['a']]);
+    expect(afterC.knownTopStacks).toEqual([['a']]);
     expect(afterA.knownTopStacks).toEqual([]);
-    expect(afterA.discardCardIds).toEqual(['c', 'b', 'a']);
+    expect(afterA.discardCardIds).toEqual(['b', 'c', 'a']);
+  });
+
+  it('rejects drawing from an older known top stack before the current shuffled stack is exhausted', () => {
+    const state = {
+      ...createInitialThreatDeckState(['a', 'b', 'c']),
+      knownTopStacks: [['c', 'b'], ['a']],
+      knownTopStackCardIds: ['c', 'b', 'a'],
+      cardStates: {
+        a: { cardId: 'a', zone: 'threat-top-stack-known' as const, updatedAt: '2026-01-01T00:00:00.000Z' },
+        b: { cardId: 'b', zone: 'threat-top-stack-known' as const, updatedAt: '2026-01-01T00:00:00.000Z' },
+        c: { cardId: 'c', zone: 'threat-top-stack-known' as const, updatedAt: '2026-01-01T00:00:00.000Z' }
+      }
+    };
+
+    expect(() => recordThreatDraw(state, 'a')).toThrow(/current known top stack/);
   });
 
   it('moves game end area cards to discard after game', () => {

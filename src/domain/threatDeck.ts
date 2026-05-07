@@ -71,10 +71,14 @@ export function recordInitialThreatSetup(state: ThreatDeckState, cardIds: string
   };
 }
 
-function drawFromThreatDeck(state: ThreatDeckState): ThreatDeckState {
+function drawFromKnownTopStack(state: ThreatDeckState, cardId: string): ThreatDeckState {
   const knownTopStacks = normalizeKnownTopStacks(state);
   if (knownTopStacks.length > 0) {
-    const [[cardId, ...firstStackRest], ...remainingStacks] = knownTopStacks;
+    const [firstStack, ...remainingStacks] = knownTopStacks;
+    if (!firstStack.includes(cardId)) {
+      throw new Error(`Threat card is not in the current known top stack: ${cardId}`);
+    }
+    const firstStackRest = firstStack.filter((knownCardId) => knownCardId !== cardId);
     return withKnownTopStacks({
       ...state,
       cardStates: {
@@ -93,12 +97,12 @@ function assertThreatCardInUnknownDeck(state: ThreatDeckState, cardId: string) {
 }
 
 export function recordThreatDraw(state: ThreatDeckState, cardId: string): ThreatDeckState {
-  const knownTopCards = flattenKnownTopStacks(normalizeKnownTopStacks(state));
-  if (knownTopCards.length > 0) {
-    if (knownTopCards[0] !== cardId) {
-      throw new Error(`Next known threat card must be ${knownTopCards[0]}.`);
+  const knownTopStacks = normalizeKnownTopStacks(state);
+  if (knownTopStacks.length > 0) {
+    if (!knownTopStacks[0].includes(cardId)) {
+      throw new Error(`Threat card must be in the current known top stack.`);
     }
-    const drawn = drawFromThreatDeck(state);
+    const drawn = drawFromKnownTopStack(state, cardId);
     return { ...drawn, discardCardIds: [...drawn.discardCardIds, cardId] };
   }
   assertThreatCardInUnknownDeck(state, cardId);

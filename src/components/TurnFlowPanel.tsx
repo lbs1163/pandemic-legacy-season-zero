@@ -77,8 +77,27 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
   const threatCardIdsSelectedByOtherSlots = (index: number) => new Set(threatSlots
     .map((cardId, slotIndex) => slotIndex === index ? '' : cardId)
     .filter(Boolean));
+  const knownTopStacks = useMemo(() => {
+    if (campaign.threatDeck.knownTopStacks?.length) return campaign.threatDeck.knownTopStacks.filter((stack) => stack.length > 0);
+    return campaign.threatDeck.knownTopStackCardIds.length ? [campaign.threatDeck.knownTopStackCardIds] : [];
+  }, [campaign.threatDeck.knownTopStackCardIds, campaign.threatDeck.knownTopStacks]);
   const playerDrawReady = playerSlots.every((slot) => slot.cardId && (!isEscalation(slot.cardId) || slot.bottomThreatCardId));
   const threatDrawReady = threatSlots.length === threatLevel && threatSlots.every(Boolean);
+
+  function getCurrentKnownStackOptions(index: number) {
+    const selectedBefore = new Set(threatSlots.slice(0, index).filter(Boolean));
+    for (const stack of knownTopStacks) {
+      const remainingStackCardIds = stack.filter((knownCardId) => !selectedBefore.has(knownCardId));
+      if (remainingStackCardIds.length > 0) {
+        return remainingStackCardIds.map((knownCardId) => ({
+          value: knownCardId,
+          label: threatLabel(knownCardId),
+          description: language === 'ko' ? '알려진 상단 셔플 묶음' : 'Known shuffled top stack'
+        }));
+      }
+    }
+    return [];
+  }
 
   function updatePlayerSlot(index: number, value: Partial<PlayerDrawSlotState>) {
     setPlayerSlots((current) => current.map((slot, slotIndex) => slotIndex === index ? { ...slot, ...value } : slot));
@@ -143,11 +162,11 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{language === 'ko' ? `현재 위협 수준 ${threatLevel}에 따라 위협 카드 ${threatLevel}장을 공개하세요. 알려진 상단 묶음이 있으면 그 카드부터 공개해야 합니다.` : `Reveal ${threatLevel} Threat cards for the current Threat level. Known top-stack cards must be revealed first.`}</p>
+            <p className="text-sm text-muted-foreground">{language === 'ko' ? `현재 위협 수준 ${threatLevel}에 따라 위협 카드 ${threatLevel}장을 공개하세요. 알려진 상단 묶음이 있으면 해당 셔플 묶음 안에서 실제 공개된 카드를 선택하세요.` : `Reveal ${threatLevel} Threat cards for the current Threat level. If there is a known top stack, choose the card actually revealed from that shuffled stack.`}</p>
             {threatSlots.map((cardId, index) => {
-              const forcedKnownCardId = campaign.threatDeck.knownTopStackCardIds[index];
-              const options = forcedKnownCardId
-                ? [{ value: forcedKnownCardId, label: threatLabel(forcedKnownCardId), description: language === 'ko' ? '알려진 상단 카드' : 'Known top card' }]
+              const currentKnownStackOptions = getCurrentKnownStackOptions(index);
+              const options = currentKnownStackOptions.length > 0
+                ? currentKnownStackOptions
                 : unknownThreatOptions
                   .filter((option) => !threatCardIdsSelectedByOtherSlots(index).has(option.value))
                   .map((option) => ({ ...option, description: language === 'ko' ? '위협 카드' : 'Threat card' }));

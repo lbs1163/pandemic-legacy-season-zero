@@ -111,8 +111,8 @@ export function ThreatDeckPanel({ state, text, language, cityCards, threatCards,
     handler(selectedCardId);
     setSelectedCardId('');
   };
-  const selectableThreats = state.knownTopStackCardIds.length
-    ? state.knownTopStackCardIds.slice(0, 1).map((cardId) => threatMap.get(cardId)).filter((card): card is ThreatCard => Boolean(card))
+  const selectableThreats = knownTopStacks.length
+    ? knownTopStacks[0].map((cardId) => threatMap.get(cardId)).filter((card): card is ThreatCard => Boolean(card))
     : unknownCards;
   const threatOptions = useMemo(() => selectableThreats.map((card) => {
     const city = cityMap.get(card.cityCardId);
@@ -167,7 +167,7 @@ export function ThreatDeckPanel({ state, text, language, cityCards, threatCards,
                           <strong className="block">{city?.name[language] ?? card.id}</strong>
                           <span className="text-sm text-muted-foreground">
                             {section.id.startsWith('known-top-stack')
-                              ? (language === 'ko' ? `묶음 내 ${index + 1}번째 공개` : `Reveal ${index + 1} in this stack`)
+                              ? (language === 'ko' ? '알려진 상단 셔플 묶음' : 'Known shuffled top stack')
                               : (language === 'ko' ? '위협 카드' : 'Threat card')}
                           </span>
                         </div>

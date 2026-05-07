@@ -101,6 +101,28 @@ describe('turn flow domain', () => {
     expect(next.turnFlow).toEqual({ step: 'player-draw', turnNumber: 2 });
   });
 
+  it('allows threat reveal selections from a known top shuffled stack in any order', () => {
+    const afterPlayerDraw = completePlayerDrawStep(createCampaign(), [
+      { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' },
+      { kind: 'escalation', cardId: 'e1', bottomThreatCardId: 'threat-10' }
+    ]);
+
+    const next = completeThreatDrawStep(afterPlayerDraw, ['threat-2', 'threat-1']);
+
+    expect(next.threatDeck.discardCardIds).toEqual(['threat-2', 'threat-1']);
+    expect(next.threatDeck.knownTopStackCardIds).toEqual([
+      'threat-3',
+      'threat-4',
+      'threat-5',
+      'threat-6',
+      'threat-7',
+      'threat-8',
+      'threat-9',
+      'threat-10'
+    ]);
+    expect(next.turnFlow).toEqual({ step: 'player-draw', turnNumber: 2 });
+  });
+
   it('rejects duplicate threat card selections', () => {
     const afterPlayerDraw = completePlayerDrawStep(createCampaign(), [
       { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' },
