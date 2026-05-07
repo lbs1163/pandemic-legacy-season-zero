@@ -2,7 +2,7 @@ import type { CampaignState, DeckCounterSummary } from '../types/campaign';
 import type { Affiliation, CityCard, EventCard, Region, ThreatCard } from '../types/cards';
 import type { PlayerDeckState, ThreatDeckState } from '../types/deck';
 import { getPlayerDeckRemaining } from './playerDeck';
-import { getThreatDeckUnknownCount } from './threatDeck';
+import { getThreatDeckUnknownCount, getThreatLevel } from './threatDeck';
 
 export interface DrawProbability {
   draw: number;
@@ -82,6 +82,7 @@ export function calculateDeckCounterSummary(campaign: CampaignState): DeckCounte
     threatDeckUnknownRemaining: getThreatDeckUnknownCount(campaign.threatDeck),
     threatDiscardCount: campaign.threatDeck.discardCardIds.length,
     threatKnownTopStackCount: campaign.threatDeck.knownTopStackCardIds.length,
+    threatLevel: getThreatLevel(campaign.threatDeck),
     gameEndAreaCount: campaign.threatDeck.gameEndAreaCardIds.length
   };
 }

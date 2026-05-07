@@ -59,11 +59,19 @@ export interface PlayerDeckState {
 
 export interface ThreatDeckState {
   totalInitialCount: number;
+  threatLevelIndex: number;
   cardStates: Record<string, CardInstanceState>;
   discardCardIds: string[];
   knownTopStackCardIds: string[];
   gameEndAreaCardIds: string[];
   removedCardIds: string[];
+}
+
+export type TurnFlowStep = 'player-draw' | 'threat-draw';
+
+export interface TurnFlowState {
+  step: TurnFlowStep;
+  turnNumber: number;
 }
 
 export interface StartingHandAssignment {

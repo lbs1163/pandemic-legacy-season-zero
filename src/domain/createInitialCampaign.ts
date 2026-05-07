@@ -33,6 +33,7 @@ export function createInitialCampaign(input: CreateInitialCampaignInput): Campai
       now
     }),
     threatDeck: createInitialThreatDeckState(threatCards.map((card) => card.id), now),
+    turnFlow: { step: 'player-draw', turnNumber: 1 },
     ruleToggles: Object.fromEntries(toggles.map((toggle) => [toggle.id, toggle.defaultEnabled])),
     createdAt: now,
     updatedAt: now

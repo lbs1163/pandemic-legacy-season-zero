@@ -1,11 +1,13 @@
 import type { ThreatDeckState } from '../types/deck';
 
 const nowIso = (now?: string) => now ?? new Date().toISOString();
+export const THREAT_LEVELS = [2, 2, 2, 3, 3, 4] as const;
 
 export function createInitialThreatDeckState(threatCardIds: string[], now?: string): ThreatDeckState {
   const timestamp = nowIso(now);
   return {
     totalInitialCount: threatCardIds.length,
+    threatLevelIndex: 0,
     cardStates: Object.fromEntries(threatCardIds.map((cardId) => [
       cardId,
       { cardId, zone: 'threat-deck-unknown', updatedAt: timestamp }
@@ -14,6 +16,18 @@ export function createInitialThreatDeckState(threatCardIds: string[], now?: stri
     knownTopStackCardIds: [],
     gameEndAreaCardIds: [],
     removedCardIds: []
+  };
+}
+
+export function getThreatLevel(state: ThreatDeckState): number {
+  const index = Math.min(Math.max(state.threatLevelIndex ?? 0, 0), THREAT_LEVELS.length - 1);
+  return THREAT_LEVELS[index];
+}
+
+export function increaseThreatLevel(state: ThreatDeckState): ThreatDeckState {
+  return {
+    ...state,
+    threatLevelIndex: Math.min((state.threatLevelIndex ?? 0) + 1, THREAT_LEVELS.length - 1)
   };
 }
 
@@ -120,6 +134,16 @@ export function intensifyThreatDiscard(state: ThreatDeckState, orderedCardIds?: 
       ]))
     }
   };
+}
+
+export function resolveEscalationThreatEffects(
+  state: ThreatDeckState,
+  bottomThreatCardId: string,
+  orderedCardIds?: string[]
+): ThreatDeckState {
+  const increased = increaseThreatLevel(state);
+  const withBottomDraw = recordThreatBottomDrawToDiscard(increased, bottomThreatCardId);
+  return intensifyThreatDiscard(withBottomDraw, orderedCardIds);
 }
 
 export function clearThreatGameEndArea(state: ThreatDeckState): ThreatDeckState {

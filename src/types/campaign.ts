@@ -1,5 +1,5 @@
 import type { LanguageCode } from './cards';
-import type { PlayerDeckState, ThreatDeckState } from './deck';
+import type { PlayerDeckState, ThreatDeckState, TurnFlowState } from './deck';
 
 export interface PlayerProfile {
   id: string;
@@ -16,6 +16,7 @@ export interface CampaignState {
   fundingLevel?: number;
   playerDeck: PlayerDeckState;
   threatDeck: ThreatDeckState;
+  turnFlow?: TurnFlowState;
   ruleToggles: Record<string, boolean>;
   createdAt: string;
   updatedAt: string;
@@ -29,5 +30,6 @@ export interface DeckCounterSummary {
   threatDeckUnknownRemaining: number;
   threatDiscardCount: number;
   threatKnownTopStackCount: number;
+  threatLevel: number;
   gameEndAreaCount: number;
 }

@@ -48,11 +48,17 @@ const playerDeckSchema = z.object({
 
 const threatDeckSchema = z.object({
   totalInitialCount: z.number().int().nonnegative(),
+  threatLevelIndex: z.number().int().min(0).max(5).default(0),
   cardStates: z.record(cardInstanceSchema),
   discardCardIds: z.array(z.string()),
   knownTopStackCardIds: z.array(z.string()),
   gameEndAreaCardIds: z.array(z.string()),
   removedCardIds: z.array(z.string())
+});
+
+const turnFlowSchema = z.object({
+  step: z.union([z.literal('player-draw'), z.literal('threat-draw')]),
+  turnNumber: z.number().int().positive()
 });
 
 export const persistedEnvelopeSchema = z.object({
@@ -69,6 +75,7 @@ export const persistedEnvelopeSchema = z.object({
     fundingLevel: z.number().optional(),
     playerDeck: playerDeckSchema,
     threatDeck: threatDeckSchema,
+    turnFlow: turnFlowSchema.default({ step: 'player-draw', turnNumber: 1 }),
     ruleToggles: z.record(z.boolean()),
     createdAt: z.string(),
     updatedAt: z.string()

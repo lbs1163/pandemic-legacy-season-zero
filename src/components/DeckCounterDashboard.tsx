@@ -5,15 +5,19 @@ import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
 import { threatCards } from '../data/cards/threats';
 import type { PlayerCardDestination } from '../types/deck';
+import type { PlayerDrawSelection } from '../domain/turnFlow';
 import type { RuleToggle } from '../types/rules';
 import { PlayerDeckPanel } from './PlayerDeckPanel';
 import { ThreatDeckPanel } from './ThreatDeckPanel';
+import { TurnFlowPanel } from './TurnFlowPanel';
 
 interface Props {
   campaign: CampaignState;
   rules: RuleToggle[];
   language: LanguageCode;
   text: UiText;
+  onCompletePlayerDraw: (selections: PlayerDrawSelection[]) => void;
+  onCompleteThreatDraw: (cardIds: string[]) => void;
   onPlayerDraw: (cardId: string, destination: PlayerCardDestination) => void;
   onResolveEscalation: () => void;
   onThreatDraw: (cardId: string) => void;
@@ -26,6 +30,7 @@ interface Props {
 export function DeckCounterDashboard(props: Props) {
   return (
     <div className="grid gap-4 xl:grid-cols-2">
+        <TurnFlowPanel campaign={props.campaign} language={props.language} cityCards={cityCards} eventCards={eventCards} threatCards={threatCards} onCompletePlayerDraw={props.onCompletePlayerDraw} onCompleteThreatDraw={props.onCompleteThreatDraw} />
         <PlayerDeckPanel state={props.campaign.playerDeck} text={props.text} language={props.language} cityCards={cityCards} eventCards={eventCards} onDrawKnown={props.onPlayerDraw} onResolveEscalation={props.onResolveEscalation} />
         <ThreatDeckPanel
           state={props.campaign.threatDeck}

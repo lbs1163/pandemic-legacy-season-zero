@@ -10,6 +10,7 @@ import { legacyRules } from './data/rules/legacyRules';
 import { createInitialCampaign } from './domain/createInitialCampaign';
 import { configureStartingHands, prepareUnidentifiedTargetCity, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
+import { completePlayerDrawStep, completeThreatDrawStep } from './domain/turnFlow';
 import {
   clearThreatGameEndArea,
   intensifyThreatDiscard,
@@ -280,6 +281,8 @@ export function App() {
             rules={allRules}
             language={language}
             text={text}
+            onCompletePlayerDraw={(selections) => updateActiveCampaign((campaign) => updateCampaignTimestamp(completePlayerDrawStep(campaign, selections)))}
+            onCompleteThreatDraw={(cardIds) => updateActiveCampaign((campaign) => updateCampaignTimestamp(completeThreatDrawStep(campaign, cardIds)))}
             onPlayerDraw={(cardId: string, destination: PlayerCardDestination) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, playerDeck: recordPlayerCardDraw(campaign.playerDeck, cardId, destination) }))}
             onResolveEscalation={() => updateActiveCampaign((campaign) => {
               const pile = campaign.playerDeck.piles[campaign.playerDeck.currentPileIndex];
