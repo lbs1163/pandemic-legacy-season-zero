@@ -23,6 +23,7 @@ interface Props {
   onThreatDraw: (cardId: string) => void;
   onThreatBottomToDiscard: (cardId: string) => void;
   onThreatBottomToGameEnd: (cardId: string) => void;
+  onThreatMoveToGameEnd: (cardId: string) => void;
   onThreatIntensify: () => void;
   onCleanupGameEnd: () => void;
 }
@@ -41,6 +42,7 @@ export function DeckCounterDashboard(props: Props) {
           onDraw={props.onThreatDraw}
           onBottomToDiscard={props.onThreatBottomToDiscard}
           onBottomToGameEnd={props.onThreatBottomToGameEnd}
+          onMoveToGameEnd={props.onThreatMoveToGameEnd}
           onIntensify={props.onThreatIntensify}
           onCleanupGameEnd={props.onCleanupGameEnd}
         />

@@ -14,6 +14,7 @@ import { completePlayerDrawStep, completeThreatDrawStep } from './domain/turnFlo
 import {
   clearThreatGameEndArea,
   intensifyThreatDiscard,
+  moveThreatCardToGameEndArea,
   recordInitialThreatSetup,
   recordThreatBottomDrawToDiscard,
   recordThreatBottomDrawToGameEndArea,
@@ -293,6 +294,7 @@ export function App() {
             onThreatDraw={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: recordThreatDraw(campaign.threatDeck, cardId) }))}
             onThreatBottomToDiscard={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: recordThreatBottomDrawToDiscard(campaign.threatDeck, cardId) }))}
             onThreatBottomToGameEnd={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: recordThreatBottomDrawToGameEndArea(campaign.threatDeck, cardId) }))}
+            onThreatMoveToGameEnd={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: moveThreatCardToGameEndArea(campaign.threatDeck, cardId) }))}
             onThreatIntensify={() => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: intensifyThreatDiscard(campaign.threatDeck) }))}
             onCleanupGameEnd={() => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: clearThreatGameEndArea(campaign.threatDeck) }))}
           />

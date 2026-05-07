@@ -3,6 +3,7 @@ import {
   clearThreatGameEndArea,
   createInitialThreatDeckState,
   intensifyThreatDiscard,
+  moveThreatCardToGameEndArea,
   recordInitialThreatSetup,
   recordThreatBottomDrawToDiscard,
   recordThreatBottomDrawToGameEndArea,
@@ -51,6 +52,51 @@ describe('threat deck domain', () => {
     expect(next.cardStates['threat-moscow'].zone).toBe('threat-game-end-area');
     expect(next.gameEndAreaCardIds).toEqual(['threat-moscow']);
     expect(next.discardCardIds).toEqual([]);
+  });
+
+  it('moves any tracked threat card from discard to the game end area', () => {
+    const state = recordThreatDraw(createInitialThreatDeckState(['threat-seoul', 'threat-tokyo']), 'threat-seoul');
+    const next = moveThreatCardToGameEndArea(state, 'threat-seoul');
+
+    expect(next.cardStates['threat-seoul'].zone).toBe('threat-game-end-area');
+    expect(next.gameEndAreaCardIds).toEqual(['threat-seoul']);
+    expect(next.discardCardIds).toEqual([]);
+  });
+
+  it('moves any tracked threat card from known top stacks to the game end area', () => {
+    const state = {
+      ...createInitialThreatDeckState(['a', 'b', 'c']),
+      knownTopStacks: [['c', 'b'], ['a']],
+      knownTopStackCardIds: ['c', 'b', 'a'],
+      cardStates: {
+        a: { cardId: 'a', zone: 'threat-top-stack-known' as const, updatedAt: '2026-01-01T00:00:00.000Z' },
+        b: { cardId: 'b', zone: 'threat-top-stack-known' as const, updatedAt: '2026-01-01T00:00:00.000Z' },
+        c: { cardId: 'c', zone: 'threat-top-stack-known' as const, updatedAt: '2026-01-01T00:00:00.000Z' }
+      }
+    };
+
+    const next = moveThreatCardToGameEndArea(state, 'b');
+
+    expect(next.cardStates.b.zone).toBe('threat-game-end-area');
+    expect(next.gameEndAreaCardIds).toEqual(['b']);
+    expect(next.knownTopStacks).toEqual([['c'], ['a']]);
+    expect(next.knownTopStackCardIds).toEqual(['c', 'a']);
+  });
+
+  it('moves any tracked threat card from the unknown deck to the game end area', () => {
+    const state = createInitialThreatDeckState(['threat-lagos']);
+    const next = moveThreatCardToGameEndArea(state, 'threat-lagos');
+
+    expect(next.cardStates['threat-lagos'].zone).toBe('threat-game-end-area');
+    expect(next.gameEndAreaCardIds).toEqual(['threat-lagos']);
+    expect(Object.values(next.cardStates).filter((card) => card.zone === 'threat-deck-unknown')).toHaveLength(0);
+  });
+
+  it('does not duplicate a threat card already in the game end area', () => {
+    const state = recordThreatBottomDrawToGameEndArea(createInitialThreatDeckState(['threat-london']), 'threat-london');
+    const next = moveThreatCardToGameEndArea(state, 'threat-london');
+
+    expect(next.gameEndAreaCardIds).toEqual(['threat-london']);
   });
 
   it('intensifies discard into known top stack and clears discard', () => {

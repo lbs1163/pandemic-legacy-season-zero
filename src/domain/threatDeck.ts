@@ -140,6 +140,28 @@ export function recordThreatBottomDrawToGameEndArea(state: ThreatDeckState, card
   };
 }
 
+export function moveThreatCardToGameEndArea(state: ThreatDeckState, cardId: string): ThreatDeckState {
+  const existing = state.cardStates[cardId];
+  if (!existing) throw new Error(`Unknown threat card: ${cardId}`);
+
+  const knownTopStacks = normalizeKnownTopStacks(state)
+    .map((stack) => stack.filter((knownCardId) => knownCardId !== cardId))
+    .filter((stack) => stack.length > 0);
+
+  return withKnownTopStacks({
+    ...state,
+    discardCardIds: state.discardCardIds.filter((discardCardId) => discardCardId !== cardId),
+    gameEndAreaCardIds: state.gameEndAreaCardIds.includes(cardId)
+      ? state.gameEndAreaCardIds
+      : [...state.gameEndAreaCardIds, cardId],
+    removedCardIds: state.removedCardIds.filter((removedCardId) => removedCardId !== cardId),
+    cardStates: {
+      ...state.cardStates,
+      [cardId]: { cardId, zone: 'threat-game-end-area', updatedAt: nowIso() }
+    }
+  }, knownTopStacks);
+}
+
 export function intensifyThreatDiscard(state: ThreatDeckState, orderedCardIds?: string[]): ThreatDeckState {
   const stack = orderedCardIds?.length ? orderedCardIds : [...state.discardCardIds];
   const discardSet = new Set(state.discardCardIds);
