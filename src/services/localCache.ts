@@ -34,7 +34,16 @@ const playerDeckSchema = z.object({
     requiredPerPlayer: z.number().int().nonnegative(),
     requiredTotal: z.number().int().nonnegative(),
     configured: z.boolean()
-  })
+  }),
+  unidentifiedTargetCity: z.object({
+    configured: z.boolean(),
+    filter: z.union([
+      z.object({ type: z.literal('region'), value: z.union([z.literal('north-america'), z.literal('south-america'), z.literal('europe'), z.literal('africa'), z.literal('asia'), z.literal('pacific')]) }),
+      z.object({ type: z.literal('affiliation'), value: z.union([z.literal('allied'), z.literal('neutral'), z.literal('soviet')]) })
+    ]).optional(),
+    candidateCardIds: z.array(z.string()),
+    removedCardId: z.string().optional()
+  }).optional()
 });
 
 const threatDeckSchema = z.object({

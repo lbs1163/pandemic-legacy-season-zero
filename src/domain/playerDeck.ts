@@ -1,10 +1,13 @@
 import type {
+  UnidentifiedTargetCityFilter,
+  UnidentifiedTargetCitySelection,
   PlayerCardDestination,
   PlayerCardZone,
   PlayerDeckPile,
   PlayerDeckState,
   StartingHandAssignment
 } from '../types/deck';
+import type { CityCard } from '../types/cards';
 
 export interface PlayerDeckSetupConfig {
   playerCardIds: string[];
@@ -37,6 +40,10 @@ export function createInitialPlayerDeckState(config: PlayerDeckSetupConfig): Pla
       requiredPerPlayer,
       requiredTotal: requiredPerPlayer * config.playerCount,
       configured: false
+    },
+    unidentifiedTargetCity: {
+      configured: false,
+      candidateCardIds: []
     }
   };
 }
@@ -67,8 +74,31 @@ function getEscalationCardIds(state: PlayerDeckState): string[] {
   return state.piles.map((pile) => pile.escalationCardId).filter((cardId): cardId is string => Boolean(cardId));
 }
 
+function rebuildPilesForCurrentDeck(state: PlayerDeckState): PlayerDeckPile[] {
+  const escalationCardIds = getEscalationCardIds(state);
+  const nonEscalationDeckCount = Object.values(state.cardStates).filter(
+    (cardState) => cardState.zone === 'player-deck-unknown' && !escalationCardIds.includes(cardState.cardId)
+  ).length;
+  return buildPiles(nonEscalationDeckCount, escalationCardIds);
+}
+
 function isEscalationCardId(state: PlayerDeckState, cardId: string): boolean {
   return getEscalationCardIds(state).includes(cardId);
+}
+
+function cityMatchesUnidentifiedTargetFilter(city: CityCard, filter: UnidentifiedTargetCityFilter): boolean {
+  return filter.type === 'region' ? city.region === filter.value : city.affiliation === filter.value;
+}
+
+export function getUnidentifiedTargetCityCandidates(
+  state: PlayerDeckState,
+  cities: CityCard[],
+  filter: UnidentifiedTargetCityFilter
+): string[] {
+  return cities
+    .filter((city) => cityMatchesUnidentifiedTargetFilter(city, filter))
+    .filter((city) => state.cardStates[city.id]?.zone === 'player-deck-unknown')
+    .map((city) => city.id);
 }
 
 export function configureStartingHands(
@@ -107,6 +137,35 @@ export function configureStartingHands(
     cardStates,
     currentPileIndex: 0,
     startingHand: { ...state.startingHand, configured: true }
+  };
+}
+
+export function prepareUnidentifiedTargetCity(
+  state: PlayerDeckState,
+  cities: CityCard[],
+  selection: UnidentifiedTargetCitySelection
+): PlayerDeckState {
+  const candidates = getUnidentifiedTargetCityCandidates(state, cities, selection.filter);
+  if (!candidates.includes(selection.removedCardId)) {
+    throw new Error(`Removed city is not an unidentified target candidate: ${selection.removedCardId}`);
+  }
+  const now = nowIso();
+  const cardStates = {
+    ...state.cardStates,
+    [selection.removedCardId]: { cardId: selection.removedCardId, zone: 'player-removed' as const, updatedAt: now }
+  };
+  const nextState = { ...state, cardStates };
+
+  return {
+    ...nextState,
+    piles: rebuildPilesForCurrentDeck(nextState),
+    currentPileIndex: 0,
+    unidentifiedTargetCity: {
+      configured: true,
+      filter: selection.filter,
+      candidateCardIds: candidates,
+      removedCardId: selection.removedCardId
+    }
   };
 }
 

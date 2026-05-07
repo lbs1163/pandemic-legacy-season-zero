@@ -8,7 +8,7 @@ import { eventCards } from './data/cards/events';
 import { baseRules } from './data/rules/baseRules';
 import { legacyRules } from './data/rules/legacyRules';
 import { createInitialCampaign } from './domain/createInitialCampaign';
-import { configureStartingHands, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
+import { configureStartingHands, prepareUnidentifiedTargetCity, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
 import {
   clearThreatGameEndArea,
@@ -24,7 +24,7 @@ import { createEmptyEnvelope, loadLocalCache, saveLocalCache } from './services/
 import { pollGitHubDeviceFlowUntilComplete, startGitHubDeviceFlow } from './services/githubAuth';
 import type { LanguageCode } from './types/cards';
 import type { PlayerProfile } from './types/campaign';
-import type { PlayerCardDestination, StartingHandAssignment } from './types/deck';
+import type { PlayerCardDestination, StartingHandAssignment, UnidentifiedTargetCitySelection } from './types/deck';
 import type { AuthState, DeviceFlowUiState, GistSyncMetadata, PersistedEnvelope } from './types/sync';
 import { Alert } from './components/ui/alert';
 import { Button } from './components/ui/button';
@@ -153,6 +153,7 @@ export function App() {
     campaignName: string;
     players: PlayerProfile[];
     startingHands: StartingHandAssignment[];
+    unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
     initialThreatCardIds: string[];
   }) {
     const campaign = createInitialCampaign({
@@ -160,9 +161,12 @@ export function App() {
       language,
       players: input.players
     });
+    const configuredPlayerDeck = input.unidentifiedTargetCitySelection
+      ? prepareUnidentifiedTargetCity(configureStartingHands(campaign.playerDeck, input.startingHands), cityCards, input.unidentifiedTargetCitySelection)
+      : configureStartingHands(campaign.playerDeck, input.startingHands);
     const configured = {
       ...campaign,
-      playerDeck: configureStartingHands(campaign.playerDeck, input.startingHands),
+      playerDeck: configuredPlayerDeck,
       threatDeck: recordInitialThreatSetup(campaign.threatDeck, input.initialThreatCardIds),
       updatedAt: new Date().toISOString()
     };

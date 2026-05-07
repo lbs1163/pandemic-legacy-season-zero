@@ -1,3 +1,5 @@
+import type { Affiliation, Region } from './cards';
+
 export type PlayerCardZone =
   | 'player-deck-unknown'
   | 'player-hand'
@@ -34,6 +36,17 @@ export interface StartingHandState {
   configured: boolean;
 }
 
+export type UnidentifiedTargetCityFilter =
+  | { type: 'region'; value: Region }
+  | { type: 'affiliation'; value: Affiliation };
+
+export interface UnidentifiedTargetCitySetup {
+  configured: boolean;
+  filter?: UnidentifiedTargetCityFilter;
+  candidateCardIds: string[];
+  removedCardId?: string;
+}
+
 export interface PlayerDeckState {
   totalInitialCount: number;
   drawCountPerTurn: 2;
@@ -41,6 +54,7 @@ export interface PlayerDeckState {
   cardStates: Record<string, CardInstanceState>;
   currentPileIndex: number;
   startingHand: StartingHandState;
+  unidentifiedTargetCity?: UnidentifiedTargetCitySetup;
 }
 
 export interface ThreatDeckState {
@@ -55,6 +69,11 @@ export interface ThreatDeckState {
 export interface StartingHandAssignment {
   cardId: string;
   playerId: string;
+}
+
+export interface UnidentifiedTargetCitySelection {
+  filter: UnidentifiedTargetCityFilter;
+  removedCardId: string;
 }
 
 export type PlayerCardDestination = 'player-hand' | 'player-discard' | 'player-removed';

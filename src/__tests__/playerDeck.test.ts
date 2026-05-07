@@ -4,9 +4,18 @@ import {
   configureStartingHands,
   createInitialPlayerDeckState,
   getPlayerDeckRemaining,
+  getUnidentifiedTargetCityCandidates,
+  prepareUnidentifiedTargetCity,
   recordPlayerCardDraw,
   resolveEscalationDraw
 } from '../domain/playerDeck';
+import type { CityCard } from '../types/cards';
+
+const testCities: CityCard[] = [
+  { id: 'asia-1', kind: 'city', name: { en: 'Asia 1', ko: '아시아 1' }, region: 'asia', affiliation: 'neutral' },
+  { id: 'asia-2', kind: 'city', name: { en: 'Asia 2', ko: '아시아 2' }, region: 'asia', affiliation: 'soviet' },
+  { id: 'europe-1', kind: 'city', name: { en: 'Europe 1', ko: '유럽 1' }, region: 'europe', affiliation: 'neutral' }
+];
 
 describe('player deck domain', () => {
   it('creates five escalation piles and derives remaining count', () => {
@@ -75,5 +84,42 @@ describe('player deck domain', () => {
     });
 
     expect(calculateCurrentPileEscalationRisk(state)).toBeCloseTo(2 / state.piles[0].remainingUnknownCount);
+  });
+
+  it('excludes starting hand cities from unidentified target candidates', () => {
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...testCities.map((city) => city.id), ...Array.from({ length: 10 }, (_, index) => `event-${index + 1}`)],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+    const configured = configureStartingHands(state, [
+      { cardId: 'asia-1', playerId: 'p1' },
+      ...Array.from({ length: 7 }, (_, index) => ({ cardId: `event-${index + 1}`, playerId: index < 3 ? 'p1' : 'p2' }))
+    ]);
+
+    expect(getUnidentifiedTargetCityCandidates(configured, testCities, { type: 'region', value: 'asia' })).toEqual(['asia-2']);
+  });
+
+  it('removes the selected unidentified target city and rebuilds piles', () => {
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...testCities.map((city) => city.id), ...Array.from({ length: 10 }, (_, index) => `event-${index + 1}`)],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+    const configured = configureStartingHands(state, [
+      { cardId: 'asia-1', playerId: 'p1' },
+      ...Array.from({ length: 7 }, (_, index) => ({ cardId: `event-${index + 1}`, playerId: index < 3 ? 'p1' : 'p2' }))
+    ]);
+    const beforeRemaining = getPlayerDeckRemaining(configured);
+    const next = prepareUnidentifiedTargetCity(configured, testCities, {
+      filter: { type: 'affiliation', value: 'neutral' },
+      removedCardId: 'europe-1'
+    });
+
+    expect(next.cardStates['europe-1'].zone).toBe('player-removed');
+    expect(next.unidentifiedTargetCity?.configured).toBe(true);
+    expect(next.unidentifiedTargetCity?.removedCardId).toBe('europe-1');
+    expect(getPlayerDeckRemaining(next)).toBe(beforeRemaining - 1);
+    expect(next.piles).toHaveLength(5);
   });
 });
