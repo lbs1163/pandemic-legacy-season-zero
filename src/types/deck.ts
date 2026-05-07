@@ -63,6 +63,7 @@ export interface ThreatDeckState {
   threatLevelIndex: number;
   cardStates: Record<string, CardInstanceState>;
   discardCardIds: string[];
+  knownTopStacks: string[][];
   knownTopStackCardIds: string[];
   gameEndAreaCardIds: string[];
   removedCardIds: string[];

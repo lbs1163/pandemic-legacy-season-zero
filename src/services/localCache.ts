@@ -52,9 +52,19 @@ const threatDeckSchema = z.object({
   threatLevelIndex: z.number().int().min(0).max(5).default(0),
   cardStates: z.record(cardInstanceSchema),
   discardCardIds: z.array(z.string()),
+  knownTopStacks: z.array(z.array(z.string())).optional(),
   knownTopStackCardIds: z.array(z.string()),
   gameEndAreaCardIds: z.array(z.string()),
   removedCardIds: z.array(z.string())
+}).transform((state) => {
+  const knownTopStacks = state.knownTopStacks?.length
+    ? state.knownTopStacks.filter((stack) => stack.length > 0)
+    : (state.knownTopStackCardIds.length ? [state.knownTopStackCardIds] : []);
+  return {
+    ...state,
+    knownTopStacks,
+    knownTopStackCardIds: knownTopStacks.flat()
+  };
 });
 
 const turnFlowSchema = z.object({

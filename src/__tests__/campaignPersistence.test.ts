@@ -25,6 +25,32 @@ describe('campaign persistence validation', () => {
     expect(validatePersistedEnvelope(envelope).campaigns[0].campaignName).toBe('Prologue');
   });
 
+  it('hydrates legacy single known top stack arrays into grouped known top stacks', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Known stacks',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const envelope = {
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 2 as const,
+      activeCampaignId: campaign.campaignId,
+      campaigns: [{
+        ...campaign,
+        threatDeck: {
+          ...campaign.threatDeck,
+          knownTopStacks: undefined,
+          knownTopStackCardIds: ['threat-city-atlanta', 'threat-city-chicago']
+        }
+      }]
+    };
+
+    const hydrated = validatePersistedEnvelope(envelope);
+
+    expect(hydrated.campaigns[0].threatDeck.knownTopStacks).toEqual([['threat-city-atlanta', 'threat-city-chicago']]);
+    expect(hydrated.campaigns[0].threatDeck.knownTopStackCardIds).toEqual(['threat-city-atlanta', 'threat-city-chicago']);
+  });
+
   it('migrates v1 envelopes to v2 card-state decks', () => {
     const campaign = createInitialCampaign({
       campaignName: 'Legacy local state',

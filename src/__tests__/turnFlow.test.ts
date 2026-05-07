@@ -71,6 +71,7 @@ describe('turn flow domain', () => {
     ]);
 
     expect(next.threatDeck.threatLevelIndex).toBe(2);
+    expect(next.threatDeck.knownTopStacks).toEqual([['threat-11'], [...Array.from({ length: 9 }, (_, index) => `threat-${index + 1}`), 'threat-10']]);
     expect(next.threatDeck.knownTopStackCardIds[0]).toBe('threat-11');
     expect(next.threatDeck.knownTopStackCardIds).toContain('threat-10');
   });

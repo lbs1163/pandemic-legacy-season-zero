@@ -13,9 +13,28 @@ export function createInitialThreatDeckState(threatCardIds: string[], now?: stri
       { cardId, zone: 'threat-deck-unknown', updatedAt: timestamp }
     ])),
     discardCardIds: [],
+    knownTopStacks: [],
     knownTopStackCardIds: [],
     gameEndAreaCardIds: [],
     removedCardIds: []
+  };
+}
+
+function normalizeKnownTopStacks(state: ThreatDeckState): string[][] {
+  if (state.knownTopStacks?.length) return state.knownTopStacks.filter((stack) => stack.length > 0);
+  return state.knownTopStackCardIds.length ? [state.knownTopStackCardIds] : [];
+}
+
+function flattenKnownTopStacks(stacks: string[][]): string[] {
+  return stacks.flat();
+}
+
+function withKnownTopStacks(state: ThreatDeckState, stacks: string[][]): ThreatDeckState {
+  const normalizedStacks = stacks.filter((stack) => stack.length > 0).map((stack) => [...stack]);
+  return {
+    ...state,
+    knownTopStacks: normalizedStacks,
+    knownTopStackCardIds: flattenKnownTopStacks(normalizedStacks)
   };
 }
 
@@ -53,16 +72,16 @@ export function recordInitialThreatSetup(state: ThreatDeckState, cardIds: string
 }
 
 function drawFromThreatDeck(state: ThreatDeckState): ThreatDeckState {
-  if (state.knownTopStackCardIds.length > 0) {
-    const [cardId, ...rest] = state.knownTopStackCardIds;
-    return {
+  const knownTopStacks = normalizeKnownTopStacks(state);
+  if (knownTopStacks.length > 0) {
+    const [[cardId, ...firstStackRest], ...remainingStacks] = knownTopStacks;
+    return withKnownTopStacks({
       ...state,
-      knownTopStackCardIds: rest,
       cardStates: {
         ...state.cardStates,
         [cardId]: { cardId, zone: 'threat-discard', updatedAt: nowIso() }
       }
-    };
+    }, firstStackRest.length ? [firstStackRest, ...remainingStacks] : remainingStacks);
   }
   return state;
 }
@@ -74,9 +93,10 @@ function assertThreatCardInUnknownDeck(state: ThreatDeckState, cardId: string) {
 }
 
 export function recordThreatDraw(state: ThreatDeckState, cardId: string): ThreatDeckState {
-  if (state.knownTopStackCardIds.length > 0) {
-    if (state.knownTopStackCardIds[0] !== cardId) {
-      throw new Error(`Next known threat card must be ${state.knownTopStackCardIds[0]}.`);
+  const knownTopCards = flattenKnownTopStacks(normalizeKnownTopStacks(state));
+  if (knownTopCards.length > 0) {
+    if (knownTopCards[0] !== cardId) {
+      throw new Error(`Next known threat card must be ${knownTopCards[0]}.`);
     }
     const drawn = drawFromThreatDeck(state);
     return { ...drawn, discardCardIds: [...drawn.discardCardIds, cardId] };
@@ -122,10 +142,10 @@ export function intensifyThreatDiscard(state: ThreatDeckState, orderedCardIds?: 
   for (const cardId of stack) {
     if (!discardSet.has(cardId)) throw new Error(`Cannot intensify non-discarded threat card: ${cardId}`);
   }
-  return {
+  const knownTopStacks = normalizeKnownTopStacks(state);
+  return withKnownTopStacks({
     ...state,
     discardCardIds: [],
-    knownTopStackCardIds: [...stack, ...state.knownTopStackCardIds],
     cardStates: {
       ...state.cardStates,
       ...Object.fromEntries(stack.map((cardId, order) => [
@@ -133,7 +153,7 @@ export function intensifyThreatDiscard(state: ThreatDeckState, orderedCardIds?: 
         { cardId, zone: 'threat-top-stack-known' as const, order, updatedAt: nowIso() }
       ]))
     }
-  };
+  }, [stack, ...knownTopStacks]);
 }
 
 export function resolveEscalationThreatEffects(
