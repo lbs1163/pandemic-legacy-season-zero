@@ -346,7 +346,7 @@ export function App() {
       </main>
       {activeCampaign ? (
         <Dialog open={campaignTimelineOpen} onOpenChange={setCampaignTimelineOpen}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-5xl">
             <DialogHeader>
               <DialogTitle>{language === 'ko' ? '캠페인 진행 기록' : 'Campaign timeline'}</DialogTitle>
               <DialogDescription>{language === 'ko' ? '현재 캠페인의 월별 결과와 진행 내역을 확인합니다.' : 'Review monthly results and progress history for the active campaign.'}</DialogDescription>

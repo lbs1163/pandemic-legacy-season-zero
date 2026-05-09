@@ -53,7 +53,7 @@ function makeCharacters(players: PlayerProfile[], characterNames: Record<string,
   return players.map((player) => ({
     id: `character-${player.id}`,
     playerId: player.id,
-    name: prologue ? '임시 신분증' : characterNames[player.id]?.trim() || player.name,
+    name: prologue ? characterNames[player.id]?.trim() || prologueTemporaryIdentities[0] : characterNames[player.id]?.trim() || player.name,
     roleName: prologue ? characterNames[player.id]?.trim() || prologueTemporaryIdentities[0] : undefined
   }));
 }
