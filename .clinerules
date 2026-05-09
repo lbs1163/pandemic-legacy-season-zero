@@ -11,7 +11,8 @@
   - `Add initial threat setup to campaign wizard`
   - `Fix threat discard count migration`
 - Do not mix unrelated changes in one commit. If a request naturally spans multiple independent changes, split them into multiple atomic commits.
-- After committing, push to the current branch when the user asks for persistence or delivery, or when the request explicitly includes push/deploy language.
+- When an `implementation_plan.md` change exists as part of implementation planning for the current task, include it in the relevant implementation commit unless the user explicitly asks to exclude it.
+- After committing, always push to the current branch unless the user explicitly asks not to push.
 - Report the commit hash, branch, push result, and validation commands in the completion response.
 
 ## Safety checks
