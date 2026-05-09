@@ -132,8 +132,8 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     setUnidentifiedSetups(defaultSetups.length ? defaultSetups.map(editableSetupFromSelection) : [editableSetupFromSelection()]);
     setInitialThreatCardIds([]);
     setStartingHands([]);
-    setSelectedEventCardIds([]);
-  }, [campaign.characters, campaign.players, defaults, language, open]);
+    setSelectedEventCardIds(availableEventCards.length === requiredEventCount ? availableEventCards.map((card) => card.id) : []);
+  }, [availableEventCards, campaign.characters, campaign.players, defaults, language, open, requiredEventCount]);
 
   const updatePlayerCount = (count: number) => {
     setPlayers((current) => makePlayers(language, count, current));
