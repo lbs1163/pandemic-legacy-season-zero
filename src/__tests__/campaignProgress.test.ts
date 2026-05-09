@@ -119,6 +119,43 @@ describe('campaign progress domain', () => {
     expect(getAvailableEventCardsForMonth(eventCards, 'february')).toHaveLength(9);
   });
 
+  it('defines February event card effect descriptions', () => {
+    const februaryEventExpectations = [
+      {
+        id: 'event-dispatch-teams',
+        ko: '모든 작전팀 말을 해당 말이 현재 위치한 도시에서 최대 3칸 떨어진 도시로 이동시킵니다.',
+        en: 'Move every team pawn to a city up to 3 connections away from the city that pawn is currently in.'
+      },
+      {
+        id: 'event-weekend-rendezvous',
+        ko: '아무 캐릭터 말 하나 또는 여럿을 다른 캐릭터 말이 있는 도시 1곳으로 옮길 수 있습니다.',
+        en: 'You may move one or more character pawns to one city containing another character pawn.'
+      },
+      {
+        id: 'event-coded-message',
+        ko: '플레이어 2명을 선택합니다. 그 둘이 각자 손에 든 플레이어 카드 1장씩을 골라 서로 교환합니다.',
+        en: 'Choose 2 players. Each chooses 1 Player card from their hand, then they exchange those cards.'
+      },
+      {
+        id: 'event-bureaucratic-trap',
+        ko: '게임판에서 소련 비밀요원 말 1개 또는 2개를 제거합니다.',
+        en: 'Remove 1 or 2 Soviet agent pawns from the board.'
+      }
+    ];
+
+    for (const expectation of februaryEventExpectations) {
+      const card = eventCards.find((eventCard) => eventCard.id === expectation.id);
+
+      expect(card).toBeDefined();
+      expect(card?.availability).toEqual({ fromMonth: 'february' });
+      expect(card?.effect?.kind).toBe('informational');
+      expect(card?.effect?.description.ko).toBe(expectation.ko);
+      expect(card?.effect?.description.en).toBe(expectation.en);
+      expect(card?.effect?.description.ko).not.toMatch(/카드에 적힌 효과/);
+      expect(card?.effect?.description.en).not.toMatch(/Resolve this event card according to its card text/);
+    }
+  });
+
   it('stores hidden city setup defaults for prologue through february', () => {
     expect(getMonthSetupDefaults('prologue').unidentifiedTargetCities).toMatchObject([
       { enabled: true, filter: { type: 'region', value: 'europe' }, hiddenRemovedCount: 1 }
