@@ -1,272 +1,232 @@
 # Implementation Plan
 
 [Overview]
-매월 게임 준비 단계에서 자동 계산된 자금 지원 단계는 유지하되, 이번 달에 사용할 자금 지원 단계를 사용자가 직접 조정할 수 있게 하고 일반 설정과 다를 때 경고를 표시한다.
+손패 이벤트 카드 사용 시 해당 이벤트를 손패에서 제거하고, 월 결과 기록 후 다음 달을 준비 전 상태로 전환하도록 캠페인 진행 흐름을 수정한다.
 
-현재 앱은 TypeScript/React/Vite 기반의 Pandemic Legacy Season 0 덱 카운터이며, 캠페인 진행 상태는 `src/types/campaign.ts`의 `CampaignProgressState.fundingLevel`에 저장된다. 게임 결과를 기록하면 `src/domain/campaignProgress.ts`의 `applyGameResult`가 성공/양호/실패 평가를 계산하고 `calculateNextFundingLevel`로 다음 월 또는 재시도에 사용할 기본 자금 지원 단계를 갱신한다. 이 자동 변화 추적은 월별 결과 기록과 캠페인 타임라인의 핵심 기능이므로 그대로 유지해야 한다.
+현재 앱은 React + TypeScript + Vite 기반의 Pandemic Legacy Season 0 덱 카운터이며, 캠페인 상태는 `CampaignState` 안의 `progress`, `playerDeck`, `threatDeck`, `turnFlow`로 관리된다. 사용자가 보고한 첫 번째 문제는 `TurnFlowPanel`의 “손패 이벤트 카드” 영역에서 `applySupportedEventEffect`를 호출해 위협 버림 더미 카드를 게임 종료 구역으로 이동하더라도, 사용한 이벤트 카드 자체는 여전히 `player-hand`에 남아 동일 이벤트를 다시 적용할 수 있다는 점이다. 실제 보드게임 규칙상 이벤트 카드는 사용 후 버려지므로, 지원되는 이벤트 효과 적용 로직이 효과 처리와 이벤트 카드 버림을 하나의 원자적 상태 변경으로 처리해야 한다.
 
-현재 월 준비 마법사(`src/components/MonthGameSetupWizard.tsx`)는 `campaign.progress.fundingLevel`을 그대로 사용해 이벤트 카드 선택 수를 결정하고, `src/App.tsx`의 `setupCurrentMonth`는 이 값을 수정하지 않은 채 `createGameDecksForMonth`를 호출한다. 사용자는 룰북의 보정 지침에 따라 매월 준비 시점에 자금 지원 단계를 임의로 조정하고 싶어 하므로, 월 준비 마법사 첫 단계 또는 이벤트 선택 전 단계에서 “이번 달 자금 지원 단계” 입력을 제공하고, 그 값으로 이번 달 이벤트 카드 요구 수와 덱 생성을 처리해야 한다.
+두 번째 문제는 `applyGameResult`가 `progress.currentMonth`와 자금/시도 정보를 다음 상태로 갱신하지만, `playerDeck`, `threatDeck`, `turnFlow`는 방금 끝난 월의 실제 게임 중 상태를 그대로 유지한다는 점이다. 그 결과 UI는 새 월로 표시되지만 `isCampaignMonthSetupComplete`가 이전 월의 손패/위협 버림 상태를 보고 true를 반환할 수 있어, 다음 달 준비 단계로 자연스럽게 넘어가지 않는다. 결과 기록은 `CampaignGameRecord`에 남기고, 현재 캠페인의 활성 덱 상태는 다음 월 기준의 “준비 전” 상태로 리셋해 `DeckCounterDashboard`가 “월 준비가 필요합니다” 게이트를 표시하도록 해야 한다.
 
-구현 방향은 저장 모델에 별도 “수동 오버라이드 이력” 필드를 추가하지 않고, 사용자가 월 준비를 적용하는 순간 `campaign.progress.fundingLevel` 및 레거시 호환 필드 `campaign.fundingLevel`을 선택한 값으로 갱신하는 것이다. 이렇게 하면 게임 결과 기록 시 `CampaignGameRecord.fundingLevel`에는 실제로 그 게임에 사용한 자금 지원 단계가 기록되고, 다음 달 기본 자금 지원 단계도 기존 `applyGameResult` 규칙에 따라 그 실제 사용 값을 기준으로 계산된다. 또한 선택 값이 준비 시작 시점의 자동/현재 값과 다르면 UI에 경고 문구를 보여 일반 설정과 다름을 명확히 알린다.
+고수준 접근은 도메인 계층에서 상태 전이를 명확히 하는 것이다. 이벤트 사용은 `src/domain/events.ts`에서 `movePlayerCard`를 함께 적용해 이벤트 카드의 zone을 `player-discard`로 바꾼다. 월 결과 기록은 `src/domain/campaignProgress.ts`에 다음 월/재시도 상태에 맞춘 준비 전 덱 초기화 헬퍼를 추가하고, `applyGameResult` 반환값에 초기화된 `playerDeck`, `threatDeck`, `turnFlow`를 포함한다. 테스트는 기존 도메인 테스트 파일에 동작 회귀 케이스를 추가해 UI 없이 핵심 상태 전이를 검증한다.
 
-[Types]  
-월별 준비 입력에 이번 달에 적용할 자금 지원 단계를 전달하기 위한 타입 확장이 필요하다.
+[Types]
+새로운 영속 타입이나 스키마 버전 변경 없이 기존 `PlayerCardZone`, `CampaignState`, `PlayerDeckState`, `ThreatDeckState`, `TurnFlowState` 타입을 그대로 사용한다.
 
-- `src/types/campaign.ts`
-  - 기존 타입 구조는 유지한다.
-  - `CampaignProgressState.fundingLevel: number`
-    - 현재/다음 게임에 적용될 자금 지원 단계.
-    - 유효 범위는 기존 도메인 정책인 1 이상 10 이하 정수이다.
-    - 월 준비에서 사용자가 변경하면 이 값이 업데이트된다.
-  - `CampaignState.fundingLevel?: number`
-    - 과거 호환용 상위 필드로 유지한다.
-    - 월 준비에서 `progress.fundingLevel`을 변경할 때 함께 동일 값으로 갱신한다.
-  - `CampaignGameRecord.fundingLevel: number`
-    - 결과 기록 시 실제 게임에 사용된 자금 지원 단계로 유지한다.
-    - 별도 변경 없음.
+구체 타입 변경은 필요하지 않다. 이미 `src/types/deck.ts`의 `PlayerCardZone`에는 `player-discard`가 포함되어 있고, `movePlayerCard(state, cardId, zone, ownerPlayerId?)`가 임의 플레이어 카드의 zone 변경을 지원한다. 이벤트 카드 사용 후 상태는 다음 규칙을 따른다.
 
-- `src/components/MonthGameSetupWizard.tsx`
-  - `Props['onSetup']` 입력 타입에 `fundingLevel: number` 필드를 추가한다.
-  - 내부 state 추가:
-    - `const [fundingLevel, setFundingLevel] = useState<number>(campaign.progress.fundingLevel)`
-    - 목적: 이번 월 준비에 적용할 사용자 선택 자금 지원 단계.
-  - 파생 값 추가:
-    - `const defaultFundingLevel = campaign.progress.fundingLevel`
-    - `const fundingLevelChanged = fundingLevel !== defaultFundingLevel`
-    - `const requiredEventCount = getRequiredEventCardCountForFunding(fundingLevel, availableEventCards.length)`
-  - 검증 규칙:
-    - `fundingLevel`은 `clampFundingLevel`을 통해 1..10 정수로 보정한다.
-    - 이벤트 선택 수는 기존 `campaign.progress.fundingLevel`이 아니라 UI state `fundingLevel`로 계산한 `requiredEventCount`와 정확히 같아야 한다.
+- 이벤트 카드 상태 변경 대상: `CampaignState.playerDeck.cardStates[input.eventCardId]`
+- 적용 전 검증:
+  - `eventCardId`가 `src/data/cards/events.ts`의 `eventCards`에 존재해야 한다.
+  - 이벤트 효과가 지원되는 종류(`move-threat-discard-to-game-end`)여야 한다.
+  - 대상 위협 카드가 필요한 이벤트에서는 `targetCardId`가 있어야 한다.
+  - 사용하려는 이벤트 카드의 현재 zone은 `player-hand`여야 한다.
+- 적용 후 이벤트 카드 상태:
+  - `zone: 'player-discard'`
+  - `ownerPlayerId: undefined` 권장. 버림 더미에서는 소유자 정보가 필요 없으며, 기존 `recordPlayerCardDraw`도 손패 외 zone에는 owner를 설정하지 않는다.
+  - `updatedAt`: 이벤트 효과 적용 시각(`input.now ?? new Date().toISOString()`)과 동일한 timestamp 사용.
 
-- `src/App.tsx`
-  - `setupCurrentMonth(input)` 타입에 `fundingLevel: number` 필드를 추가한다.
-  - `createGameDecksForMonth` 호출 전에 또는 호출 input으로 이번 달 fundingLevel을 반영한다.
+월 결과 기록 후 다음 준비 전 상태도 기존 타입만 사용한다.
 
-- `src/domain/campaignProgress.ts`
-  - `createGameDecksForMonth(input)` 타입에 선택적 `fundingLevel?: number` 필드를 추가한다.
-  - 도메인 검증 규칙:
-    - `input.fundingLevel`이 있으면 `selectEventCardsForMonth` 및 `getRequiredEventCardCountForFunding`에 이 값을 사용한다.
-    - 없으면 기존 호환을 위해 `input.campaign.progress.fundingLevel`을 사용한다.
-    - 모든 funding 값은 `clampFundingLevel`로 1..10 정수 처리한다.
+- `CampaignState.progress.currentMonth`: 다음 월 또는 재시도 시 현재 월
+- `CampaignState.progress.currentAttempt`: 재시도면 2, 다음 월이면 1
+- `CampaignState.progress.fundingLevel`: 결과 기반 다음 자금 단계
+- `CampaignState.playerDeck`: `createInitialPlayerDeckState`로 생성한 미설정 플레이어 덱
+  - `startingHand.configured: false`
+  - `unidentifiedTargetCities: []`
+  - 현재 월에 사용 가능한 이벤트 카드 전체를 포함한 초기 cardStates
+- `CampaignState.threatDeck`: `createInitialThreatDeckState`로 생성한 미설정 위협 덱
+  - `discardCardIds: []`
+  - `knownTopStacks: []`
+  - `knownTopStackCardIds: []`
+  - `gameEndAreaCardIds: []`
+- `CampaignState.turnFlow`: `{ step: 'player-draw', turnNumber: 1 }`
 
-- `src/services/localCache.ts`
-  - 저장 스키마의 `fundingLevelSchema = z.number().int().min(1).max(10)`는 유지한다.
-  - 새 필드를 영속하지 않으므로 envelope schema version 변경은 필요 없다.
+주의: `CampaignGameRecord`는 현재 덱 스냅샷을 저장하지 않는 구조이므로 “결과 기록”은 월/시도/자금/플레이어/캐릭터/임무 결과만 기존 방식대로 저장한다. 사용자가 요청한 “그 상태 그대로 저장”은 현재 타입 구조 안에서는 `gameRecords`에 결과를 기록하는 의미로 처리하고, 별도 덱 스냅샷 타입은 추가하지 않는다.
 
 [Files]
-월별 준비 UI, 앱 연결부, 도메인 덱 생성 로직, 테스트, 구현 계획 문서를 수정한다.
+핵심 도메인 파일과 도메인 테스트 파일을 수정하며, 설정 파일이나 의존성 파일은 변경하지 않는다.
 
-- New files to be created
+- New files to be created:
   - 없음.
 
-- Existing files to be modified
-  - `implementation_plan.md`
-    - 본 구현 계획 문서로 갱신되어야 한다.
-
-  - `src/components/MonthGameSetupWizard.tsx`
-    - `clampFundingLevel`을 import에 추가한다.
-      - 현재 import: `getDefaultAvailableEventCardsForMonth, getMonthSetupDefaults, getRequiredEventCardCountForFunding, isCampaignMonthSetupComplete`
-      - 변경 후: `clampFundingLevel`도 포함.
-    - `Props['onSetup']` payload에 `fundingLevel: number` 추가.
-    - `fundingLevel` state 추가.
-    - `requiredEventCount` 계산을 `campaign.progress.fundingLevel`에서 `fundingLevel` state 기준으로 변경.
-    - `useEffect` 초기화에서 wizard가 열릴 때 `setFundingLevel(campaign.progress.fundingLevel)` 수행.
-    - 자금 지원 단계 입력 UI를 이벤트 카드 선택 전, 권장 위치로 step 0의 플레이어 수 선택 아래에 추가한다.
-      - 라벨 예시 ko: `이번 달 자금 지원 단계`
-      - 라벨 예시 en: `Funding level for this month`
-      - 설명 예시 ko: `게임 결과에 따른 기본값은 {defaultFundingLevel}입니다. 룰북 보정 지침에 따라 이번 달에 사용할 값을 직접 조정할 수 있습니다.`
-      - 설명 예시 en: `The result-based default is {defaultFundingLevel}. You may adjust the value for this month if applying the rulebook correction guidance.`
-    - 입력 컨트롤은 기존 `Input type="number"`를 사용한다.
-      - `min={1}`
-      - `max={10}`
-      - `value={fundingLevel}`
-      - `onChange`에서 `clampFundingLevel(Number(event.target.value))`로 보정.
-    - `fundingLevelChanged`가 true이면 경고 문구를 표시한다.
-      - ko: `일반 설정과 다른 자금 지원 단계입니다. 룰북의 실수 보정 지침처럼 의도적으로 조정하는 경우에만 계속하세요.`
-      - en: `This funding level differs from the normal result-based setting. Continue only if you are intentionally applying the rulebook correction guidance.`
-      - 스타일은 기존 경고 패턴과 동일하게 `rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900` 사용.
-    - 이벤트 선택 단계 문구에서 현재 자금 지원 단계 표시를 `campaign.progress.fundingLevel` 대신 `fundingLevel`로 변경하고, 변경된 경우 기본값도 함께 표시한다.
-      - ko 예시: `이번 달 자금 지원 단계는 {fundingLevel}입니다. 이벤트 카드 {requiredEventCount}장을 선택하세요.`
-      - 변경 시 추가 문구: `일반 설정: {defaultFundingLevel}`
-    - fundingLevel 변경 시 기존 이벤트 선택/시작 손패를 재검증해야 하므로 다음 정책 중 하나를 구현한다.
-      - 권장: `updateFundingLevel(next)` 함수에서 fundingLevel을 설정하고 `setSelectedEventCardIds([]); setStartingHands([]);`로 초기화한다.
-      - 초기화 대신 초과분만 잘라도 되지만, 단순성과 안전성을 위해 전체 초기화를 권장한다.
-    - `finish()` payload에 `fundingLevel` 추가.
-
-  - `src/App.tsx`
-    - `setupCurrentMonth(input)` 타입에 `fundingLevel: number` 추가.
-    - `updateActiveCampaign` 내부에서 `const fundingLevel = clampFundingLevel(input.fundingLevel)`를 사용하기 위해 `clampFundingLevel` import를 추가하거나, 도메인 함수 결과와 별도로 직접 import한다.
-    - `createGameDecksForMonth` 호출에 `fundingLevel` 전달.
-    - 반환 campaign에 다음 필드를 반영한다.
-      - `fundingLevel`
-      - `progress: { ...campaign.progress, fundingLevel }`
-      - `players`, `characters`, `...decks`, `updatedAt`
-    - 덱 생성에 사용하는 campaign과 저장 갱신 값의 fundingLevel이 일치해야 한다.
-      - 권장 구현:
-        1. `const fundingLevel = clampFundingLevel(input.fundingLevel);`
-        2. `const campaignForSetup = { ...campaign, fundingLevel, progress: { ...campaign.progress, fundingLevel } };`
-        3. `const decks = createGameDecksForMonth({ campaign: campaignForSetup, fundingLevel, ... });`
-        4. `return updateCampaignTimestamp({ ...campaignForSetup, players: input.players, characters: input.characters, ...decks });`
-
+- Existing files to be modified:
+  - `src/domain/events.ts`
+    - `movePlayerCard`를 import한다.
+    - `applySupportedEventEffect`에서 지원 이벤트 효과를 처리한 뒤 `playerDeck`의 이벤트 카드 상태를 `player-discard`로 이동한다.
+    - 이벤트 카드가 현재 `player-hand`에 없으면 명확한 에러를 던지도록 검증을 추가한다.
+    - 효과 처리와 이벤트 카드 버림에 동일한 `now` timestamp를 사용한다.
   - `src/domain/campaignProgress.ts`
-    - `createGameDecksForMonth(input)`에 `fundingLevel?: number` 추가.
-    - 함수 내부에서 `const fundingLevel = clampFundingLevel(input.fundingLevel ?? input.campaign.progress.fundingLevel);` 추가.
-    - `selectEventCardsForMonth(eventCards, month, input.selectedEventCardIds, fundingLevel)`로 변경.
-    - 기존 `applyGameResult`, `calculateNextFundingLevel`, `CampaignGameRecord` 생성 로직은 변경하지 않는다. 월 준비에서 progress funding을 조정하면 결과 기록이 자연스럽게 조정된 값으로 동작한다.
-
-  - `src/components/DeckCounterDashboard.tsx`
-    - 필수 변경은 아니다.
-    - 현재 헤더가 `props.campaign.progress.fundingLevel`을 표시하므로 월 준비 적용 후 조정된 값이 자동 표시된다.
-    - 원한다면 문구를 `자금 지원`으로 명확히 바꿀 수 있으나 요구사항 구현에는 불필요하다.
-
-  - `src/components/CampaignTimelinePanel.tsx`
-    - 필수 변경은 아니다.
-    - 결과 기록은 실제 적용된 fundingLevel을 기존 테이블에 표시한다.
-
-  - `src/services/localCache.ts`
-    - 필수 변경은 아니다.
-    - schemaVersion 4 유지.
-    - `fundingLevelSchema`가 이미 1..10 정수 검증을 수행한다.
-
+    - 다음 월/시도 준비 전 덱을 만드는 내부 헬퍼를 추가한다.
+    - `applyGameResult`가 결과 기록 후 `playerDeck`, `threatDeck`, `turnFlow`를 새 준비 전 상태로 교체하도록 수정한다.
+    - 재시도(`failure`이면서 첫 번째 시도)도 “다시 준비 단계로 넘어간다”는 흐름에 맞춰 같은 월의 준비 전 덱으로 리셋한다.
+    - 다음 월의 이벤트 카드 가용성은 `getDefaultAvailableEventCardsForMonth(nextMonth)` 기준으로 초기화한다.
+  - `src/__tests__/turnFlow.test.ts`
+    - 또는 별도 이벤트 도메인 테스트 파일 대신 이 파일/기존 테스트 구조에 이벤트 사용 후 손패에서 제거되는 테스트를 추가할 수 있다. 다만 더 명확하게는 새 테스트 파일 없이 `campaignProgress.test.ts`와 별개로 `src/__tests__/events.test.ts`를 만들 수도 있다.
   - `src/__tests__/campaignProgress.test.ts`
-    - `createGameDecksForMonth`가 `input.fundingLevel`을 받으면 해당 값으로 이벤트 선택 수를 검증하는 테스트를 추가한다.
-    - 기존 funding mismatch 테스트는 유지하되, 선택적으로 `fundingLevel` input을 명시해 새 경로를 검증한다.
-    - `applyGameResult` 테스트는 자동 추적 유지 검증을 위해 그대로 둔다.
+    - 결과 기록 후 다음 월의 덱이 준비 전 상태(`isCampaignMonthSetupComplete(next) === false`)가 되는 회귀 테스트를 추가한다.
+    - 기존 “advances after success or adequate result” 테스트에 `playerDeck.startingHand.configured === false`, `threatDeck.discardCardIds === []`, `turnFlow === { step: 'player-draw', turnNumber: 1 }` 검증을 추가하거나 별도 테스트로 분리한다.
+    - 재시도 케이스도 기존 상태가 유지되지 않고 같은 월 준비 전 상태로 리셋되는지 검증한다.
+  - `src/__tests__/playerDeck.test.ts` 또는 신규 `src/__tests__/events.test.ts`
+    - `applySupportedEventEffect`가 이벤트 카드 zone을 `player-discard`로 바꾸고 위협 카드 이동도 수행하는지 검증한다.
+    - 이벤트 카드가 손패에 없으면 적용을 거부하는지 검증한다.
 
-  - `src/__tests__/campaignPersistence.test.ts`
-    - 스키마 변경이 없으므로 필수 수정 없음.
-
-- Files to be deleted or moved
+- Files to be deleted or moved:
   - 없음.
 
-- Configuration file updates
-  - 없음.
+- Configuration file updates:
+  - 없음. `package.json`, `tsconfig.json`, `vite.config.ts`, `src/services/localCache.ts` 스키마 버전은 변경하지 않는다.
 
 [Functions]
-월별 덱 생성 함수와 월별 준비 UI 내부 자금 지원 변경 핸들러를 수정/추가한다.
+이벤트 효과 함수와 게임 결과 적용 함수의 상태 전이를 확장하고, 월 준비 전 덱 생성용 내부 헬퍼를 추가한다.
 
-- New functions
-  - `updateFundingLevel(value: number): void`
-    - File path: `src/components/MonthGameSetupWizard.tsx`
-    - Signature: `const updateFundingLevel = (value: number) => { ... }`
-    - Purpose: 사용자가 입력한 이번 달 자금 지원 단계를 1..10 범위로 보정하고, 이벤트 선택 및 시작 손패를 초기화한다.
-    - Required behavior:
-      - `const nextFundingLevel = clampFundingLevel(value);`
-      - `setFundingLevel(nextFundingLevel);`
-      - `setSelectedEventCardIds([]);`
-      - `setStartingHands([]);`
-    - Edge cases:
-      - 빈 number input으로 `NaN`이 들어오면 `clampFundingLevel(NaN)`이 기존 정책상 1을 반환한다. UX상 빈 입력 허용이 필요하면 문자열 state가 더 적합하지만, 현재 코드 패턴상 number 보정 유지가 더 단순하다.
+- New functions:
+  - `createUnconfiguredDecksForMonth` 또는 유사한 이름의 내부 함수
+    - File: `src/domain/campaignProgress.ts`
+    - Suggested signature:
+      ```ts
+      function createUnconfiguredDecksForMonth(input: {
+        month: CampaignMonthId;
+        players: PlayerProfile[];
+        now: string;
+      }): Pick<CampaignState, 'playerDeck' | 'threatDeck' | 'turnFlow'>
+      ```
+    - Purpose: 지정 월의 가용 이벤트 카드 전체와 도시 카드, 악화 카드, 위협 카드를 사용해 “월 준비 전” 상태의 `playerDeck`, `threatDeck`, `turnFlow`를 생성한다.
+    - Behavior:
+      - `playerCardIds`: `cityCards.map(id)` + `getDefaultAvailableEventCardsForMonth(month).map(id)`
+      - `playerCount`: `players.length`가 2~4 범위라는 전제는 기존 캠페인 생성/월 준비 UI가 보장한다. 방어적으로 `Math.min(4, Math.max(2, players.length || 2))`를 사용할 수 있다.
+      - `escalationCardIds`: `escalationCards.map(id)`
+      - `threatDeck`: `createInitialThreatDeckState(threatCards.map(id), now)`
+      - `turnFlow`: `{ step: 'player-draw', turnNumber: 1 }`
+  - 선택 사항: `assertEventCardInHand`
+    - File: `src/domain/events.ts`
+    - Suggested signature:
+      ```ts
+      function assertEventCardInHand(campaign: CampaignState, eventCardId: string): void
+      ```
+    - Purpose: 이벤트 카드 중복 사용 방지와 명확한 에러 메시지 제공.
 
-- Modified functions
-  - `createGameDecksForMonth(input)`
-    - Current file path: `src/domain/campaignProgress.ts`
-    - Current behavior: `input.campaign.progress.fundingLevel` 기준으로 선택 이벤트 수를 검증하고 덱을 만든다.
+- Modified functions:
+  - `applySupportedEventEffect`
+    - Current file: `src/domain/events.ts`
     - Required changes:
-      - input 타입에 `fundingLevel?: number` 추가.
-      - 내부 funding 기준을 `clampFundingLevel(input.fundingLevel ?? input.campaign.progress.fundingLevel)`로 계산.
-      - `selectEventCardsForMonth`에 계산된 funding 기준 전달.
-    - Migration strategy: `fundingLevel`이 없으면 기존 동작을 유지하므로 기존 호출과 테스트 호환성이 유지된다.
-
-  - `MonthGameSetupWizard({ open, campaign, language, onOpenChange, onSetup })`
-    - Current file path: `src/components/MonthGameSetupWizard.tsx`
+      - `movePlayerCard`를 사용하기 위해 import를 `import { movePlayerCard } from './playerDeck';`로 추가한다.
+      - `const timestamp = input.now ?? new Date().toISOString();`를 생성한다.
+      - 이벤트 카드의 `cardStates[eventCardId]?.zone`이 `player-hand`인지 검증한다.
+      - 기존 `threatDeck: moveDiscardedThreatCardToGameEndArea(...)` 처리 결과와 함께 `playerDeck: movePlayerCard(campaign.playerDeck, input.eventCardId, 'player-discard')`를 반환한다.
+      - `updatedAt`은 `timestamp`를 사용한다.
+      - `movePlayerCard`가 현재 `now`를 외부에서 받지 못하므로, timestamp 일관성을 엄격히 맞추려면 `movePlayerCard`에 optional `now?: string`을 추가하는 방안도 가능하다. 더 작은 변경을 선호하면 `movePlayerCard`의 자체 timestamp를 사용하고 campaign `updatedAt`만 `timestamp`로 둔다. 권장안은 아래 수정이다.
+  - `movePlayerCard`
+    - Current file: `src/domain/playerDeck.ts`
+    - Suggested signature change:
+      ```ts
+      export function movePlayerCard(
+        state: PlayerDeckState,
+        cardId: string,
+        zone: PlayerCardZone,
+        ownerPlayerId?: string,
+        now?: string
+      ): PlayerDeckState
+      ```
     - Required changes:
-      - funding state 추가.
-      - 이벤트 요구 수를 funding state 기준으로 계산.
-      - step 0 또는 이벤트 선택 단계 상단에 funding input 추가.
-      - 일반 설정과 다를 때 경고 표시.
-      - funding 변경 시 이벤트 선택과 시작 손패 초기화.
-      - `finish()`에서 `fundingLevel`을 onSetup payload에 포함.
-
-  - `setupCurrentMonth(input)`
-    - Current file path: `src/App.tsx`
+      - 기존 호출부가 없거나 optional 파라미터만 추가하므로 호환성 영향이 작다.
+      - `updatedAt: nowIso(now)`를 사용한다.
+      - 가능하면 `existing` 검증을 추가해 알 수 없는 카드 이동 시 에러를 던진다. 현재 구현은 unknown card도 새로 만들어버릴 수 있으므로 도메인 안전성이 좋아진다.
+  - `applyGameResult`
+    - Current file: `src/domain/campaignProgress.ts`
     - Required changes:
-      - input 타입에 `fundingLevel: number` 추가.
-      - `clampFundingLevel`로 보정.
-      - 덱 생성과 campaign 저장 상태에 동일한 funding 적용.
-      - 기존 players/characters/decks 업데이트 흐름 유지.
+      - 기존 record 생성, rating, funding, nextMonth/nextAttempt 계산은 유지한다.
+      - 반환 직전 `const resetDecks = createUnconfiguredDecksForMonth({ month: nextMonth, players: campaign.players, now });` 또는 characters/player 업데이트 정책에 맞춘 players를 사용한다.
+      - 반환 객체에 `...resetDecks`를 포함해 이전 월의 `playerDeck`, `threatDeck`, `turnFlow`를 교체한다.
+      - `currentMonth`/`fundingLevel` 최상위 호환 필드와 `progress` 내부 필드는 기존처럼 동기화한다.
+      - `characters: input.characters`는 유지한다.
 
-  - `selectEventCardsForMonth(cards, month, selectedEventCardIds, fundingLevel)`
-    - Current file path: `src/domain/campaignProgress.ts`
-    - Required changes: 없음 또는 최소 변경.
-    - Existing behavior already receives explicit `fundingLevel`, so `createGameDecksForMonth`가 새 funding 기준을 넘기면 된다.
-
-  - `getRequiredEventCardCountForFunding(fundingLevel, availableEventCount)`
-    - Current file path: `src/domain/campaignProgress.ts`
-    - Required changes: 없음.
-    - Existing behavior already clamps funding and caps by available event count.
-
-  - `applyGameResult(campaign, input)`
-    - Current file path: `src/domain/campaignProgress.ts`
-    - Required changes: 없음.
-    - Reason: 자동 성공/양호/실패 추적을 유지해야 하며, 월 준비에서 progress funding을 조정하면 이 함수가 조정된 실제 값 기준으로 다음 funding을 계산한다.
-
-- Removed functions
+- Removed functions:
   - 없음.
 
 [Classes]
-클래스 기반 구조가 없으므로 클래스 추가, 수정, 삭제는 없다.
+클래스 기반 구조가 없는 함수형 React/도메인 코드이므로 클래스 추가, 수정, 삭제는 없다.
 
-- New classes
+- New classes:
   - 없음.
 
-- Modified classes
+- Modified classes:
   - 없음.
 
-- Removed classes
+- Removed classes:
   - 없음.
 
 [Dependencies]
-새 패키지나 버전 변경은 필요하지 않다.
+새 패키지나 버전 변경은 필요하지 않으며 기존 TypeScript, Vitest, React 의존성만 사용한다.
 
-현재 프로젝트는 React 18, TypeScript, Vite/Vitest, zod, Tailwind 스타일 유틸리티, 로컬 UI 컴포넌트를 사용한다. 자금 지원 단계 입력과 경고는 기존 `Input`, `NativeSelect`가 아닌 `Input type="number"`, 기존 Tailwind class, 기존 `Button` 흐름으로 충분히 구현할 수 있다. 영속 스키마 변경이 없으므로 zod migration이나 package 변경도 필요하지 않다.
+- New packages:
+  - 없음.
+
+- Version changes:
+  - 없음.
+
+- Integration requirements:
+  - `src/domain/events.ts`가 `src/domain/playerDeck.ts`의 `movePlayerCard`를 추가 import한다.
+  - `src/domain/campaignProgress.ts`는 이미 `createInitialPlayerDeckState`, `createInitialThreatDeckState`, `cityCards`, `eventCards`, `threatCards`, `escalationCards`를 import하고 있으므로 대부분 기존 import를 재사용한다.
+  - 저장 스키마 변경이 없으므로 `src/services/localCache.ts`와 `src/types/sync.ts` 변경은 피한다.
 
 [Testing]
-도메인 테스트로 자금 지원 오버라이드가 이벤트 선택 수와 덱 구성에 반영되는지 검증하고, 기존 자동 funding 추적 테스트가 그대로 통과하는지 확인한다.
+도메인 단위 테스트를 추가/수정하고 `npm test`와 `npm run build`로 회귀를 검증한다.
 
-- Test file requirements
-  - `src/__tests__/campaignProgress.test.ts`
-    - 추가 테스트 1: `creates current-month decks using an overridden setup funding level`
-      - campaign은 기본 fundingLevel 5로 생성한다.
-      - `createGameDecksForMonth` 호출에 `fundingLevel: 4`와 선택 이벤트 4장을 전달한다.
-      - 4장 선택이면 성공해야 한다.
-      - 선택한 이벤트 카드가 `playerDeck.cardStates`에 존재하는지 검증한다.
-    - 추가 테스트 2: `rejects selected event cards that do not match overridden setup funding level`
-      - campaign 기본 fundingLevel이 5여도 `fundingLevel: 4`를 전달한다.
-      - 선택 이벤트 5장을 전달하면 `Expected 4 event card` 오류가 발생해야 한다.
-    - 기존 테스트 유지:
-      - `calculates next funding and flags secret file 14 without revealing content`
-      - `advances after success or adequate result and records game history`
-      - 이 테스트들은 성공/양호/실패에 따른 자동 변화 추적이 유지됨을 보장한다.
+테스트 요구사항:
 
-  - `src/__tests__/campaignPersistence.test.ts`
-    - 새 영속 필드가 없으므로 수정 불필요.
-    - 기존 `validates an envelope with a campaign`, migration 테스트가 그대로 통과해야 한다.
+- 이벤트 카드 사용 후 손패 제거:
+  - Test file: `src/__tests__/events.test.ts` 신규 생성 권장 또는 기존 테스트 파일에 추가.
+  - Setup:
+    - `createInitialCampaign`으로 캠페인을 만든다.
+    - 이벤트 카드 `event-counterintelligence-team`을 `player-hand`로 둔다. 간단히 `campaign.playerDeck.cardStates[eventId] = { cardId: eventId, zone: 'player-hand', ownerPlayerId: 'p1', updatedAt: ... }` 형태로 테스트 상태를 구성할 수 있다.
+    - 위협 덱 discard에 대상 위협 카드를 둔다. 기존 `recordInitialThreatSetup` 또는 직접 상태 구성 중 현재 테스트 패턴에 맞는 더 단순한 방법을 사용한다.
+  - Expectations:
+    - `applySupportedEventEffect(...).threatDeck.gameEndAreaCardIds`에 target threat card가 포함된다.
+    - `threatDeck.discardCardIds`에서 target threat card가 제거된다.
+    - `playerDeck.cardStates[eventId].zone`이 `player-discard`가 된다.
+    - `ownerPlayerId`가 제거되었거나 undefined가 된다.
+  - Negative test:
+    - 이벤트 카드가 `player-deck-unknown` 또는 `player-discard`인 상태에서 적용하면 `/hand/` 또는 한국어가 아닌 명확한 영어 에러 메시지 매칭으로 throw를 검증한다.
 
-- UI testing strategy
-  - 현재 코드베이스는 React Testing Library 기반 UI 테스트가 거의 없고 도메인 테스트 중심이다.
-  - 이번 변경은 핵심 계산을 도메인에 위임하고 UI는 기존 wizard state 연결이므로 필수 UI 테스트는 추가하지 않는다.
-  - 수동 QA 체크:
-    - 월 준비 열기.
-    - 기본 자금 지원 단계가 표시되는지 확인.
-    - 값을 변경하면 경고가 보이는지 확인.
-    - 이벤트 선택 요구 수가 변경된 값에 맞춰 바뀌는지 확인.
-    - 적용 후 대시보드의 funding 표시가 변경되는지 확인.
-    - 결과 기록 후 타임라인에 조정된 funding이 기록되는지 확인.
+- 월 결과 기록 후 다음 달 준비 전 상태:
+  - Test file: `src/__tests__/campaignProgress.test.ts`
+  - Existing test `advances after success or adequate result and records game history` 확장 또는 신규 테스트 추가.
+  - Setup:
+    - `createGameDecksForMonth`로 프롤로그를 준비 완료 상태로 만든 캠페인을 만든다.
+    - 필요하면 `completePlayerDrawStep` 등으로 손패/덱 상태를 바꾼 뒤 `applyGameResult`를 호출한다.
+  - Expectations:
+    - `next.progress.currentMonth === 'january'`
+    - `next.progress.gameRecords[0].month === 'prologue'`
+    - `isCampaignMonthSetupComplete(next) === false`
+    - `next.playerDeck.startingHand.configured === false`
+    - `next.threatDeck.discardCardIds.length === 0`
+    - `next.turnFlow`가 `{ step: 'player-draw', turnNumber: 1 }`
+    - `next.playerDeck.cardStates`에는 1월 기준 사용 가능 이벤트가 포함된다.
+  - Retry test:
+    - 첫 번째 실패 결과 후 `progress.currentMonth`는 같은 월, `currentAttempt`는 2가 되지만 덱은 준비 전 상태로 리셋됨을 검증한다.
 
-- Validation commands
-  - `npm test`
-  - `npm run build`
-  - 커밋 전 `git status --short`
+Validation commands:
+
+1. `npm test`
+2. `npm run build`
+
+커밋 workflow:
+
+- 구현 전 `git status --short | cat`으로 사용자 변경 여부 확인.
+- 변경 파일만 stage.
+- 테스트 통과 후 atomic commit 생성.
+- 권장 커밋 메시지: `Reset month setup after results and discard used events`
 
 [Implementation Order]
-도메인에서 funding override를 먼저 지원한 뒤 앱 상태 반영과 UI 입력을 연결하고 테스트/검증을 수행한다.
+도메인 상태 전이부터 고치고 테스트를 보강한 뒤 전체 검증과 커밋을 수행한다.
 
-1. `src/domain/campaignProgress.ts`의 `createGameDecksForMonth` input에 `fundingLevel?: number`를 추가하고, 이벤트 선택 검증 기준이 `input.fundingLevel ?? campaign.progress.fundingLevel`을 사용하도록 변경한다.
-2. `src/App.tsx`에서 `setupCurrentMonth` input에 `fundingLevel`을 추가하고, 월 준비 적용 시 `campaign.progress.fundingLevel` 및 `campaign.fundingLevel`을 보정된 값으로 업데이트한 뒤 같은 값으로 덱을 생성한다.
-3. `src/components/MonthGameSetupWizard.tsx`에서 fundingLevel state, `updateFundingLevel`, 일반 설정과 다름 경고 문구를 추가하고, 이벤트 카드 요구 수와 안내 문구를 해당 state 기준으로 변경한다.
-4. `src/components/MonthGameSetupWizard.tsx`의 `finish()` payload에 `fundingLevel`을 포함하고, funding 변경 시 `selectedEventCardIds`와 `startingHands`를 초기화해 불일치 상태를 방지한다.
-5. `src/__tests__/campaignProgress.test.ts`에 오버라이드 funding 기준으로 덱 생성/이벤트 선택 수 검증 테스트를 추가한다.
-6. `npm test`를 실행해 도메인 및 persistence 회귀를 검증한다.
-7. `npm run build`를 실행해 TypeScript strict mode와 production build를 검증한다.
-8. `git status --short`로 변경 범위를 확인하고, 구현 단계에서 커밋이 요구되면 관련 파일만 stage하여 atomic commit을 만든다.
+1. `git status --short | cat`으로 작업 트리 상태를 확인하고, 관련 없는 변경이 있으면 사용자에게 확인한다.
+2. `src/domain/playerDeck.ts`의 `movePlayerCard`에 unknown card 검증과 optional `now` 파라미터를 추가한다.
+3. `src/domain/events.ts`의 `applySupportedEventEffect`를 수정해 이벤트 카드가 손패에 있을 때만 효과를 적용하고, 효과 적용 후 이벤트 카드를 `player-discard`로 이동한다.
+4. 이벤트 효과 회귀 테스트를 `src/__tests__/events.test.ts`에 추가하거나 기존 테스트 구조에 맞춰 추가한다.
+5. `src/domain/campaignProgress.ts`에 다음 월/재시도용 준비 전 덱 초기화 헬퍼를 추가하고, `applyGameResult` 반환값에 초기화된 `playerDeck`, `threatDeck`, `turnFlow`를 포함한다.
+6. `src/__tests__/campaignProgress.test.ts`에 결과 기록 후 다음 월/재시도 상태가 “월 준비 필요”로 리셋되는 테스트를 추가하고 기존 진행 테스트 기대값을 필요한 만큼 보강한다.
+7. `npm test`를 실행해 도메인 회귀 테스트를 검증한다.
+8. `npm run build`를 실행해 TypeScript와 production build를 검증한다.
+9. `git status --short | cat`으로 변경 파일을 확인하고 관련 파일만 stage한다.
+10. 테스트가 통과한 상태로 atomic commit을 생성한다.
