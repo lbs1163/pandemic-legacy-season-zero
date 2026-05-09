@@ -32,6 +32,7 @@ interface EditableUnidentifiedSetup {
 const regions: Region[] = ['north-america', 'south-america', 'europe', 'africa', 'asia', 'pacific'];
 const affiliations: Affiliation[] = ['allied', 'neutral', 'soviet'];
 const playerCounts = [2, 3, 4] as const;
+const prologueTemporaryIdentities = ['병원 행정직', '의학학회 운영자', '진료소 기획자', '연구 조교'] as const;
 const regionLabels = { en: { 'north-america': 'North America', 'south-america': 'South America', europe: 'Europe', africa: 'Africa', asia: 'Asia', pacific: 'Pacific' }, ko: { 'north-america': '북미', 'south-america': '남미', europe: '유럽', africa: '아프리카', asia: '아시아', pacific: '태평양' } } as const;
 const affiliationLabels = { en: { allied: 'Allied', neutral: 'Neutral', soviet: 'Soviet' }, ko: { allied: '서방연합', neutral: '중립', soviet: '소련' } } as const;
 
@@ -48,11 +49,12 @@ function makePlayers(language: LanguageCode, count: number, existingPlayers: Pla
   }));
 }
 
-function makeCharacters(players: PlayerProfile[], characterNames: Record<string, string>): CharacterProfile[] {
+function makeCharacters(players: PlayerProfile[], characterNames: Record<string, string>, prologue: boolean): CharacterProfile[] {
   return players.map((player) => ({
     id: `character-${player.id}`,
     playerId: player.id,
-    name: characterNames[player.id]?.trim() || player.name
+    name: prologue ? '임시 신분증' : characterNames[player.id]?.trim() || player.name,
+    roleName: prologue ? characterNames[player.id]?.trim() || prologueTemporaryIdentities[0] : undefined
   }));
 }
 
@@ -81,6 +83,7 @@ const totalSteps = 5;
 
 export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, onSetup }: Props) {
   const defaults = getMonthSetupDefaults(campaign.progress.currentMonth);
+  const isPrologue = campaign.progress.currentMonth === 'prologue';
   const monthSetupComplete = isCampaignMonthSetupComplete(campaign);
   const title = monthSetupComplete
     ? (language === 'ko' ? '현재 월 다시 시작' : 'Restart current month')
@@ -115,9 +118,11 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     return selection.hiddenRemovedCount !== undefined && selection.hiddenRemovedCount > 0 && candidates.length >= selection.hiddenRemovedCount;
   });
   const validPlayers = players.length >= 2 && players.length <= 4 && players.every((player) => player.name.trim().length > 0);
+  const selectedPrologueIdentities = players.map((player) => characterNames[player.id]).filter(Boolean);
+  const validCharacters = !isPrologue || (selectedPrologueIdentities.length === players.length && new Set(selectedPrologueIdentities).size === selectedPrologueIdentities.length);
   const validEventSelection = selectedEventCardIds.length === requiredEventCount;
   const canContinue = step === 0
-    ? validPlayers
+    ? validPlayers && validCharacters
     : step === 1
       ? validEventSelection
       : step === 2
@@ -132,13 +137,16 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     const defaultRequiredEventCount = getRequiredEventCardCountForFunding(campaign.progress.fundingLevel, availableEventCards.length);
     setStep(0);
     setPlayers(monthlyPlayers);
-    setCharacterNames(Object.fromEntries(monthlyPlayers.map((player) => [player.id, campaign.characters?.find((character) => character.playerId === player.id)?.name ?? ''])));
+    setCharacterNames(Object.fromEntries(monthlyPlayers.map((player, index) => {
+      const character = campaign.characters?.find((item) => item.playerId === player.id);
+      return [player.id, isPrologue ? character?.roleName ?? prologueTemporaryIdentities[index] ?? prologueTemporaryIdentities[0] : character?.name ?? ''];
+    })));
     setUnidentifiedSetups(defaultSetups.length ? defaultSetups.map(editableSetupFromSelection) : [editableSetupFromSelection()]);
     setInitialThreatCardIds([]);
     setStartingHands([]);
     setFundingLevel(campaign.progress.fundingLevel);
     setSelectedEventCardIds(availableEventCards.length === defaultRequiredEventCount ? availableEventCards.map((card) => card.id) : []);
-  }, [availableEventCards, campaign.characters, campaign.players, campaign.progress.fundingLevel, defaults, language, open]);
+  }, [availableEventCards, campaign.characters, campaign.players, campaign.progress.fundingLevel, defaults, isPrologue, language, open]);
 
   const updatePlayerCount = (count: number) => {
     setPlayers((current) => makePlayers(language, count, current));
@@ -176,7 +184,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     const trimmedPlayers = players.map((player, index) => ({ ...player, id: `p${index + 1}`, name: player.name.trim() || defaultPlayerName(language, index) }));
     onSetup({
       players: trimmedPlayers,
-      characters: makeCharacters(trimmedPlayers, characterNames),
+      characters: makeCharacters(trimmedPlayers, characterNames, isPrologue),
       startingHands,
       selectedEventCardIds,
       fundingLevel,
@@ -218,10 +226,15 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
           <div className="grid gap-3 md:grid-cols-2">
             {players.map((player) => <div key={player.id} className="grid gap-2 rounded-lg border p-3">
               <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? `플레이어 ${player.id.slice(1)} 이름` : `Player ${player.id.slice(1)} name`}</span><Input value={player.name} onChange={(event) => updatePlayerName(player.id, event.target.value)} /></label>
-              <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '캐릭터 이름' : 'Character name'}</span><Input value={characterNames[player.id] ?? ''} placeholder={player.name} onChange={(event) => setCharacterNames((current) => ({ ...current, [player.id]: event.target.value }))} /></label>
+              {isPrologue ? (
+                <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '임시 신분증' : 'Temporary identity'}</span><NativeSelect value={characterNames[player.id] ?? prologueTemporaryIdentities[0]} onChange={(event) => setCharacterNames((current) => ({ ...current, [player.id]: event.target.value }))}>{prologueTemporaryIdentities.map((identity) => <option key={identity} value={identity}>{identity}</option>)}</NativeSelect></label>
+              ) : (
+                <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '캐릭터 이름' : 'Character name'}</span><Input value={characterNames[player.id] ?? ''} placeholder={player.name} onChange={(event) => setCharacterNames((current) => ({ ...current, [player.id]: event.target.value }))} /></label>
+              )}
             </div>)}
           </div>
           {!validPlayers ? <p className="text-sm text-destructive">{language === 'ko' ? '모든 플레이어 이름을 입력하세요.' : 'Enter every player name.'}</p> : null}
+          {!validCharacters ? <p className="text-sm text-destructive">{language === 'ko' ? '프롤로그 임시 신분증은 플레이어마다 서로 다르게 선택하세요.' : 'Choose a different temporary identity for each prologue player.'}</p> : null}
         </section> : null}
         {step === 1 ? <section className="space-y-4">
           <div>

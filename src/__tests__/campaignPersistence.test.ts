@@ -153,6 +153,84 @@ describe('campaign persistence validation', () => {
     expect(migrated.campaigns[0].playerDeck.unidentifiedTargetCities).toEqual([singleSetup]);
   });
 
+  it('migrates a v3 in-progress campaign with characters and legacy unidentified target city setup', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Legacy campaign',
+      language: 'ko',
+      players: [
+        { id: 'p1', name: 'Player 1' },
+        { id: 'p2', name: 'Player 2' },
+        { id: 'p3', name: 'Player 3' },
+        { id: 'p4', name: 'Player 4' }
+      ],
+      fundingLevel: 2
+    });
+    const singleSetup = {
+      configured: true,
+      filter: { type: 'region' as const, value: 'asia' as const },
+      candidateCardIds: ['calcutta', 'delhi', 'hanoi'],
+      hiddenRemovedCount: 1
+    };
+    const legacyEnvelope = {
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 3 as const,
+      activeCampaignId: campaign.campaignId,
+      campaigns: [{
+        ...campaign,
+        currentMonth: 'february' as const,
+        fundingLevel: 2,
+        characters: [
+          { id: 'character-p1', playerId: 'p1', name: 'Character Alpha' },
+          { id: 'character-p2', playerId: 'p2', name: 'Character Beta' },
+          { id: 'character-p3', playerId: 'p3', name: 'Character Gamma' },
+          { id: 'character-p4', playerId: 'p4', name: 'Character Delta' }
+        ],
+        progress: {
+          ...campaign.progress,
+          currentMonth: 'february' as const,
+          fundingLevel: 2,
+          gameRecords: [
+            {
+              id: 'campaign-prologue-attempt-1',
+              month: 'prologue' as const,
+              attempt: 1,
+              fundingLevel: 4,
+              players: [
+                { id: 'p1', name: 'Player 1' },
+                { id: 'p2', name: 'Player 2' },
+                { id: 'p3', name: 'Player 3' },
+                { id: 'p4', name: 'Player 4' }
+              ],
+              characters: [
+                { id: 'prologue-identity-p1', playerId: 'p1', name: '임시 신분증', roleName: 'Identity Alpha' },
+                { id: 'prologue-identity-p2', playerId: 'p2', name: '임시 신분증', roleName: 'Identity Beta' },
+                { id: 'prologue-identity-p3', playerId: 'p3', name: '임시 신분증', roleName: 'Identity Gamma' },
+                { id: 'prologue-identity-p4', playerId: 'p4', name: '임시 신분증', roleName: 'Identity Delta' }
+              ],
+              missionResults: [{ missionId: 'prologue-mission-1', succeeded: true }],
+              performanceRating: 'success' as const,
+              createdAt: campaign.createdAt,
+              updatedAt: campaign.updatedAt
+            }
+          ]
+        },
+        playerDeck: {
+          ...campaign.playerDeck,
+          unidentifiedTargetCity: singleSetup,
+          unidentifiedTargetCities: undefined
+        }
+      }]
+    };
+
+    const migrated = validatePersistedEnvelope(legacyEnvelope);
+
+    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.settings.language).toBe('ko');
+    expect(migrated.campaigns[0].playerDeck.unidentifiedTargetCities).toEqual([singleSetup]);
+    expect(migrated.campaigns[0].characters?.map((character) => character.name)).toEqual(['Character Alpha', 'Character Beta', 'Character Gamma', 'Character Delta']);
+    expect(migrated.campaigns[0].progress.gameRecords[0].characters.map((character) => character.roleName)).toEqual(['Identity Alpha', 'Identity Beta', 'Identity Gamma', 'Identity Delta']);
+  });
+
   it('migrates active campaign language into global settings', () => {
     const englishCampaign = createInitialCampaign({
       campaignName: 'English campaign',

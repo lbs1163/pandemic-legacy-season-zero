@@ -3,7 +3,7 @@ import { getMonthSetupDefaults } from '../domain/campaignProgress';
 import { monthLabels } from '../data/campaign/months';
 import { formatLocalDateInputValue } from '../lib/date';
 import type { LanguageCode } from '../types/cards';
-import type { CampaignState, MissionResult } from '../types/campaign';
+import type { CampaignState, CharacterProfile, MissionResult } from '../types/campaign';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
@@ -14,6 +14,10 @@ interface Props {
   language: LanguageCode;
   onOpenChange: (open: boolean) => void;
   onSubmit: (input: { playedAt?: string; missionResults: MissionResult[] }) => void;
+}
+
+function formatCharacter(character: CharacterProfile) {
+  return character.roleName ? `${character.name}(${character.roleName})` : character.name;
 }
 
 export function GameResultDialog({ open, campaign, language, onOpenChange, onSubmit }: Props) {
@@ -41,7 +45,7 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
         </DialogHeader>
         <div className="space-y-4">
           <label className="block space-y-2"><span className="text-sm font-medium">{language === 'ko' ? '플레이 날짜' : 'Play date'}</span><Input type="date" value={playedAt} onChange={(event) => setPlayedAt(event.target.value)} /></label>
-          {campaign.characters?.length ? <div className="rounded-lg border p-3 text-sm"><div className="font-semibold">{language === 'ko' ? '현재 캐릭터' : 'Current characters'}</div><p className="mt-1 text-muted-foreground">{campaign.characters.map((character) => character.name).join(', ')}</p></div> : null}
+          {campaign.characters?.length ? <div className="rounded-lg border p-3 text-sm"><div className="font-semibold">{language === 'ko' ? '현재 캐릭터' : 'Current characters'}</div><p className="mt-1 text-muted-foreground">{campaign.characters.map(formatCharacter).join(', ')}</p></div> : null}
           <div className="space-y-2">
             <h3 className="font-semibold">{language === 'ko' ? '임무 결과' : 'Mission results'}</h3>
             {defaults.missions.length ? defaults.missions.map((mission) => {
