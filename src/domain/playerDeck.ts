@@ -277,13 +277,17 @@ export function movePlayerCard(
   state: PlayerDeckState,
   cardId: string,
   zone: PlayerCardZone,
-  ownerPlayerId?: string
+  ownerPlayerId?: string,
+  now?: string
 ): PlayerDeckState {
+  const existing = state.cardStates[cardId];
+  if (!existing) throw new Error(`Unknown player card: ${cardId}`);
+
   return {
     ...state,
     cardStates: {
       ...state.cardStates,
-      [cardId]: { cardId, zone, ownerPlayerId, updatedAt: nowIso() }
+      [cardId]: { cardId, zone, ownerPlayerId, updatedAt: nowIso(now) }
     }
   };
 }

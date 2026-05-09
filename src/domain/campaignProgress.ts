@@ -133,6 +133,26 @@ export function createGameDecksForMonth(input: {
   };
 }
 
+function createUnconfiguredDecksForMonth(input: {
+  month: CampaignMonthId;
+  players: PlayerProfile[];
+  now: string;
+}): Pick<CampaignState, 'playerDeck' | 'threatDeck' | 'turnFlow'> {
+  const availableEvents = getDefaultAvailableEventCardsForMonth(input.month);
+  const playerCount = Math.min(4, Math.max(2, input.players.length || 2));
+
+  return {
+    playerDeck: createInitialPlayerDeckState({
+      playerCardIds: [...cityCards.map((card) => card.id), ...availableEvents.map((card) => card.id)],
+      playerCount,
+      escalationCardIds: escalationCards.map((card) => card.id),
+      now: input.now
+    }),
+    threatDeck: createInitialThreatDeckState(threatCards.map((card) => card.id), input.now),
+    turnFlow: { step: 'player-draw', turnNumber: 1 }
+  };
+}
+
 export function applyGameResult(campaign: CampaignState, input: {
   playedAt?: string;
   characters: CharacterProfile[];
@@ -162,9 +182,15 @@ export function applyGameResult(campaign: CampaignState, input: {
   const nonSpoilerWarnings = nextFunding.secretFile14Required && !progress.nonSpoilerWarnings.includes(secretFile14Warning)
     ? [...progress.nonSpoilerWarnings, secretFile14Warning]
     : progress.nonSpoilerWarnings;
+  const resetDecks = createUnconfiguredDecksForMonth({
+    month: nextMonth,
+    players: campaign.players,
+    now
+  });
 
   return {
     ...campaign,
+    ...resetDecks,
     characters: input.characters,
     currentMonth: nextMonth,
     fundingLevel: nextFunding.fundingLevel,

@@ -39,8 +39,21 @@ describe('campaign progress domain', () => {
       language: 'ko',
       players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
     });
+    const preparedCampaign = {
+      ...campaign,
+      ...createGameDecksForMonth({
+        campaign,
+        players: campaign.players,
+        startingHands: [
+          ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+          ...eventCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p2' }))
+        ],
+        initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+      })
+    };
+    expect(isCampaignMonthSetupComplete(preparedCampaign)).toBe(true);
 
-    const next = applyGameResult(campaign, {
+    const next = applyGameResult(preparedCampaign, {
       playedAt: '2026-05-09',
       characters: [{ id: 'c1', name: 'Agent', playerId: 'p1' }],
       missionResults: [{ missionId: 'm1', succeeded: true }, { missionId: 'm2', succeeded: true }],
@@ -57,6 +70,12 @@ describe('campaign progress domain', () => {
       playedAt: '2026-05-09',
       performanceRating: 'success'
     });
+    expect(isCampaignMonthSetupComplete(next)).toBe(false);
+    expect(next.playerDeck.startingHand.configured).toBe(false);
+    expect(next.playerDeck.cardStates['event-counterintelligence-team']).toBeDefined();
+    expect(next.threatDeck.discardCardIds).toEqual([]);
+    expect(next.threatDeck.gameEndAreaCardIds).toEqual([]);
+    expect(next.turnFlow).toEqual({ step: 'player-draw', turnNumber: 1 });
   });
 
   it('retries after first failure and advances after second failure', () => {
@@ -67,13 +86,31 @@ describe('campaign progress domain', () => {
     });
     const failedMissions = [{ missionId: 'm1', succeeded: false }, { missionId: 'm2', succeeded: false }];
 
-    const retry = applyGameResult(campaign, { characters: [], missionResults: failedMissions, now: '2026-05-09T00:00:00.000Z' });
+    const preparedCampaign = {
+      ...campaign,
+      ...createGameDecksForMonth({
+        campaign,
+        players: campaign.players,
+        startingHands: [
+          ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+          ...eventCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p2' }))
+        ],
+        initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+      })
+    };
+
+    const retry = applyGameResult(preparedCampaign, { characters: [], missionResults: failedMissions, now: '2026-05-09T00:00:00.000Z' });
     const advance = applyGameResult(retry, { characters: [], missionResults: failedMissions, now: '2026-05-10T00:00:00.000Z' });
 
     expect(retry.progress.currentMonth).toBe('prologue');
     expect(retry.progress.currentAttempt).toBe(2);
+    expect(isCampaignMonthSetupComplete(retry)).toBe(false);
+    expect(retry.playerDeck.startingHand.configured).toBe(false);
+    expect(retry.threatDeck.discardCardIds).toEqual([]);
+    expect(retry.turnFlow).toEqual({ step: 'player-draw', turnNumber: 1 });
     expect(advance.progress.currentMonth).toBe('january');
     expect(advance.progress.currentAttempt).toBe(1);
+    expect(isCampaignMonthSetupComplete(advance)).toBe(false);
     expect(advance.progress.gameRecords).toHaveLength(2);
   });
 
