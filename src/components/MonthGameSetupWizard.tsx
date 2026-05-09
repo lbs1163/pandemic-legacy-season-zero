@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { cityCards } from '../data/cards/cities';
 import { threatCards } from '../data/cards/threats';
 import { monthLabels } from '../data/campaign/months';
-import { getDefaultAvailableEventCardsForMonth, getMonthSetupDefaults, getRequiredEventCardCountForFunding, isCampaignMonthSetupComplete } from '../domain/campaignProgress';
+import { clampFundingLevel, getDefaultAvailableEventCardsForMonth, getMonthSetupDefaults, getRequiredEventCardCountForFunding, isCampaignMonthSetupComplete } from '../domain/campaignProgress';
 import type { Affiliation, LanguageCode, Region } from '../types/cards';
 import type { CampaignState, CharacterProfile, PlayerProfile } from '../types/campaign';
 import type { StartingHandAssignment, UnidentifiedTargetCityFilter, UnidentifiedTargetCitySelection } from '../types/deck';
@@ -18,7 +18,7 @@ interface Props {
   campaign: CampaignState;
   language: LanguageCode;
   onOpenChange: (open: boolean) => void;
-  onSetup: (input: { players: PlayerProfile[]; characters: CharacterProfile[]; startingHands: StartingHandAssignment[]; selectedEventCardIds: string[]; unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[]; initialThreatCardIds: string[] }) => void;
+  onSetup: (input: { players: PlayerProfile[]; characters: CharacterProfile[]; startingHands: StartingHandAssignment[]; selectedEventCardIds: string[]; fundingLevel: number; unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[]; initialThreatCardIds: string[] }) => void;
 }
 
 interface EditableUnidentifiedSetup {
@@ -91,12 +91,15 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
   const [initialThreatCardIds, setInitialThreatCardIds] = useState<string[]>([]);
   const [startingHands, setStartingHands] = useState<StartingHandAssignment[]>([]);
   const [selectedEventCardIds, setSelectedEventCardIds] = useState<string[]>([]);
+  const [fundingLevel, setFundingLevel] = useState<number>(campaign.progress.fundingLevel);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [characterNames, setCharacterNames] = useState<Record<string, string>>({});
   const requiredPerPlayer = startingHandSizeForPlayers(players.length);
   const requiredTotal = requiredPerPlayer * players.length;
+  const defaultFundingLevel = campaign.progress.fundingLevel;
+  const fundingLevelChanged = fundingLevel !== defaultFundingLevel;
   const availableEventCards = useMemo(() => getDefaultAvailableEventCardsForMonth(campaign.progress.currentMonth), [campaign.progress.currentMonth]);
-  const requiredEventCount = getRequiredEventCardCountForFunding(campaign.progress.fundingLevel, availableEventCards.length);
+  const requiredEventCount = getRequiredEventCardCountForFunding(fundingLevel, availableEventCards.length);
   const selectedEventCards = useMemo(
     () => availableEventCards.filter((card) => selectedEventCardIds.includes(card.id)),
     [availableEventCards, selectedEventCardIds]
@@ -126,14 +129,16 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
   useEffect(() => {
     if (!open) return;
     const monthlyPlayers = makePlayers(language, Math.min(4, Math.max(2, campaign.players.length || 2)), campaign.players);
+    const defaultRequiredEventCount = getRequiredEventCardCountForFunding(campaign.progress.fundingLevel, availableEventCards.length);
     setStep(0);
     setPlayers(monthlyPlayers);
     setCharacterNames(Object.fromEntries(monthlyPlayers.map((player) => [player.id, campaign.characters?.find((character) => character.playerId === player.id)?.name ?? ''])));
     setUnidentifiedSetups(defaultSetups.length ? defaultSetups.map(editableSetupFromSelection) : [editableSetupFromSelection()]);
     setInitialThreatCardIds([]);
     setStartingHands([]);
-    setSelectedEventCardIds(availableEventCards.length === requiredEventCount ? availableEventCards.map((card) => card.id) : []);
-  }, [availableEventCards, campaign.characters, campaign.players, defaults, language, open, requiredEventCount]);
+    setFundingLevel(campaign.progress.fundingLevel);
+    setSelectedEventCardIds(availableEventCards.length === defaultRequiredEventCount ? availableEventCards.map((card) => card.id) : []);
+  }, [availableEventCards, campaign.characters, campaign.players, campaign.progress.fundingLevel, defaults, language, open]);
 
   const updatePlayerCount = (count: number) => {
     setPlayers((current) => makePlayers(language, count, current));
@@ -142,6 +147,13 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
 
   const updatePlayerName = (playerId: string, name: string) => {
     setPlayers((current) => current.map((player) => player.id === playerId ? { ...player, name } : player));
+  };
+
+  const updateFundingLevel = (value: number) => {
+    const nextFundingLevel = clampFundingLevel(value);
+    setFundingLevel(nextFundingLevel);
+    setSelectedEventCardIds([]);
+    setStartingHands([]);
   };
 
   const updateSetup = (index: number, updater: (setup: EditableUnidentifiedSetup) => EditableUnidentifiedSetup) => {
@@ -167,6 +179,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
       characters: makeCharacters(trimmedPlayers, characterNames),
       startingHands,
       selectedEventCardIds,
+      fundingLevel,
       unidentifiedTargetCitySelections: activeSelections.length ? activeSelections : undefined,
       initialThreatCardIds
     });
@@ -188,6 +201,20 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
               {playerCounts.map((count) => <option key={count} value={count}>{count}</option>)}
             </NativeSelect>
           </label>
+          <label className="block max-w-xs space-y-1">
+            <span className="text-xs text-muted-foreground">{language === 'ko' ? '이번 달 자금 지원 단계' : 'Funding level for this month'}</span>
+            <Input type="number" min={1} max={10} value={fundingLevel} onChange={(event) => updateFundingLevel(Number(event.target.value))} />
+          </label>
+          <p className="text-sm text-muted-foreground">
+            {language === 'ko'
+              ? `게임 결과에 따른 기본값은 ${defaultFundingLevel}입니다. 룰북 보정 지침에 따라 이번 달에 사용할 값을 직접 조정할 수 있습니다.`
+              : `The result-based default is ${defaultFundingLevel}. You may adjust the value for this month if applying the rulebook correction guidance.`}
+          </p>
+          {fundingLevelChanged ? <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+            {language === 'ko'
+              ? '일반 설정과 다른 자금 지원 단계입니다. 룰북의 실수 보정 지침처럼 의도적으로 조정하는 경우에만 계속하세요.'
+              : 'This funding level differs from the normal result-based setting. Continue only if you are intentionally applying the rulebook correction guidance.'}
+          </p> : null}
           <div className="grid gap-3 md:grid-cols-2">
             {players.map((player) => <div key={player.id} className="grid gap-2 rounded-lg border p-3">
               <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? `플레이어 ${player.id.slice(1)} 이름` : `Player ${player.id.slice(1)} name`}</span><Input value={player.name} onChange={(event) => updatePlayerName(player.id, event.target.value)} /></label>
@@ -201,8 +228,8 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
             <h3 className="font-semibold">{language === 'ko' ? '이벤트 카드 선택' : 'Event card selection'}</h3>
             <p className="text-sm text-muted-foreground">
               {language === 'ko'
-                ? `현재 자금 지원 단계는 ${campaign.progress.fundingLevel}입니다. 이번 달 플레이어 덱에 넣을 이벤트 카드 ${requiredEventCount}장을 선택하세요.`
-                : `Current funding level is ${campaign.progress.fundingLevel}. Choose ${requiredEventCount} event card(s) to include in this month's player deck.`}
+                ? `이번 달 자금 지원 단계는 ${fundingLevel}입니다.${fundingLevelChanged ? ` 일반 설정: ${defaultFundingLevel}.` : ''} 이번 달 플레이어 덱에 넣을 이벤트 카드 ${requiredEventCount}장을 선택하세요.`
+                : `Funding level for this month is ${fundingLevel}.${fundingLevelChanged ? ` Normal setting: ${defaultFundingLevel}.` : ''} Choose ${requiredEventCount} event card(s) to include in this month's player deck.`}
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-2">

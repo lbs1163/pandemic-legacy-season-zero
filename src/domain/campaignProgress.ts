@@ -108,11 +108,13 @@ export function createGameDecksForMonth(input: {
   unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
   initialThreatCardIds: string[];
   selectedEventCardIds?: string[];
+  fundingLevel?: number;
   now?: string;
 }): Pick<CampaignState, 'playerDeck' | 'threatDeck' | 'turnFlow'> {
   const month = input.campaign.progress.currentMonth;
   const now = input.now ?? new Date().toISOString();
-  const selectedEvents = selectEventCardsForMonth(eventCards, month, input.selectedEventCardIds, input.campaign.progress.fundingLevel);
+  const fundingLevel = clampFundingLevel(input.fundingLevel ?? input.campaign.progress.fundingLevel);
+  const selectedEvents = selectEventCardsForMonth(eventCards, month, input.selectedEventCardIds, fundingLevel);
   const initialPlayerDeck = createInitialPlayerDeckState({
     playerCardIds: [...cityCards.map((card) => card.id), ...selectedEvents.map((card) => card.id)],
     playerCount: input.players.length,

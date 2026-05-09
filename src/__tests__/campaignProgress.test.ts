@@ -157,6 +157,49 @@ describe('campaign progress domain', () => {
     }
   });
 
+  it('creates current-month decks using an overridden setup funding level', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Funding override',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const selectedEventCardIds = eventCards.slice(0, 4).map((card) => card.id);
+    const startingHands = [
+      ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign,
+      players: campaign.players,
+      startingHands,
+      selectedEventCardIds,
+      fundingLevel: 4,
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    for (const cardId of selectedEventCardIds) {
+      expect(decks.playerDeck.cardStates[cardId]).toBeDefined();
+    }
+  });
+
+  it('rejects selected event cards that do not match overridden setup funding level', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Funding override mismatch',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+
+    expect(() => createGameDecksForMonth({
+      campaign,
+      players: campaign.players,
+      startingHands: cityCards.slice(0, 8).map((card, index) => ({ cardId: card.id, playerId: index < 4 ? 'p1' : 'p2' })),
+      selectedEventCardIds: eventCards.slice(0, 5).map((card) => card.id),
+      fundingLevel: 4,
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    })).toThrow(/Expected 4 event card/);
+  });
+
   it('rejects selected event cards that do not match funding count', () => {
     const campaign = createInitialCampaign({
       campaignName: 'Funding mismatch',

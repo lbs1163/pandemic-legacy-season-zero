@@ -11,7 +11,7 @@ import { eventCards } from './data/cards/events';
 import { baseRules } from './data/rules/baseRules';
 import { legacyRules } from './data/rules/legacyRules';
 import { createInitialCampaign } from './domain/createInitialCampaign';
-import { applyGameResult, createGameDecksForMonth } from './domain/campaignProgress';
+import { applyGameResult, clampFundingLevel, createGameDecksForMonth } from './domain/campaignProgress';
 import { applySupportedEventEffect } from './domain/events';
 import { configureStartingHands } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
@@ -171,22 +171,26 @@ export function App() {
     characters: CharacterProfile[];
     startingHands: StartingHandAssignment[];
     selectedEventCardIds: string[];
+    fundingLevel: number;
     unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
     /** @deprecated Use unidentifiedTargetCitySelection instead. */
     unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
     initialThreatCardIds: string[];
   }) {
     updateActiveCampaign((campaign) => {
+      const fundingLevel = clampFundingLevel(input.fundingLevel);
+      const campaignForSetup = { ...campaign, fundingLevel, progress: { ...campaign.progress, fundingLevel } };
       const decks = createGameDecksForMonth({
-        campaign,
+        campaign: campaignForSetup,
         players: input.players,
         startingHands: input.startingHands,
         selectedEventCardIds: input.selectedEventCardIds,
+        fundingLevel,
         unidentifiedTargetCitySelections: input.unidentifiedTargetCitySelections,
         unidentifiedTargetCitySelection: input.unidentifiedTargetCitySelection,
         initialThreatCardIds: input.initialThreatCardIds
       });
-      return updateCampaignTimestamp({ ...campaign, players: input.players, characters: input.characters, ...decks });
+      return updateCampaignTimestamp({ ...campaignForSetup, players: input.players, characters: input.characters, ...decks });
     });
   }
 
