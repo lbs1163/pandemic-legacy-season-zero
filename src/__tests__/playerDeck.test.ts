@@ -5,6 +5,7 @@ import {
   createInitialPlayerDeckState,
   getPlayerDeckRemaining,
   getUnidentifiedTargetCityCandidates,
+  prepareUnidentifiedTargetCities,
   prepareUnidentifiedTargetCity,
   recordPlayerCardDraw,
   resolveEscalationDraw
@@ -146,6 +147,40 @@ describe('player deck domain', () => {
     expect(next.unidentifiedTargetCity?.candidateCardIds).toHaveLength(6);
     expect(next.unidentifiedTargetCity?.hiddenRemovedCount).toBe(3);
     expect(getPlayerDeckRemaining(next)).toBe(beforeRemaining - 3);
+  });
+
+  it('records multiple unidentified target city setups for the same game', () => {
+    const northAmericaCities: CityCard[] = Array.from({ length: 4 }, (_, index) => ({
+      id: `north-america-${index + 1}`,
+      kind: 'city',
+      name: { en: `North America ${index + 1}`, ko: `북미 ${index + 1}` },
+      region: 'north-america',
+      affiliation: 'allied'
+    }));
+    const africaCities: CityCard[] = Array.from({ length: 6 }, (_, index) => ({
+      id: `africa-test-${index + 1}`,
+      kind: 'city',
+      name: { en: `Africa ${index + 1}`, ko: `아프리카 ${index + 1}` },
+      region: 'africa',
+      affiliation: 'neutral'
+    }));
+    const cities = [...northAmericaCities, ...africaCities];
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...cities.map((city) => city.id), ...Array.from({ length: 12 }, (_, index) => `event-multi-${index + 1}`)],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+    const beforeRemaining = getPlayerDeckRemaining(state);
+
+    const next = prepareUnidentifiedTargetCities(state, cities, [
+      { filter: { type: 'region', value: 'africa' }, hiddenRemovedCount: 3 },
+      { filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 1 }
+    ]);
+
+    expect(next.unidentifiedTargetCities).toHaveLength(2);
+    expect(next.unidentifiedTargetCities?.[0].candidateCardIds).toHaveLength(6);
+    expect(next.unidentifiedTargetCities?.[1].candidateCardIds).toHaveLength(4);
+    expect(getPlayerDeckRemaining(next)).toBe(beforeRemaining - 4);
   });
 
   it('rejects unidentified target city hidden removal counts above available candidates', () => {

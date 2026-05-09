@@ -156,8 +156,9 @@ export function calculatePlayerDeckComposition(
     if (cardState.zone === 'player-removed') removedCount += 1;
   });
 
-  const unidentifiedTargetCity = state.unidentifiedTargetCity;
-  if (unidentifiedTargetCity?.configured && unidentifiedTargetCity.filter && unidentifiedTargetCity.hiddenRemovedCount) {
+  const unidentifiedTargetCities = state.unidentifiedTargetCities ?? (state.unidentifiedTargetCity ? [state.unidentifiedTargetCity] : []);
+  for (const unidentifiedTargetCity of unidentifiedTargetCities) {
+    if (!unidentifiedTargetCity.configured || !unidentifiedTargetCity.filter || !unidentifiedTargetCity.hiddenRemovedCount) continue;
     const hiddenRemovedCount = unidentifiedTargetCity.hiddenRemovedCount;
     remainingCities = Math.max(0, remainingCities - hiddenRemovedCount);
     removedCount += hiddenRemovedCount;

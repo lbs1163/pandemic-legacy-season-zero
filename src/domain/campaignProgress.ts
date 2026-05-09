@@ -14,7 +14,7 @@ import type {
 } from '../types/campaign';
 import type { StartingHandAssignment, UnidentifiedTargetCitySelection } from '../types/deck';
 import type { MonthSetupDefaults } from '../types/campaignSetup';
-import { createInitialPlayerDeckState, configureStartingHands, prepareUnidentifiedTargetCity } from './playerDeck';
+import { createInitialPlayerDeckState, configureStartingHands, prepareUnidentifiedTargetCities } from './playerDeck';
 import { createInitialThreatDeckState, recordInitialThreatSetup } from './threatDeck';
 
 const secretFile14Warning = 'Funding would exceed 10. Secret File 14 may be required, but this app does not reveal or implement it yet.';
@@ -70,6 +70,8 @@ export function createGameDecksForMonth(input: {
   campaign: CampaignState;
   players: PlayerProfile[];
   startingHands: StartingHandAssignment[];
+  unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
+  /** @deprecated Use unidentifiedTargetCitySelections instead. */
   unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
   initialThreatCardIds: string[];
   now?: string;
@@ -83,8 +85,9 @@ export function createGameDecksForMonth(input: {
     escalationCardIds: escalationCards.map((card) => card.id),
     now
   });
-  const withUnidentifiedTarget = input.unidentifiedTargetCitySelection
-    ? prepareUnidentifiedTargetCity(initialPlayerDeck, cityCards, input.unidentifiedTargetCitySelection)
+  const selections = input.unidentifiedTargetCitySelections ?? (input.unidentifiedTargetCitySelection ? [input.unidentifiedTargetCitySelection] : []);
+  const withUnidentifiedTarget = selections.length > 0
+    ? prepareUnidentifiedTargetCities(initialPlayerDeck, cityCards, selections)
     : initialPlayerDeck;
 
   return {

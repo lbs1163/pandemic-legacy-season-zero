@@ -20,6 +20,17 @@ const cardInstanceSchema = z.object({
   updatedAt: z.string()
 });
 
+const unidentifiedTargetCitySetupSchema = z.object({
+  configured: z.boolean(),
+  filter: z.union([
+    z.object({ type: z.literal('region'), value: z.union([z.literal('north-america'), z.literal('south-america'), z.literal('europe'), z.literal('africa'), z.literal('asia'), z.literal('pacific')]) }),
+    z.object({ type: z.literal('affiliation'), value: z.union([z.literal('allied'), z.literal('neutral'), z.literal('soviet')]) })
+  ]).optional(),
+  candidateCardIds: z.array(z.string()),
+  hiddenRemovedCount: z.number().int().nonnegative().optional(),
+  removedCardId: z.string().optional()
+});
+
 const playerDeckSchema = z.object({
   totalInitialCount: z.number().int().nonnegative(),
   drawCountPerTurn: z.literal(2),
@@ -37,16 +48,15 @@ const playerDeckSchema = z.object({
     requiredTotal: z.number().int().nonnegative(),
     configured: z.boolean()
   }),
-  unidentifiedTargetCity: z.object({
-    configured: z.boolean(),
-    filter: z.union([
-      z.object({ type: z.literal('region'), value: z.union([z.literal('north-america'), z.literal('south-america'), z.literal('europe'), z.literal('africa'), z.literal('asia'), z.literal('pacific')]) }),
-      z.object({ type: z.literal('affiliation'), value: z.union([z.literal('allied'), z.literal('neutral'), z.literal('soviet')]) })
-    ]).optional(),
-    candidateCardIds: z.array(z.string()),
-    hiddenRemovedCount: z.number().int().nonnegative().optional(),
-    removedCardId: z.string().optional()
-  }).optional()
+  unidentifiedTargetCities: z.array(unidentifiedTargetCitySetupSchema).optional(),
+  unidentifiedTargetCity: unidentifiedTargetCitySetupSchema.optional()
+}).transform((state) => {
+  const unidentifiedTargetCities = state.unidentifiedTargetCities ?? (state.unidentifiedTargetCity ? [state.unidentifiedTargetCity] : []);
+  return {
+    ...state,
+    unidentifiedTargetCities,
+    unidentifiedTargetCity: unidentifiedTargetCities[0] ?? state.unidentifiedTargetCity
+  };
 });
 
 const threatDeckSchema = z.object({
@@ -142,7 +152,7 @@ const campaignV2Schema = z.object({
 
 export const persistedEnvelopeSchema = z.object({
   appId: z.literal('pandemic-legacy-season-zero-deck-counter'),
-  schemaVersion: z.literal(3),
+  schemaVersion: z.literal(4),
   activeCampaignId: z.string().optional(),
   campaigns: z.array(campaignV2Schema)
 });
@@ -225,14 +235,37 @@ function migrateEnvelopeToV3(value: unknown): unknown {
   };
 }
 
+function migrateEnvelopeToV4(value: unknown): unknown {
+  const envelope = migrateEnvelopeToV3(value) as { appId?: unknown; schemaVersion?: unknown; campaigns?: unknown[]; activeCampaignId?: unknown };
+  if (envelope?.appId !== 'pandemic-legacy-season-zero-deck-counter') return value;
+  if (envelope.schemaVersion === 4) return envelope;
+  if (envelope.schemaVersion !== 3) return envelope;
+  return {
+    ...envelope,
+    schemaVersion: 4,
+    campaigns: Array.isArray(envelope.campaigns) ? envelope.campaigns.map((campaign) => {
+      const current = campaign as { playerDeck?: { unidentifiedTargetCity?: unknown; unidentifiedTargetCities?: unknown } };
+      const playerDeck = current.playerDeck;
+      if (!playerDeck || playerDeck.unidentifiedTargetCities) return campaign;
+      return {
+        ...current,
+        playerDeck: {
+          ...playerDeck,
+          unidentifiedTargetCities: playerDeck.unidentifiedTargetCity ? [playerDeck.unidentifiedTargetCity] : []
+        }
+      };
+    }) : []
+  };
+}
+
 export function validatePersistedEnvelope(value: unknown): PersistedEnvelope {
-  return persistedEnvelopeSchema.parse(migrateEnvelopeToV3(value)) as PersistedEnvelope;
+  return persistedEnvelopeSchema.parse(migrateEnvelopeToV4(value)) as PersistedEnvelope;
 }
 
 export function createEmptyEnvelope(): PersistedEnvelope {
   return {
     appId: 'pandemic-legacy-season-zero-deck-counter',
-    schemaVersion: 3,
+    schemaVersion: 4,
     campaigns: []
   };
 }

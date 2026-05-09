@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
 import { threatCards } from '../data/cards/threats';
-import type { Affiliation, LanguageCode, Region } from '../types/cards';
+import { monthSetupDefaults } from '../data/campaign/months';
+import type { LanguageCode } from '../types/cards';
 import type { PlayerProfile } from '../types/campaign';
-import type { StartingHandAssignment, UnidentifiedTargetCityFilter, UnidentifiedTargetCitySelection } from '../types/deck';
+import type { StartingHandAssignment, UnidentifiedTargetCitySelection } from '../types/deck';
 import { InitialThreatSetupEditor } from './InitialThreatSetupEditor';
 import { StartingHandAssignmentEditor } from './StartingHandAssignmentEditor';
 import { Button } from './ui/button';
@@ -21,25 +22,13 @@ interface NewCampaignWizardProps {
     campaignName: string;
     players: PlayerProfile[];
     startingHands: StartingHandAssignment[];
-    unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
+    unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
     initialThreatCardIds: string[];
   }) => void;
 }
 
 const playerCounts = [2, 3, 4] as const;
 const initialThreatSetupCount = 9;
-const regions: Region[] = ['north-america', 'south-america', 'europe', 'africa', 'asia', 'pacific'];
-const affiliations: Affiliation[] = ['allied', 'neutral', 'soviet'];
-
-const regionLabels = {
-  en: { 'north-america': 'North America', 'south-america': 'South America', europe: 'Europe', africa: 'Africa', asia: 'Asia', pacific: 'Pacific' },
-  ko: { 'north-america': '북미', 'south-america': '남미', europe: '유럽', africa: '아프리카', asia: '아시아', pacific: '태평양' }
-} as const;
-
-const affiliationLabels = {
-  en: { allied: 'Allied', neutral: 'Neutral', soviet: 'Soviet' },
-  ko: { allied: '서방연합', neutral: '중립', soviet: '소련' }
-} as const;
 
 function startingHandSizeForPlayers(playerCount: number) {
   if (playerCount <= 2) return 4;
@@ -65,32 +54,20 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
   const [playerCount, setPlayerCount] = useState(2);
   const [players, setPlayers] = useState<PlayerProfile[]>(() => makePlayers(language, 2));
   const [startingHands, setStartingHands] = useState<StartingHandAssignment[]>([]);
-  const [unidentifiedTargetEnabled, setUnidentifiedTargetEnabled] = useState(false);
-  const [unidentifiedFilterType, setUnidentifiedFilterType] = useState<UnidentifiedTargetCityFilter['type']>('region');
-  const [unidentifiedRegion, setUnidentifiedRegion] = useState<Region>('asia');
-  const [unidentifiedAffiliation, setUnidentifiedAffiliation] = useState<Affiliation>('neutral');
   const [initialThreatCardIds, setInitialThreatCardIds] = useState<string[]>([]);
 
   const requiredPerPlayer = startingHandSizeForPlayers(playerCount);
   const requiredTotal = requiredPerPlayer * playerCount;
   const trimmedCampaignName = campaignName.trim();
   const validPlayers = players.length === playerCount && players.every((player) => player.name.trim().length > 0);
-  const unidentifiedFilter: UnidentifiedTargetCityFilter = unidentifiedFilterType === 'region'
-    ? { type: 'region', value: unidentifiedRegion }
-    : { type: 'affiliation', value: unidentifiedAffiliation };
-  const unidentifiedCandidates = useMemo(() => cityCards.filter((city) => {
-    return unidentifiedFilter.type === 'region' ? city.region === unidentifiedFilter.value : city.affiliation === unidentifiedFilter.value;
-  }), [unidentifiedFilter]);
   const canContinue = step === 0
     ? trimmedCampaignName.length > 0
     : step === 1
       ? validPlayers
       : step === 2
-        ? !unidentifiedTargetEnabled || unidentifiedCandidates.length > 0
-        : step === 3
-          ? initialThreatCardIds.length === initialThreatSetupCount
-          : startingHands.length === requiredTotal;
-  const stepLabel = language === 'ko' ? `${step + 1} / 5단계` : `Step ${step + 1} of 5`;
+        ? initialThreatCardIds.length === initialThreatSetupCount
+        : startingHands.length === requiredTotal;
+  const stepLabel = language === 'ko' ? `${step + 1} / 4단계` : `Step ${step + 1} of 4`;
 
   const summaryText = useMemo(() => {
     if (language === 'ko') return `${playerCount}명 · 각 ${requiredPerPlayer}장 · 총 ${requiredTotal}장`;
@@ -104,10 +81,6 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
     setPlayerCount(2);
     setPlayers(makePlayers(language, 2));
     setStartingHands([]);
-    setUnidentifiedTargetEnabled(false);
-    setUnidentifiedFilterType('region');
-    setUnidentifiedRegion('asia');
-    setUnidentifiedAffiliation('neutral');
     setInitialThreatCardIds([]);
   }, [existingCampaignCount, language, open]);
 
@@ -127,7 +100,9 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
       campaignName: trimmedCampaignName,
       players: players.map((player) => ({ ...player, name: player.name.trim() })),
       startingHands,
-      unidentifiedTargetCitySelection: unidentifiedTargetEnabled ? { filter: unidentifiedFilter } : undefined,
+      unidentifiedTargetCitySelections: monthSetupDefaults.prologue.unidentifiedTargetCities
+        ?.filter((setup) => setup.enabled)
+        .map((setup) => ({ filter: setup.filter, hiddenRemovedCount: setup.hiddenRemovedCount })),
       initialThreatCardIds
     });
     onOpenChange(false);
@@ -185,77 +160,6 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
           {step === 2 ? (
             <section className="space-y-4">
               <div>
-                <h3 className="font-semibold">{language === 'ko' ? '미식별 표적 도시 준비' : 'Unidentified target city setup'}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'ko'
-                    ? '시작 손패를 나누기 전에, 임무에서 지시한 대륙 또는 세력의 도시 카드를 플레이어 덱에서 꺼내 후보를 확인한 뒤 무작위로 1장을 비공개 제외합니다. 앱에는 제외된 도시를 입력하지 않습니다.'
-                    : 'Before dealing starting hands, inspect matching city cards from the player deck, then secretly remove one random city. Do not enter which city was removed.'}
-                </p>
-              </div>
-
-              <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={unidentifiedTargetEnabled}
-                  onChange={(event) => {
-                    setUnidentifiedTargetEnabled(event.target.checked);
-                  }}
-                />
-                <span>
-                  <strong className="block">{language === 'ko' ? '이번 임무에서 미식별 표적 도시를 준비합니다.' : 'Prepare an unidentified target city for this mission.'}</strong>
-                  <span className="text-muted-foreground">{language === 'ko' ? '필요하지 않으면 체크하지 않고 다음 단계로 넘어가세요.' : 'Leave unchecked if this mission does not require it.'}</span>
-                </span>
-              </label>
-
-              {unidentifiedTargetEnabled ? (
-                <div className="space-y-4">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium">{language === 'ko' ? '조건 종류' : 'Filter type'}</span>
-                      <NativeSelect value={unidentifiedFilterType} onChange={(event) => { setUnidentifiedFilterType(event.target.value as UnidentifiedTargetCityFilter['type']); }}>
-                        <option value="region">{language === 'ko' ? '대륙' : 'Region'}</option>
-                        <option value="affiliation">{language === 'ko' ? '세력' : 'Affiliation'}</option>
-                      </NativeSelect>
-                    </label>
-                    {unidentifiedFilterType === 'region' ? (
-                      <label className="space-y-2">
-                        <span className="text-sm font-medium">{language === 'ko' ? '대륙' : 'Region'}</span>
-                        <NativeSelect value={unidentifiedRegion} onChange={(event) => { setUnidentifiedRegion(event.target.value as Region); }}>
-                          {regions.map((region) => <option key={region} value={region}>{regionLabels[language][region]}</option>)}
-                        </NativeSelect>
-                      </label>
-                    ) : (
-                      <label className="space-y-2">
-                        <span className="text-sm font-medium">{language === 'ko' ? '세력' : 'Affiliation'}</span>
-                        <NativeSelect value={unidentifiedAffiliation} onChange={(event) => { setUnidentifiedAffiliation(event.target.value as Affiliation); }}>
-                          {affiliations.map((affiliation) => <option key={affiliation} value={affiliation}>{affiliationLabels[language][affiliation]}</option>)}
-                        </NativeSelect>
-                      </label>
-                    )}
-                  </div>
-
-                  <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-                    {language === 'ko' ? `후보 ${unidentifiedCandidates.length}장 · 이 중 1장을 비공개 제외` : `${unidentifiedCandidates.length} candidates · secretly remove 1 of them`}
-                  </div>
-                  <div className="grid max-h-56 gap-2 overflow-auto rounded-lg border p-3 md:grid-cols-2 lg:grid-cols-3">
-                    {unidentifiedCandidates.length > 0 ? unidentifiedCandidates.map((city) => (
-                      <div key={city.id} className="rounded-md border p-2">
-                        <strong className="block">{city.name[language]}</strong>
-                        <span className="text-xs text-muted-foreground">{regionLabels[language][city.region]} · {affiliationLabels[language][city.affiliation]}</span>
-                      </div>
-                    )) : (
-                      <p className="text-sm text-muted-foreground">{language === 'ko' ? '조건에 맞는 남은 도시 후보가 없습니다.' : 'No remaining city candidates match this filter.'}</p>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-
-          {step === 3 ? (
-            <section className="space-y-4">
-              <div>
                 <h3 className="font-semibold">{language === 'ko' ? '초기 위협 카드 공개' : 'Initial threat reveal'}</h3>
                 <p className="text-sm text-muted-foreground">{language === 'ko' ? '게임 준비 단계에서 공개한 위협 카드 9장을 선택하세요. 선택한 카드는 버린 위협 카드 구획에 기록됩니다.' : 'Choose the 9 Threat cards revealed during setup. Selected cards will start in the Threat discard.'}</p>
               </div>
@@ -270,11 +174,11 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
             </section>
           ) : null}
 
-          {step === 4 ? (
+          {step === 3 ? (
             <section className="space-y-4">
               <div>
                 <h3 className="font-semibold">{language === 'ko' ? '시작 손패 설정' : 'Starting hands'}</h3>
-                <p className="text-sm text-muted-foreground">{language === 'ko' ? '미식별 표적 도시를 먼저 제외하고 초기 위협 카드 9장을 공개한 뒤 받은 도시/이벤트 카드를 선택하세요. 같은 카드는 중복 선택할 수 없습니다.' : 'After resolving the unidentified target city setup and revealing the 9 initial Threat cards, choose the city/event cards dealt as starting hands. Duplicate cards are disabled.'}</p>
+                <p className="text-sm text-muted-foreground">{language === 'ko' ? '프롤로그 미식별 표적 도시는 자동으로 반영됩니다. 초기 위협 카드 9장을 공개한 뒤 받은 도시/이벤트 카드를 선택하세요. 같은 카드는 중복 선택할 수 없습니다.' : 'The Prologue unidentified target city setup is applied automatically. After revealing the 9 initial Threat cards, choose the city/event cards dealt as starting hands. Duplicate cards are disabled.'}</p>
               </div>
               <p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p>
               <StartingHandAssignmentEditor
@@ -294,8 +198,8 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
           <Button type="button" variant="outline" onClick={() => step === 0 ? onOpenChange(false) : setStep((current) => current - 1)}>
             {step === 0 ? (language === 'ko' ? '취소' : 'Cancel') : (language === 'ko' ? '이전' : 'Back')}
           </Button>
-          <Button type="button" disabled={!canContinue} onClick={() => step === 4 ? create() : setStep((current) => current + 1)}>
-            {step === 4 ? (language === 'ko' ? '생성' : 'Create') : (language === 'ko' ? '다음' : 'Next')}
+          <Button type="button" disabled={!canContinue} onClick={() => step === 3 ? create() : setStep((current) => current + 1)}>
+            {step === 3 ? (language === 'ko' ? '생성' : 'Create') : (language === 'ko' ? '다음' : 'Next')}
           </Button>
         </div>
       </DialogContent>

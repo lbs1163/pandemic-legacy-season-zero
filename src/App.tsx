@@ -12,7 +12,7 @@ import { legacyRules } from './data/rules/legacyRules';
 import { createInitialCampaign } from './domain/createInitialCampaign';
 import { applyGameResult, createGameDecksForMonth } from './domain/campaignProgress';
 import { applySupportedEventEffect } from './domain/events';
-import { configureStartingHands, prepareUnidentifiedTargetCity, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
+import { configureStartingHands, prepareUnidentifiedTargetCities, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
 import { completePlayerDrawStep, completeThreatDrawStep } from './domain/turnFlow';
 import {
@@ -161,6 +161,8 @@ export function App() {
     campaignName: string;
     players: PlayerProfile[];
     startingHands: StartingHandAssignment[];
+    unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
+    /** @deprecated Use unidentifiedTargetCitySelections instead. */
     unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
     initialThreatCardIds: string[];
   }) {
@@ -169,8 +171,9 @@ export function App() {
       language,
       players: input.players
     });
-    const playerDeckWithUnidentifiedTarget = input.unidentifiedTargetCitySelection
-      ? prepareUnidentifiedTargetCity(campaign.playerDeck, cityCards, input.unidentifiedTargetCitySelection)
+    const selections = input.unidentifiedTargetCitySelections ?? (input.unidentifiedTargetCitySelection ? [input.unidentifiedTargetCitySelection] : []);
+    const playerDeckWithUnidentifiedTarget = selections.length > 0
+      ? prepareUnidentifiedTargetCities(campaign.playerDeck, cityCards, selections)
       : campaign.playerDeck;
     const configuredPlayerDeck = configureStartingHands(playerDeckWithUnidentifiedTarget, input.startingHands);
     const configured = {
@@ -188,6 +191,8 @@ export function App() {
 
   function setupCurrentMonth(input: {
     startingHands: StartingHandAssignment[];
+    unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
+    /** @deprecated Use unidentifiedTargetCitySelection instead. */
     unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
     initialThreatCardIds: string[];
   }) {
@@ -196,6 +201,7 @@ export function App() {
         campaign,
         players: campaign.players,
         startingHands: input.startingHands,
+        unidentifiedTargetCitySelections: input.unidentifiedTargetCitySelections,
         unidentifiedTargetCitySelection: input.unidentifiedTargetCitySelection,
         initialThreatCardIds: input.initialThreatCardIds
       });

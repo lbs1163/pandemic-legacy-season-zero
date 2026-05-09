@@ -5,7 +5,8 @@ import {
   calculateNextFundingLevel,
   calculatePerformanceRating,
   clampFundingLevel,
-  getAvailableEventCardsForMonth
+  getAvailableEventCardsForMonth,
+  getMonthSetupDefaults
 } from '../domain/campaignProgress';
 import { eventCards } from '../data/cards/events';
 
@@ -75,5 +76,18 @@ describe('campaign progress domain', () => {
   it('filters event card availability by month', () => {
     expect(getAvailableEventCardsForMonth(eventCards, 'prologue')).toHaveLength(5);
     expect(getAvailableEventCardsForMonth(eventCards, 'february')).toHaveLength(9);
+  });
+
+  it('stores hidden city setup defaults for prologue through february', () => {
+    expect(getMonthSetupDefaults('prologue').unidentifiedTargetCities).toMatchObject([
+      { enabled: true, filter: { type: 'region', value: 'europe' }, hiddenRemovedCount: 1 }
+    ]);
+    expect(getMonthSetupDefaults('january').unidentifiedTargetCities).toMatchObject([
+      { enabled: true, filter: { type: 'region', value: 'asia' }, hiddenRemovedCount: 1 }
+    ]);
+    expect(getMonthSetupDefaults('february').unidentifiedTargetCities).toMatchObject([
+      { enabled: true, filter: { type: 'region', value: 'africa' }, hiddenRemovedCount: 3 },
+      { enabled: true, filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 1 }
+    ]);
   });
 });

@@ -1,6 +1,7 @@
 import type {
   UnidentifiedTargetCityFilter,
   UnidentifiedTargetCitySelection,
+  UnidentifiedTargetCitySetup,
   PlayerCardDestination,
   PlayerCardZone,
   PlayerDeckPile,
@@ -41,6 +42,7 @@ export function createInitialPlayerDeckState(config: PlayerDeckSetupConfig): Pla
       requiredTotal: requiredPerPlayer * config.playerCount,
       configured: false
     },
+    unidentifiedTargetCities: [],
     unidentifiedTargetCity: {
       configured: false,
       candidateCardIds: []
@@ -94,6 +96,15 @@ function isEscalationCardId(state: PlayerDeckState, cardId: string): boolean {
   return getEscalationCardIds(state).includes(cardId);
 }
 
+function getConfiguredUnidentifiedTargetCities(state: PlayerDeckState): UnidentifiedTargetCitySetup[] {
+  const setups = state.unidentifiedTargetCities ?? (state.unidentifiedTargetCity ? [state.unidentifiedTargetCity] : []);
+  return setups.filter((setup) => setup.configured && setup.filter && (setup.hiddenRemovedCount ?? 0) > 0);
+}
+
+function getTotalHiddenRemovedCount(state: PlayerDeckState): number {
+  return getConfiguredUnidentifiedTargetCities(state).reduce((sum, setup) => sum + (setup.hiddenRemovedCount ?? 0), 0);
+}
+
 function cityMatchesUnidentifiedTargetFilter(city: CityCard, filter: UnidentifiedTargetCityFilter): boolean {
   return filter.type === 'region' ? city.region === filter.value : city.affiliation === filter.value;
 }
@@ -128,12 +139,16 @@ export function configureStartingHands(
   const now = nowIso();
   const escalationCardIds = getEscalationCardIds(state);
   const assignmentMap = new Map(assignments.map((assignment) => [assignment.cardId, assignment.playerId]));
-  const hiddenRemovedCount = state.unidentifiedTargetCity?.hiddenRemovedCount ?? 0;
-  const hiddenRemovedCandidatesRemaining = (state.unidentifiedTargetCity?.candidateCardIds ?? [])
-    .filter((cardId) => !assignmentMap.has(cardId)).length;
-  if (hiddenRemovedCandidatesRemaining < hiddenRemovedCount) {
-    throw new Error(`Starting hands must leave at least ${hiddenRemovedCount} unidentified target city candidate card(s) hidden for secret removal.`);
+  const unidentifiedTargetCities = getConfiguredUnidentifiedTargetCities(state);
+  for (const setup of unidentifiedTargetCities) {
+    const hiddenRemovedCount = setup.hiddenRemovedCount ?? 0;
+    const hiddenRemovedCandidatesRemaining = setup.candidateCardIds
+      .filter((cardId) => !assignmentMap.has(cardId)).length;
+    if (hiddenRemovedCandidatesRemaining < hiddenRemovedCount) {
+      throw new Error(`Starting hands must leave at least ${hiddenRemovedCount} unidentified target city candidate card(s) hidden for secret removal.`);
+    }
   }
+  const hiddenRemovedCount = getTotalHiddenRemovedCount(state);
   const cardStates = Object.fromEntries(Object.entries(state.cardStates).map(([cardId, cardState]) => {
     const ownerPlayerId = assignmentMap.get(cardId);
     if (ownerPlayerId) {
@@ -159,25 +174,42 @@ export function prepareUnidentifiedTargetCity(
   cities: CityCard[],
   selection: UnidentifiedTargetCitySelection
 ): PlayerDeckState {
-  const candidates = getUnidentifiedTargetCityCandidates(state, cities, selection.filter);
-  const hiddenRemovedCount = selection.hiddenRemovedCount ?? 1;
-  if (!Number.isInteger(hiddenRemovedCount) || hiddenRemovedCount < 1) {
-    throw new Error('Unidentified target city setup requires at least one hidden removed card.');
-  }
-  if (candidates.length < hiddenRemovedCount) {
-    throw new Error(`Unidentified target city setup requires at least ${hiddenRemovedCount} candidate card(s).`);
-  }
+  return prepareUnidentifiedTargetCities(state, cities, [selection]);
+}
 
-  return {
-    ...state,
-    piles: rebuildPilesForHiddenRemovedCards(state, hiddenRemovedCount),
-    currentPileIndex: 0,
-    unidentifiedTargetCity: {
+export function prepareUnidentifiedTargetCities(
+  state: PlayerDeckState,
+  cities: CityCard[],
+  selections: UnidentifiedTargetCitySelection[]
+): PlayerDeckState {
+  const setups = selections.map((selection) => {
+    const candidates = getUnidentifiedTargetCityCandidates(state, cities, selection.filter);
+    const hiddenRemovedCount = selection.hiddenRemovedCount ?? 1;
+    if (!Number.isInteger(hiddenRemovedCount) || hiddenRemovedCount < 1) {
+      throw new Error('Unidentified target city setup requires at least one hidden removed card.');
+    }
+    if (candidates.length < hiddenRemovedCount) {
+      throw new Error(`Unidentified target city setup requires at least ${hiddenRemovedCount} candidate card(s).`);
+    }
+    return {
       configured: true,
       filter: selection.filter,
       candidateCardIds: candidates,
       hiddenRemovedCount
-    }
+    };
+  });
+  const totalHiddenRemovedCount = setups.reduce((sum, setup) => sum + setup.hiddenRemovedCount, 0);
+  const uniqueCandidateCount = new Set(setups.flatMap((setup) => setup.candidateCardIds)).size;
+  if (uniqueCandidateCount < totalHiddenRemovedCount) {
+    throw new Error(`Unidentified target city setup requires at least ${totalHiddenRemovedCount} unique candidate card(s).`);
+  }
+
+  return {
+    ...state,
+    piles: rebuildPilesForHiddenRemovedCards(state, totalHiddenRemovedCount),
+    currentPileIndex: 0,
+    unidentifiedTargetCities: setups,
+    unidentifiedTargetCity: setups[0] ?? { configured: false, candidateCardIds: [] }
   };
 }
 

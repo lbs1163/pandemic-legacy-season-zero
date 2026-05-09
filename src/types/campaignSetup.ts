@@ -2,6 +2,13 @@ import type { LocalizedText } from './cards';
 import type { CampaignMonthId } from './campaign';
 import type { UnidentifiedTargetCityFilter } from './deck';
 
+export interface UnidentifiedTargetCityDefault {
+  enabled: boolean;
+  filter: UnidentifiedTargetCityFilter;
+  hiddenRemovedCount: number;
+  warningWhenChanged: LocalizedText;
+}
+
 export interface MissionDefinition {
   id: string;
   month: CampaignMonthId;
@@ -15,12 +22,9 @@ export interface MonthSetupDefaults {
   name: LocalizedText;
   defaultFundingLevel?: number;
   missions: MissionDefinition[];
-  unidentifiedTargetCity?: {
-    enabled: boolean;
-    filter: UnidentifiedTargetCityFilter;
-    hiddenRemovedCount: number;
-    warningWhenChanged: LocalizedText;
-  };
+  unidentifiedTargetCities?: UnidentifiedTargetCityDefault[];
+  /** @deprecated Use unidentifiedTargetCities instead. */
+  unidentifiedTargetCity?: UnidentifiedTargetCityDefault;
   eventCardIdsAvailable?: string[];
   legacyCardIdsApplied?: string[];
 }

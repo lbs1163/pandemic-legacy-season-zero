@@ -55,6 +55,8 @@ export interface PlayerDeckState {
   cardStates: Record<string, CardInstanceState>;
   currentPileIndex: number;
   startingHand: StartingHandState;
+  unidentifiedTargetCities?: UnidentifiedTargetCitySetup[];
+  /** @deprecated Use unidentifiedTargetCities instead. Kept for persisted state compatibility. */
   unidentifiedTargetCity?: UnidentifiedTargetCitySetup;
 }
 
@@ -85,5 +87,7 @@ export interface UnidentifiedTargetCitySelection {
   filter: UnidentifiedTargetCityFilter;
   hiddenRemovedCount?: number;
 }
+
+export type UnidentifiedTargetCitySelections = UnidentifiedTargetCitySelection[];
 
 export type PlayerCardDestination = 'player-hand' | 'player-discard' | 'player-removed';
