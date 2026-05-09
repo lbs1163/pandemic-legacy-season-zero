@@ -16,7 +16,7 @@ import { applySupportedEventEffect } from './domain/events';
 import { configureStartingHands } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
 import { completePlayerDrawStep, completeThreatDrawStep } from './domain/turnFlow';
-import { uiText } from './i18n/uiText';
+import { uiText, type UiText } from './i18n/uiText';
 import { findOrCreateStateGist, pullStateFromGist, pushStateToGist } from './services/gistStorage';
 import { createEmptyEnvelope, loadLocalCache, saveLocalCache } from './services/localCache';
 import { pollGitHubDeviceFlowUntilComplete, startGitHubDeviceFlow } from './services/githubAuth';
@@ -37,7 +37,25 @@ interface EnvelopeHistory {
   future: PersistedEnvelope[];
 }
 
+type SyncMessageKey = 'openAndEnterCode' | 'signedInGistReady' | 'pulledState' | 'pushedState' | 'resetStorageDone';
+
+interface SyncMessageState {
+  key: SyncMessageKey;
+  params?: Record<string, string>;
+}
+
 const maxHistoryEntries = 50;
+
+function formatSyncMessage(message: SyncMessageState | undefined, text: UiText): string | undefined {
+  if (!message) return undefined;
+
+  let rendered: string = text[message.key];
+  for (const [name, value] of Object.entries(message.params ?? {})) {
+    rendered = rendered.split(`{${name}}`).join(value);
+  }
+
+  return rendered;
+}
 
 export function App() {
   const [history, setHistory] = useState<EnvelopeHistory>(() => ({
@@ -48,7 +66,7 @@ export function App() {
   const [auth, setAuth] = useState<AuthState>({ status: 'signed-out' });
   const [gistMetadata, setGistMetadata] = useState<GistSyncMetadata>({ fileName: 'pandemic-legacy-season-zero-state.json', dirty: false });
   const [dirty, setDirty] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string>();
+  const [syncMessage, setSyncMessage] = useState<SyncMessageState>();
   const [deviceFlow, setDeviceFlow] = useState<DeviceFlowUiState>();
   const [ruleOptionsOpen, setRuleOptionsOpen] = useState(false);
   const [newCampaignWizardOpen, setNewCampaignWizardOpen] = useState(false);
@@ -68,6 +86,7 @@ export function App() {
   );
   const language: LanguageCode = envelope.settings.language;
   const text = uiText[language];
+  const renderedSyncMessage = formatSyncMessage(syncMessage, text);
 
   useEffect(() => {
     saveLocalCache(envelope);
@@ -214,7 +233,7 @@ export function App() {
         expiresAt: new Date(Date.now() + flow.expiresIn * 1000).toISOString(),
         remainingSeconds: flow.expiresIn
       });
-      setSyncMessage(text.openAndEnterCode.replace('{uri}', flow.verificationUri).replace('{code}', flow.userCode));
+      setSyncMessage({ key: 'openAndEnterCode', params: { uri: flow.verificationUri, code: flow.userCode } });
       window.open(flow.verificationUri, '_blank', 'noopener,noreferrer');
       const next = await pollGitHubDeviceFlowUntilComplete(flow, (remainingSeconds) => {
         setDeviceFlow((current) => current ? { ...current, remainingSeconds } : current);
@@ -224,7 +243,7 @@ export function App() {
       if (next.status === 'signed-in' && next.accessToken) {
         const metadata = await findOrCreateStateGist(next.accessToken);
         setGistMetadata(metadata);
-        setSyncMessage(text.signedInGistReady);
+        setSyncMessage({ key: 'signedInGistReady' });
       }
     } catch (error) {
       setDeviceFlow(undefined);
@@ -239,7 +258,7 @@ export function App() {
     replaceEnvelope(pulled);
     setGistMetadata({ ...metadata, lastPulledAt: new Date().toISOString(), dirty: false });
     setDirty(false);
-    setSyncMessage(text.pulledState);
+    setSyncMessage({ key: 'pulledState' });
   }
 
   async function handlePush() {
@@ -248,14 +267,14 @@ export function App() {
     const pushed = await pushStateToGist(auth.accessToken, metadata, envelope);
     setGistMetadata(pushed);
     setDirty(false);
-    setSyncMessage(text.pushedState);
+    setSyncMessage({ key: 'pushedState' });
   }
 
   function handleResetStorage() {
     updateEnvelope(() => createEmptyEnvelope());
     setDirty(false);
     setGistMetadata((current) => ({ ...current, dirty: false }));
-    setSyncMessage(text.resetStorageDone);
+    setSyncMessage({ key: 'resetStorageDone' });
     setResetStorageOpen(false);
     setRuleOptionsOpen(false);
     setNewCampaignWizardOpen(false);
@@ -299,7 +318,16 @@ export function App() {
           </Alert>
         ) : null}
         {auth.status === 'error' ? <Alert variant="destructive">{auth.errorMessage}</Alert> : null}
-        {syncMessage ? <Alert>{syncMessage}</Alert> : null}
+        {renderedSyncMessage ? (
+          <Alert>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>{renderedSyncMessage}</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => setSyncMessage(undefined)}>
+                {text.dismissAlert}
+              </Button>
+            </div>
+          </Alert>
+        ) : null}
         {activeCampaign ? (
           <DeckCounterDashboard
             campaign={activeCampaign}

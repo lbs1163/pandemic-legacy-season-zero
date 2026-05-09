@@ -1,6 +1,7 @@
 import type { UiText } from '../i18n/uiText';
 import type { CampaignState } from '../types/campaign';
 import type { LanguageCode } from '../types/cards';
+import { monthLabels } from '../data/campaign/months';
 import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
 import { threatCards } from '../data/cards/threats';
@@ -26,6 +27,7 @@ interface Props {
 
 export function DeckCounterDashboard(props: Props) {
   const monthSetupComplete = isCampaignMonthSetupComplete(props.campaign);
+  const currentMonthLabel = monthLabels[props.campaign.progress.currentMonth][props.language];
   const monthSetupButtonLabel = monthSetupComplete
     ? (props.language === 'ko' ? '현재 월 다시 시작' : 'Restart month')
     : (props.language === 'ko' ? '현재 월 준비' : 'Set up month');
@@ -35,7 +37,7 @@ export function DeckCounterDashboard(props: Props) {
         <section className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card p-4 xl:col-span-2">
           <div>
             <h2 className="font-semibold">{props.language === 'ko' ? '현재 캠페인 월' : 'Current campaign month'}</h2>
-            <p className="text-sm text-muted-foreground">{props.campaign.progress.currentMonth} · {props.language === 'ko' ? `${props.campaign.progress.currentAttempt}번째 시도` : `Attempt ${props.campaign.progress.currentAttempt}`} · {props.language === 'ko' ? '자금' : 'Funding'} {props.campaign.progress.fundingLevel}</p>
+            <p className="text-sm text-muted-foreground">{currentMonthLabel} · {props.language === 'ko' ? `${props.campaign.progress.currentAttempt}번째 시도` : `Attempt ${props.campaign.progress.currentAttempt}`} · {props.language === 'ko' ? '자금' : 'Funding'} {props.campaign.progress.fundingLevel}</p>
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={props.onOpenMonthSetup}>{monthSetupButtonLabel}</Button>
