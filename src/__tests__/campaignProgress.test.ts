@@ -7,7 +7,8 @@ import {
   clampFundingLevel,
   createGameDecksForMonth,
   getAvailableEventCardsForMonth,
-  getMonthSetupDefaults
+  getMonthSetupDefaults,
+  isCampaignMonthSetupComplete
 } from '../domain/campaignProgress';
 import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
@@ -122,5 +123,27 @@ describe('campaign progress domain', () => {
       });
     }
     expect(decks.turnFlow).toEqual({ step: 'player-draw', turnNumber: 1 });
+  });
+
+  it('reports month setup incomplete until starting hands and initial threats are configured', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Setup gate',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+
+    expect(isCampaignMonthSetupComplete(campaign)).toBe(false);
+
+    const decks = createGameDecksForMonth({
+      campaign,
+      players: campaign.players,
+      startingHands: [
+        ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+        ...eventCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p2' }))
+      ],
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    expect(isCampaignMonthSetupComplete({ ...campaign, ...decks })).toBe(true);
   });
 });

@@ -66,6 +66,10 @@ export function getDefaultAvailableEventCardsForMonth(month: CampaignMonthId): E
   return getAvailableEventCardsForMonth(eventCards, month);
 }
 
+export function isCampaignMonthSetupComplete(campaign: CampaignState): boolean {
+  return campaign.playerDeck.startingHand.configured && campaign.threatDeck.discardCardIds.length > 0;
+}
+
 export function createGameDecksForMonth(input: {
   campaign: CampaignState;
   players: PlayerProfile[];
