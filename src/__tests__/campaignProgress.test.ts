@@ -5,10 +5,13 @@ import {
   calculateNextFundingLevel,
   calculatePerformanceRating,
   clampFundingLevel,
+  createGameDecksForMonth,
   getAvailableEventCardsForMonth,
   getMonthSetupDefaults
 } from '../domain/campaignProgress';
+import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
+import { threatCards } from '../data/cards/threats';
 
 describe('campaign progress domain', () => {
   it('clamps funding levels to the supported 1..10 range', () => {
@@ -89,5 +92,35 @@ describe('campaign progress domain', () => {
       { enabled: true, filter: { type: 'region', value: 'africa' }, hiddenRemovedCount: 3 },
       { enabled: true, filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 1 }
     ]);
+  });
+
+  it('creates current-month decks with initial threats, starting hands, and turn flow', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Monthly setup',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const startingHands = [
+      ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...eventCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p2' }))
+    ];
+    const initialThreatCardIds = threatCards.slice(0, 9).map((card) => card.id);
+
+    const decks = createGameDecksForMonth({
+      campaign,
+      players: campaign.players,
+      startingHands,
+      initialThreatCardIds,
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(decks.threatDeck.discardCardIds).toEqual(initialThreatCardIds);
+    for (const assignment of startingHands) {
+      expect(decks.playerDeck.cardStates[assignment.cardId]).toMatchObject({
+        zone: 'player-hand',
+        ownerPlayerId: assignment.playerId
+      });
+    }
+    expect(decks.turnFlow).toEqual({ step: 'player-draw', turnNumber: 1 });
   });
 });

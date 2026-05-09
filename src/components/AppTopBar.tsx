@@ -34,6 +34,7 @@ interface Props {
   onOpenStartingHands: () => void;
   onOpenMonthSetup: () => void;
   onOpenGameResult: () => void;
+  onOpenCampaignTimeline: () => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -59,6 +60,7 @@ export function AppTopBar({
   onOpenStartingHands,
   onOpenMonthSetup,
   onOpenGameResult,
+  onOpenCampaignTimeline,
   onUndo,
   onRedo,
   canUndo,
@@ -87,6 +89,7 @@ export function AppTopBar({
             <DropdownMenuItem onClick={onCreateCampaign}>{text.newCampaign}</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenMonthSetup} disabled={!activeCampaignId}>{text.setupCurrentMonth}</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenGameResult} disabled={!activeCampaignId}>{text.recordGameResult}</DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenCampaignTimeline} disabled={!activeCampaignId}>{language === 'ko' ? '캠페인 진행 기록' : 'Campaign timeline'}</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenRuleOptions} disabled={!activeCampaignId}>{text.ruleOptions}</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenStartingHands} disabled={!activeCampaignId}>{text.editStartingHands}</DropdownMenuItem>
             <DropdownMenuSeparator />

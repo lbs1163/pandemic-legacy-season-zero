@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppTopBar } from './components/AppTopBar';
 import { DeckCounterDashboard } from './components/DeckCounterDashboard';
+import { CampaignTimelinePanel } from './components/CampaignTimelinePanel';
 import { NewCampaignWizard } from './components/NewCampaignWizard';
 import { MonthGameSetupWizard } from './components/MonthGameSetupWizard';
 import { GameResultDialog } from './components/GameResultDialog';
@@ -12,18 +13,9 @@ import { legacyRules } from './data/rules/legacyRules';
 import { createInitialCampaign } from './domain/createInitialCampaign';
 import { applyGameResult, createGameDecksForMonth } from './domain/campaignProgress';
 import { applySupportedEventEffect } from './domain/events';
-import { configureStartingHands, prepareUnidentifiedTargetCities, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
+import { configureStartingHands, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
 import { completePlayerDrawStep, completeThreatDrawStep } from './domain/turnFlow';
-import {
-  clearThreatGameEndArea,
-  intensifyThreatDiscard,
-  moveThreatCardToGameEndArea,
-  recordInitialThreatSetup,
-  recordThreatBottomDrawToDiscard,
-  recordThreatBottomDrawToGameEndArea,
-  recordThreatDraw
-} from './domain/threatDeck';
 import { uiText } from './i18n/uiText';
 import { findOrCreateStateGist, pullStateFromGist, pushStateToGist } from './services/gistStorage';
 import { createEmptyEnvelope, loadLocalCache, saveLocalCache } from './services/localCache';
@@ -64,6 +56,7 @@ export function App() {
   const [gameResultOpen, setGameResultOpen] = useState(false);
   const [resetStorageOpen, setResetStorageOpen] = useState(false);
   const [startingHandsOpen, setStartingHandsOpen] = useState(false);
+  const [campaignTimelineOpen, setCampaignTimelineOpen] = useState(false);
 
   const envelope = history.present;
   const canUndo = history.past.length > 0;
@@ -160,32 +153,16 @@ export function App() {
   function createCampaignFromWizard(input: {
     campaignName: string;
     players: PlayerProfile[];
-    startingHands: StartingHandAssignment[];
-    unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
-    /** @deprecated Use unidentifiedTargetCitySelections instead. */
-    unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
-    initialThreatCardIds: string[];
   }) {
     const campaign = createInitialCampaign({
       campaignName: input.campaignName,
       language,
       players: input.players
     });
-    const selections = input.unidentifiedTargetCitySelections ?? (input.unidentifiedTargetCitySelection ? [input.unidentifiedTargetCitySelection] : []);
-    const playerDeckWithUnidentifiedTarget = selections.length > 0
-      ? prepareUnidentifiedTargetCities(campaign.playerDeck, cityCards, selections)
-      : campaign.playerDeck;
-    const configuredPlayerDeck = configureStartingHands(playerDeckWithUnidentifiedTarget, input.startingHands);
-    const configured = {
-      ...campaign,
-      playerDeck: configuredPlayerDeck,
-      threatDeck: recordInitialThreatSetup(campaign.threatDeck, input.initialThreatCardIds),
-      updatedAt: new Date().toISOString()
-    };
     updateEnvelope((current) => ({
       ...current,
-      campaigns: [...current.campaigns, configured],
-      activeCampaignId: configured.campaignId
+      campaigns: [...current.campaigns, campaign],
+      activeCampaignId: campaign.campaignId
     }));
   }
 
@@ -295,6 +272,7 @@ export function App() {
         onOpenStartingHands={() => setStartingHandsOpen(true)}
         onOpenMonthSetup={() => setMonthSetupOpen(true)}
         onOpenGameResult={() => setGameResultOpen(true)}
+        onOpenCampaignTimeline={() => setCampaignTimelineOpen(true)}
         onUndo={undoEnvelope}
         onRedo={redoEnvelope}
         canUndo={canUndo}
@@ -326,12 +304,6 @@ export function App() {
               if (!pile?.escalationCardId) return campaign;
               return updateCampaignTimestamp({ ...campaign, playerDeck: resolveEscalationDraw(campaign.playerDeck, pile.escalationCardId) });
             })}
-            onThreatDraw={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: recordThreatDraw(campaign.threatDeck, cardId) }))}
-            onThreatBottomToDiscard={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: recordThreatBottomDrawToDiscard(campaign.threatDeck, cardId) }))}
-            onThreatBottomToGameEnd={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: recordThreatBottomDrawToGameEndArea(campaign.threatDeck, cardId) }))}
-            onThreatMoveToGameEnd={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: moveThreatCardToGameEndArea(campaign.threatDeck, cardId) }))}
-            onThreatIntensify={() => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: intensifyThreatDiscard(campaign.threatDeck) }))}
-            onCleanupGameEnd={() => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: clearThreatGameEndArea(campaign.threatDeck) }))}
             onOpenMonthSetup={() => setMonthSetupOpen(true)}
             onOpenGameResult={() => setGameResultOpen(true)}
             onApplyEventEffect={(eventCardId, targetCardId) => updateActiveCampaign((campaign) => applySupportedEventEffect(campaign, { eventCardId, targetCardId }))}
@@ -340,6 +312,17 @@ export function App() {
           <section className="rounded-lg border bg-card p-12 text-center"><h2 className="text-2xl font-semibold">{text.noCampaignYet}</h2><p className="mt-2 text-muted-foreground">{text.createCampaignPrompt}</p></section>
         )}
       </main>
+      {activeCampaign ? (
+        <Dialog open={campaignTimelineOpen} onOpenChange={setCampaignTimelineOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>{language === 'ko' ? '캠페인 진행 기록' : 'Campaign timeline'}</DialogTitle>
+              <DialogDescription>{language === 'ko' ? '현재 캠페인의 월별 결과와 진행 내역을 확인합니다.' : 'Review monthly results and progress history for the active campaign.'}</DialogDescription>
+            </DialogHeader>
+            <CampaignTimelinePanel campaign={activeCampaign} language={language} />
+          </DialogContent>
+        </Dialog>
+      ) : null}
       {activeCampaign ? (
         <Dialog open={ruleOptionsOpen} onOpenChange={setRuleOptionsOpen}>
           <DialogContent>

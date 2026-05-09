@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { cityCards } from '../data/cards/cities';
-import { eventCards } from '../data/cards/events';
-import { threatCards } from '../data/cards/threats';
-import { monthSetupDefaults } from '../data/campaign/months';
 import type { LanguageCode } from '../types/cards';
 import type { PlayerProfile } from '../types/campaign';
-import type { StartingHandAssignment, UnidentifiedTargetCitySelection } from '../types/deck';
-import { InitialThreatSetupEditor } from './InitialThreatSetupEditor';
-import { StartingHandAssignmentEditor } from './StartingHandAssignmentEditor';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
@@ -21,20 +14,10 @@ interface NewCampaignWizardProps {
   onCreate: (input: {
     campaignName: string;
     players: PlayerProfile[];
-    startingHands: StartingHandAssignment[];
-    unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
-    initialThreatCardIds: string[];
   }) => void;
 }
 
 const playerCounts = [2, 3, 4] as const;
-const initialThreatSetupCount = 9;
-
-function startingHandSizeForPlayers(playerCount: number) {
-  if (playerCount <= 2) return 4;
-  if (playerCount === 3) return 3;
-  return 2;
-}
 
 function defaultCampaignName(language: LanguageCode, existingCampaignCount: number) {
   return language === 'ko' ? `캠페인 ${existingCampaignCount + 1}` : `Campaign ${existingCampaignCount + 1}`;
@@ -53,26 +36,16 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
   const [campaignName, setCampaignName] = useState(defaultCampaignName(language, existingCampaignCount));
   const [playerCount, setPlayerCount] = useState(2);
   const [players, setPlayers] = useState<PlayerProfile[]>(() => makePlayers(language, 2));
-  const [startingHands, setStartingHands] = useState<StartingHandAssignment[]>([]);
-  const [initialThreatCardIds, setInitialThreatCardIds] = useState<string[]>([]);
 
-  const requiredPerPlayer = startingHandSizeForPlayers(playerCount);
-  const requiredTotal = requiredPerPlayer * playerCount;
   const trimmedCampaignName = campaignName.trim();
   const validPlayers = players.length === playerCount && players.every((player) => player.name.trim().length > 0);
-  const canContinue = step === 0
-    ? trimmedCampaignName.length > 0
-    : step === 1
-      ? validPlayers
-      : step === 2
-        ? initialThreatCardIds.length === initialThreatSetupCount
-        : startingHands.length === requiredTotal;
-  const stepLabel = language === 'ko' ? `${step + 1} / 4단계` : `Step ${step + 1} of 4`;
+  const canContinue = step === 0 ? trimmedCampaignName.length > 0 : validPlayers;
+  const stepLabel = language === 'ko' ? `${step + 1} / 2단계` : `Step ${step + 1} of 2`;
 
   const summaryText = useMemo(() => {
-    if (language === 'ko') return `${playerCount}명 · 각 ${requiredPerPlayer}장 · 총 ${requiredTotal}장`;
-    return `${playerCount} players · ${requiredPerPlayer} cards each · ${requiredTotal} total`;
-  }, [language, playerCount, requiredPerPlayer, requiredTotal]);
+    if (language === 'ko') return `${playerCount}명 · ${players.map((player) => player.name.trim()).filter(Boolean).join(', ')}`;
+    return `${playerCount} players · ${players.map((player) => player.name.trim()).filter(Boolean).join(', ')}`;
+  }, [language, playerCount, players]);
 
   useEffect(() => {
     if (!open) return;
@@ -80,14 +53,11 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
     setCampaignName(defaultCampaignName(language, existingCampaignCount));
     setPlayerCount(2);
     setPlayers(makePlayers(language, 2));
-    setStartingHands([]);
-    setInitialThreatCardIds([]);
   }, [existingCampaignCount, language, open]);
 
   const changePlayerCount = (count: number) => {
     setPlayerCount(count);
     setPlayers((current) => Array.from({ length: count }, (_, index) => current[index] ?? { id: `p${index + 1}`, name: defaultPlayerName(language, index) }));
-    setStartingHands([]);
   };
 
   const changePlayerName = (playerId: string, name: string) => {
@@ -98,12 +68,7 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
     if (!canContinue) return;
     onCreate({
       campaignName: trimmedCampaignName,
-      players: players.map((player) => ({ ...player, name: player.name.trim() })),
-      startingHands,
-      unidentifiedTargetCitySelections: monthSetupDefaults.prologue.unidentifiedTargetCities
-        ?.filter((setup) => setup.enabled)
-        .map((setup) => ({ filter: setup.filter, hiddenRemovedCount: setup.hiddenRemovedCount })),
-      initialThreatCardIds
+      players: players.map((player) => ({ ...player, name: player.name.trim() }))
     });
     onOpenChange(false);
   };
@@ -137,7 +102,7 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
             <section className="space-y-4">
               <div>
                 <h3 className="font-semibold">{language === 'ko' ? '플레이어 설정' : 'Player setup'}</h3>
-                <p className="text-sm text-muted-foreground">{language === 'ko' ? '플레이어 수에 따라 시작 손패 장수가 자동으로 정해집니다.' : 'Starting hand size is determined by player count.'}</p>
+                  <p className="text-sm text-muted-foreground">{language === 'ko' ? '캠페인에 참여할 플레이어 수와 이름을 입력하세요.' : 'Enter the player count and names for this campaign.'}</p>
               </div>
               <label className="block max-w-xs space-y-2">
                 <span className="text-sm font-medium">{language === 'ko' ? '플레이어 인원수' : 'Player count'}</span>
@@ -156,50 +121,14 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
               </div>
             </section>
           ) : null}
-
-          {step === 2 ? (
-            <section className="space-y-4">
-              <div>
-                <h3 className="font-semibold">{language === 'ko' ? '초기 위협 카드 공개' : 'Initial threat reveal'}</h3>
-                <p className="text-sm text-muted-foreground">{language === 'ko' ? '게임 준비 단계에서 공개한 위협 카드 9장을 선택하세요. 선택한 카드는 버린 위협 카드 구획에 기록됩니다.' : 'Choose the 9 Threat cards revealed during setup. Selected cards will start in the Threat discard.'}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">{initialThreatCardIds.length}/{initialThreatSetupCount}</p>
-              <InitialThreatSetupEditor
-                selectedCardIds={initialThreatCardIds}
-                cityCards={cityCards}
-                threatCards={threatCards}
-                language={language}
-                onChange={setInitialThreatCardIds}
-              />
-            </section>
-          ) : null}
-
-          {step === 3 ? (
-            <section className="space-y-4">
-              <div>
-                <h3 className="font-semibold">{language === 'ko' ? '시작 손패 설정' : 'Starting hands'}</h3>
-                <p className="text-sm text-muted-foreground">{language === 'ko' ? '프롤로그 미식별 표적 도시는 자동으로 반영됩니다. 초기 위협 카드 9장을 공개한 뒤 받은 도시/이벤트 카드를 선택하세요. 같은 카드는 중복 선택할 수 없습니다.' : 'The Prologue unidentified target city setup is applied automatically. After revealing the 9 initial Threat cards, choose the city/event cards dealt as starting hands. Duplicate cards are disabled.'}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p>
-              <StartingHandAssignmentEditor
-                players={players}
-                requiredPerPlayer={requiredPerPlayer}
-                selectedAssignments={startingHands}
-                cityCards={cityCards}
-                eventCards={eventCards}
-                language={language}
-                onChange={setStartingHands}
-              />
-            </section>
-          ) : null}
         </div>
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => step === 0 ? onOpenChange(false) : setStep((current) => current - 1)}>
             {step === 0 ? (language === 'ko' ? '취소' : 'Cancel') : (language === 'ko' ? '이전' : 'Back')}
           </Button>
-          <Button type="button" disabled={!canContinue} onClick={() => step === 3 ? create() : setStep((current) => current + 1)}>
-            {step === 3 ? (language === 'ko' ? '생성' : 'Create') : (language === 'ko' ? '다음' : 'Next')}
+          <Button type="button" disabled={!canContinue} onClick={() => step === 1 ? create() : setStep((current) => current + 1)}>
+            {step === 1 ? (language === 'ko' ? '생성' : 'Create') : (language === 'ko' ? '다음' : 'Next')}
           </Button>
         </div>
       </DialogContent>

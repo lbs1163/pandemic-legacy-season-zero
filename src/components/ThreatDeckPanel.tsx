@@ -3,10 +3,8 @@ import type { UiText } from '../i18n/uiText';
 import type { CityCard, LanguageCode, ThreatCard } from '../types/cards';
 import type { ThreatDeckState } from '../types/deck';
 import { getThreatDeckUnknownCount } from '../domain/threatDeck';
-import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
-import { SearchableSelect } from './SearchableSelect';
 
 interface Props {
   state: ThreatDeckState;
@@ -14,17 +12,9 @@ interface Props {
   language: LanguageCode;
   cityCards: CityCard[];
   threatCards: ThreatCard[];
-  onDraw: (cardId: string) => void;
-  onBottomToDiscard: (cardId: string) => void;
-  onBottomToGameEnd: (cardId: string) => void;
-  onMoveToGameEnd: (cardId: string) => void;
-  onIntensify: () => void;
-  onCleanupGameEnd: () => void;
 }
 
-export function ThreatDeckPanel({ state, text, language, cityCards, threatCards, onDraw, onBottomToDiscard, onBottomToGameEnd, onMoveToGameEnd, onIntensify, onCleanupGameEnd }: Props) {
-  const [selectedCardId, setSelectedCardId] = useState('');
-  const [selectedMoveCardId, setSelectedMoveCardId] = useState('');
+export function ThreatDeckPanel({ state, text, language, cityCards, threatCards }: Props) {
   const [remainingSearch, setRemainingSearch] = useState('');
   const cityMap = useMemo(() => new Map(cityCards.map((card) => [card.id, card])), [cityCards]);
   const threatMap = useMemo(() => new Map(threatCards.map((card) => [card.id, card])), [threatCards]);
@@ -108,49 +98,6 @@ export function ThreatDeckPanel({ state, text, language, cityCards, threatCards,
     return language === 'ko' ? '어느 구역에도 없습니다.' : 'This card is not in any tracked zone.';
   })();
   const searchStatusClassName = normalizedRemainingSearch && hasSearchResults ? 'text-sm font-semibold text-emerald-600' : 'text-sm font-semibold text-destructive';
-  const execute = (handler: (cardId: string) => void) => {
-    if (!selectedCardId) return;
-    handler(selectedCardId);
-    setSelectedCardId('');
-  };
-  const executeMoveToGameEnd = () => {
-    if (!selectedMoveCardId) return;
-    onMoveToGameEnd(selectedMoveCardId);
-    setSelectedMoveCardId('');
-  };
-  const zoneLabel = (zone: string) => {
-    if (zone === 'threat-deck-unknown') return language === 'ko' ? '미지 위협 덱' : 'Unknown Threat deck';
-    if (zone === 'threat-top-stack-known') return language === 'ko' ? '알려진 상단 묶음' : 'Known top stack';
-    if (zone === 'threat-discard') return text.discard;
-    if (zone === 'threat-removed') return language === 'ko' ? '제거됨' : 'Removed';
-    return text.gameEndArea;
-  };
-  const selectableThreats = knownTopStacks.length
-    ? knownTopStacks[0].map((cardId) => threatMap.get(cardId)).filter((card): card is ThreatCard => Boolean(card))
-    : unknownCards;
-  const threatOptions = useMemo(() => selectableThreats.map((card) => {
-    const city = cityMap.get(card.cityCardId);
-    return {
-      value: card.id,
-      label: city?.name[language] ?? card.id,
-      description: language === 'ko' ? '위협 카드' : 'Threat card'
-    };
-  }), [cityMap, language, selectableThreats]);
-  const moveToGameEndOptions = useMemo(() => threatCards
-    .filter((card) => {
-      const zone = state.cardStates[card.id]?.zone;
-      return Boolean(zone) && zone !== 'threat-game-end-area';
-    })
-    .map((card) => {
-      const city = cityMap.get(card.cityCardId);
-      const zone = state.cardStates[card.id]?.zone ?? 'threat-deck-unknown';
-      return {
-        value: card.id,
-        label: city?.name[language] ?? card.id,
-        description: zoneLabel(zone)
-      };
-    }), [cityMap, language, state.cardStates, threatCards]);
-
   return (
     <Card>
       <CardHeader><CardTitle>{text.threatDeck}</CardTitle></CardHeader>
@@ -207,44 +154,6 @@ export function ThreatDeckPanel({ state, text, language, cityCards, threatCards,
                 )}
               </section>
             ))}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <SearchableSelect
-            className="max-w-xs"
-            value={selectedCardId}
-            placeholder={language === 'ko' ? '위협 카드 선택' : 'Select threat card'}
-            searchPlaceholder={language === 'ko' ? '도시 검색...' : 'Search cities...'}
-            emptyText={language === 'ko' ? '위협 카드가 없습니다.' : 'No threat cards found.'}
-            options={threatOptions}
-            onChange={setSelectedCardId}
-          />
-          <Button onClick={() => execute(onDraw)} disabled={!selectedCardId}>{text.drawThreat}</Button>
-          <Button variant="secondary" onClick={() => execute(onBottomToDiscard)} disabled={!selectedCardId || state.knownTopStackCardIds.length > 0}>{text.bottomDrawToDiscard}</Button>
-          <Button variant="secondary" onClick={() => execute(onBottomToGameEnd)} disabled={!selectedCardId || state.knownTopStackCardIds.length > 0}>{text.bottomDrawToGameEnd}</Button>
-          <Button variant="outline" onClick={onIntensify} disabled={state.discardCardIds.length === 0}>{text.intensifyDiscard}</Button>
-          <Button variant="outline" onClick={onCleanupGameEnd} disabled={state.gameEndAreaCardIds.length === 0}>{text.afterGameCleanup}</Button>
-        </div>
-        <div className="grid gap-3 rounded-lg border p-3">
-          <div>
-            <strong className="block">{text.moveThreatToGameEnd}</strong>
-            <p className="text-sm text-muted-foreground">
-              {language === 'ko'
-                ? '이벤트 카드 효과처럼 현재 구역과 상관없이 위협 카드 1장을 게임 종료 구획으로 옮깁니다.'
-                : 'Move one Threat card to the Game End area regardless of its current tracked zone, such as for an event effect.'}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <SearchableSelect
-              className="max-w-xs"
-              value={selectedMoveCardId}
-              placeholder={language === 'ko' ? '이동할 위협 카드 선택' : 'Select Threat card to move'}
-              searchPlaceholder={language === 'ko' ? '도시 검색...' : 'Search cities...'}
-              emptyText={language === 'ko' ? '이동할 위협 카드가 없습니다.' : 'No Threat cards to move.'}
-              options={moveToGameEndOptions}
-              onChange={setSelectedMoveCardId}
-            />
-            <Button variant="secondary" onClick={executeMoveToGameEnd} disabled={!selectedMoveCardId}>{text.moveThreatToGameEnd}</Button>
           </div>
         </div>
         <p className="text-sm text-muted-foreground">{text.knownTop}: {state.knownTopStackCardIds.map(cardLabel).join(', ') || text.none}</p>
