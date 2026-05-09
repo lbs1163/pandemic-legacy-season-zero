@@ -20,7 +20,7 @@ export function createInitialCampaign(input: CreateInitialCampaignInput): Campai
   const now = new Date().toISOString();
   const toggles = [...baseRules, ...legacyRules];
   const currentMonth = 'prologue' as const;
-  const fundingLevel = clampFundingLevel(input.fundingLevel ?? 4);
+  const fundingLevel = clampFundingLevel(input.fundingLevel ?? 5);
   const availableEvents = getDefaultAvailableEventCardsForMonth(currentMonth);
   return {
     schemaVersion: 2,

@@ -82,7 +82,7 @@ describe('campaign persistence validation', () => {
     expect(migrated.campaigns[0].schemaVersion).toBe(2);
     expect(migrated.campaigns[0].progress.currentMonth).toBe('prologue');
     expect(migrated.campaigns[0].progress.currentAttempt).toBe(1);
-    expect(migrated.campaigns[0].progress.fundingLevel).toBe(4);
+    expect(migrated.campaigns[0].progress.fundingLevel).toBe(5);
     expect(migrated.campaigns[0].progress.gameRecords).toEqual([]);
     expect(migrated.campaigns[0].playerDeck.startingHand.configured).toBe(false);
     expect(Object.keys(migrated.campaigns[0].threatDeck.cardStates).length).toBeGreaterThan(0);

@@ -28,8 +28,8 @@ describe('campaign progress domain', () => {
   });
 
   it('calculates next funding and flags secret file 14 without revealing content', () => {
-    expect(calculateNextFundingLevel(4, 'success')).toMatchObject({ fundingLevel: 3, secretFile14Required: false });
-    expect(calculateNextFundingLevel(4, 'adequate')).toMatchObject({ fundingLevel: 5, secretFile14Required: false });
+    expect(calculateNextFundingLevel(5, 'success')).toMatchObject({ fundingLevel: 4, secretFile14Required: false });
+    expect(calculateNextFundingLevel(5, 'adequate')).toMatchObject({ fundingLevel: 6, secretFile14Required: false });
     expect(calculateNextFundingLevel(9, 'failure')).toMatchObject({ fundingLevel: 10, secretFile14Required: true });
   });
 
@@ -49,11 +49,11 @@ describe('campaign progress domain', () => {
 
     expect(next.progress.currentMonth).toBe('january');
     expect(next.progress.currentAttempt).toBe(1);
-    expect(next.progress.fundingLevel).toBe(3);
+    expect(next.progress.fundingLevel).toBe(4);
     expect(next.progress.gameRecords[0]).toMatchObject({
       month: 'prologue',
       attempt: 1,
-      fundingLevel: 4,
+      fundingLevel: 5,
       playedAt: '2026-05-09',
       performanceRating: 'success'
     });
@@ -132,11 +132,10 @@ describe('campaign progress domain', () => {
       players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
     });
     const availableEventIds = eventCards.slice(0, 5).map((card) => card.id);
-    const selectedEventCardIds = availableEventIds.slice(0, 4);
-    const unselectedEventCardId = availableEventIds[4];
+    const selectedEventCardIds = availableEventIds;
     const startingHands = [
       ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
-      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+      ...selectedEventCardIds.slice(0, 4).map((cardId) => ({ cardId, playerId: 'p2' }))
     ];
 
     const decks = createGameDecksForMonth({
@@ -150,7 +149,6 @@ describe('campaign progress domain', () => {
     for (const cardId of selectedEventCardIds) {
       expect(decks.playerDeck.cardStates[cardId]).toBeDefined();
     }
-    expect(decks.playerDeck.cardStates[unselectedEventCardId]).toBeUndefined();
     for (const assignment of startingHands) {
       expect(decks.playerDeck.cardStates[assignment.cardId]).toMatchObject({
         zone: 'player-hand',
@@ -172,8 +170,8 @@ describe('campaign progress domain', () => {
       initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
     };
 
-    expect(() => createGameDecksForMonth({ ...baseInput, selectedEventCardIds: eventCards.slice(0, 3).map((card) => card.id) })).toThrow(/Expected 4 event card/);
-    expect(() => createGameDecksForMonth({ ...baseInput, selectedEventCardIds: eventCards.slice(0, 5).map((card) => card.id) })).toThrow(/Expected 4 event card/);
+    expect(() => createGameDecksForMonth({ ...baseInput, selectedEventCardIds: eventCards.slice(0, 4).map((card) => card.id) })).toThrow(/Expected 5 event card/);
+    expect(() => createGameDecksForMonth({ ...baseInput, selectedEventCardIds: eventCards.slice(0, 6).map((card) => card.id) })).toThrow(/Expected 5 event card/);
   });
 
   it('rejects event cards unavailable for the current month', () => {
@@ -186,6 +184,7 @@ describe('campaign progress domain', () => {
       'event-counterintelligence-team',
       'event-forecast',
       'event-in-the-shadows',
+      'event-war-relics',
       'event-dispatch-teams'
     ];
 
@@ -209,7 +208,7 @@ describe('campaign progress domain', () => {
       campaign,
       players: campaign.players,
       startingHands: cityCards.slice(0, 8).map((card, index) => ({ cardId: card.id, playerId: index < 4 ? 'p1' : 'p2' })),
-      selectedEventCardIds: ['event-counterintelligence-team', 'event-counterintelligence-team', 'event-forecast', 'event-airlift'],
+      selectedEventCardIds: ['event-counterintelligence-team', 'event-counterintelligence-team', 'event-forecast', 'event-airlift', 'event-war-relics'],
       initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
     })).toThrow(/Duplicate/);
   });
