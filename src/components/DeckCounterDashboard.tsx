@@ -26,6 +26,9 @@ interface Props {
 
 export function DeckCounterDashboard(props: Props) {
   const monthSetupComplete = isCampaignMonthSetupComplete(props.campaign);
+  const monthSetupButtonLabel = monthSetupComplete
+    ? (props.language === 'ko' ? '현재 월 다시 시작' : 'Restart month')
+    : (props.language === 'ko' ? '현재 월 준비' : 'Set up month');
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
@@ -35,7 +38,7 @@ export function DeckCounterDashboard(props: Props) {
             <p className="text-sm text-muted-foreground">{props.campaign.progress.currentMonth} · {props.language === 'ko' ? `${props.campaign.progress.currentAttempt}번째 시도` : `Attempt ${props.campaign.progress.currentAttempt}`} · {props.language === 'ko' ? '자금' : 'Funding'} {props.campaign.progress.fundingLevel}</p>
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={props.onOpenMonthSetup}>{props.language === 'ko' ? '현재 월 준비' : 'Set up month'}</Button>
+            <Button type="button" variant="outline" onClick={props.onOpenMonthSetup}>{monthSetupButtonLabel}</Button>
             <Button type="button" onClick={props.onOpenGameResult}>{props.language === 'ko' ? '결과 기록' : 'Record result'}</Button>
           </div>
         </section>

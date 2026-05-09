@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { cityCards } from '../data/cards/cities';
 import { threatCards } from '../data/cards/threats';
 import { monthLabels } from '../data/campaign/months';
-import { getDefaultAvailableEventCardsForMonth, getMonthSetupDefaults, getRequiredEventCardCountForFunding } from '../domain/campaignProgress';
+import { getDefaultAvailableEventCardsForMonth, getMonthSetupDefaults, getRequiredEventCardCountForFunding, isCampaignMonthSetupComplete } from '../domain/campaignProgress';
 import type { Affiliation, LanguageCode, Region } from '../types/cards';
 import type { CampaignState, CharacterProfile, PlayerProfile } from '../types/campaign';
 import type { StartingHandAssignment, UnidentifiedTargetCityFilter, UnidentifiedTargetCitySelection } from '../types/deck';
@@ -81,6 +81,10 @@ const totalSteps = 5;
 
 export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, onSetup }: Props) {
   const defaults = getMonthSetupDefaults(campaign.progress.currentMonth);
+  const monthSetupComplete = isCampaignMonthSetupComplete(campaign);
+  const title = monthSetupComplete
+    ? (language === 'ko' ? '현재 월 다시 시작' : 'Restart current month')
+    : (language === 'ko' ? '현재 월 게임 준비' : 'Set up current month game');
   const defaultSetups = defaults.unidentifiedTargetCities ?? (defaults.unidentifiedTargetCity ? [defaults.unidentifiedTargetCity] : []);
   const [step, setStep] = useState(0);
   const [unidentifiedSetups, setUnidentifiedSetups] = useState<EditableUnidentifiedSetup[]>([]);
@@ -172,7 +176,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
-        <DialogHeader><DialogTitle>{language === 'ko' ? '현재 월 게임 준비' : 'Set up current month game'}</DialogTitle><DialogDescription>{monthLabels[campaign.progress.currentMonth][language]} · {language === 'ko' ? `${step + 1}/${totalSteps}단계` : `Step ${step + 1} of ${totalSteps}`}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{monthLabels[campaign.progress.currentMonth][language]} · {language === 'ko' ? `${step + 1}/${totalSteps}단계` : `Step ${step + 1} of ${totalSteps}`}</DialogDescription></DialogHeader>
         {step === 0 ? <section className="space-y-4">
           <div>
             <h3 className="font-semibold">{language === 'ko' ? '이번 달 플레이어/캐릭터 설정' : 'Monthly players and characters'}</h3>
