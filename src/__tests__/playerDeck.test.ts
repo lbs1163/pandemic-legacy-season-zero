@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateCurrentPileEscalationRisk } from '../domain/probabilities';
+import { calculateCurrentPileEscalationRisk, calculatePlayerDeckComposition } from '../domain/probabilities';
 import {
   configureStartingHands,
   createInitialPlayerDeckState,
@@ -10,12 +10,17 @@ import {
   recordPlayerCardDraw,
   resolveEscalationDraw
 } from '../domain/playerDeck';
-import type { CityCard } from '../types/cards';
+import type { CityCard, EventCard } from '../types/cards';
 
 const testCities: CityCard[] = [
   { id: 'asia-1', kind: 'city', name: { en: 'Asia 1', ko: '아시아 1' }, region: 'asia', affiliation: 'neutral' },
   { id: 'asia-2', kind: 'city', name: { en: 'Asia 2', ko: '아시아 2' }, region: 'asia', affiliation: 'soviet' },
   { id: 'europe-1', kind: 'city', name: { en: 'Europe 1', ko: '유럽 1' }, region: 'europe', affiliation: 'neutral' }
+];
+
+const testEvents: EventCard[] = [
+  { id: 'event-1', kind: 'event', initialSet: true, name: { en: 'Event 1', ko: '이벤트 1' } },
+  { id: 'event-2', kind: 'event', initialSet: true, name: { en: 'Event 2', ko: '이벤트 2' } }
 ];
 
 describe('player deck domain', () => {
@@ -85,6 +90,20 @@ describe('player deck domain', () => {
     });
 
     expect(calculateCurrentPileEscalationRisk(state)).toBeCloseTo(2 / state.piles[0].remainingUnknownCount);
+  });
+
+  it('lists remaining event card ids in player deck composition', () => {
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...testCities.map((city) => city.id), ...testEvents.map((event) => event.id)],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+    const next = recordPlayerCardDraw(state, 'event-1', 'player-hand');
+
+    const composition = calculatePlayerDeckComposition(next, testCities, testEvents);
+
+    expect(composition.remainingEvents).toBe(1);
+    expect(composition.remainingEventCardIds).toEqual(['event-2']);
   });
 
   it('excludes starting hand cities from unidentified target candidates', () => {

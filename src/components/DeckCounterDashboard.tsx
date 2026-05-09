@@ -5,13 +5,11 @@ import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
 import { threatCards } from '../data/cards/threats';
 import { isCampaignMonthSetupComplete } from '../domain/campaignProgress';
-import type { PlayerCardDestination } from '../types/deck';
 import type { PlayerDrawSelection } from '../domain/turnFlow';
 import type { RuleToggle } from '../types/rules';
 import { PlayerDeckPanel } from './PlayerDeckPanel';
 import { ThreatDeckPanel } from './ThreatDeckPanel';
 import { TurnFlowPanel } from './TurnFlowPanel';
-import { EventCardsPanel } from './EventCardsPanel';
 import { Button } from './ui/button';
 
 interface Props {
@@ -21,8 +19,6 @@ interface Props {
   text: UiText;
   onCompletePlayerDraw: (selections: PlayerDrawSelection[]) => void;
   onCompleteThreatDraw: (cardIds: string[]) => void;
-  onPlayerDraw: (cardId: string, destination: PlayerCardDestination) => void;
-  onResolveEscalation: () => void;
   onOpenMonthSetup: () => void;
   onOpenGameResult: () => void;
   onApplyEventEffect: (eventCardId: string, targetCardId?: string) => void;
@@ -55,9 +51,8 @@ export function DeckCounterDashboard(props: Props) {
           </section>
         ) : (
           <>
-        <TurnFlowPanel campaign={props.campaign} language={props.language} cityCards={cityCards} eventCards={eventCards} threatCards={threatCards} onCompletePlayerDraw={props.onCompletePlayerDraw} onCompleteThreatDraw={props.onCompleteThreatDraw} />
-        <EventCardsPanel campaign={props.campaign} language={props.language} onApplyEventEffect={props.onApplyEventEffect} />
-        <PlayerDeckPanel state={props.campaign.playerDeck} text={props.text} language={props.language} cityCards={cityCards} eventCards={eventCards} onDrawKnown={props.onPlayerDraw} onResolveEscalation={props.onResolveEscalation} />
+        <TurnFlowPanel campaign={props.campaign} language={props.language} cityCards={cityCards} eventCards={eventCards} threatCards={threatCards} onCompletePlayerDraw={props.onCompletePlayerDraw} onCompleteThreatDraw={props.onCompleteThreatDraw} onApplyEventEffect={props.onApplyEventEffect} />
+        <PlayerDeckPanel state={props.campaign.playerDeck} text={props.text} language={props.language} cityCards={cityCards} eventCards={eventCards} />
         <ThreatDeckPanel
           state={props.campaign.threatDeck}
           text={props.text}

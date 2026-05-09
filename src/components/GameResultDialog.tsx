@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getMonthSetupDefaults } from '../domain/campaignProgress';
 import { monthLabels } from '../data/campaign/months';
+import { formatLocalDateInputValue } from '../lib/date';
 import type { LanguageCode } from '../types/cards';
-import type { CampaignState, CharacterProfile, MissionResult } from '../types/campaign';
+import type { CampaignState, MissionResult } from '../types/campaign';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
@@ -12,29 +13,22 @@ interface Props {
   campaign: CampaignState;
   language: LanguageCode;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (input: { playedAt?: string; characters: CharacterProfile[]; missionResults: MissionResult[] }) => void;
+  onSubmit: (input: { playedAt?: string; missionResults: MissionResult[] }) => void;
 }
 
 export function GameResultDialog({ open, campaign, language, onOpenChange, onSubmit }: Props) {
   const defaults = getMonthSetupDefaults(campaign.progress.currentMonth);
   const [playedAt, setPlayedAt] = useState('');
-  const [characterNames, setCharacterNames] = useState<Record<string, string>>({});
   const [missionResults, setMissionResults] = useState<MissionResult[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    setPlayedAt(new Date().toISOString().slice(0, 10));
-    setCharacterNames(Object.fromEntries(campaign.players.map((player) => [player.id, campaign.characters?.find((character) => character.playerId === player.id)?.name ?? ''])));
+    setPlayedAt(formatLocalDateInputValue());
     setMissionResults(defaults.missions.map((mission) => ({ missionId: mission.id, succeeded: mission.defaultResult ?? false })));
-  }, [campaign, defaults.missions, open]);
+  }, [defaults.missions, open]);
 
   const submit = () => {
-    const characters = campaign.players.map((player) => ({
-      id: `character-${player.id}`,
-      playerId: player.id,
-      name: characterNames[player.id]?.trim() || player.name
-    }));
-    onSubmit({ playedAt: playedAt || undefined, characters, missionResults });
+    onSubmit({ playedAt: playedAt || undefined, missionResults });
     onOpenChange(false);
   };
 
@@ -47,9 +41,7 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
         </DialogHeader>
         <div className="space-y-4">
           <label className="block space-y-2"><span className="text-sm font-medium">{language === 'ko' ? '플레이 날짜' : 'Play date'}</span><Input type="date" value={playedAt} onChange={(event) => setPlayedAt(event.target.value)} /></label>
-          <div className="grid gap-3 md:grid-cols-2">
-            {campaign.players.map((player) => <label key={player.id} className="space-y-2"><span className="text-sm font-medium">{player.name} {language === 'ko' ? '캐릭터' : 'character'}</span><Input value={characterNames[player.id] ?? ''} onChange={(event) => setCharacterNames((current) => ({ ...current, [player.id]: event.target.value }))} /></label>)}
-          </div>
+          {campaign.characters?.length ? <div className="rounded-lg border p-3 text-sm"><div className="font-semibold">{language === 'ko' ? '현재 캐릭터' : 'Current characters'}</div><p className="mt-1 text-muted-foreground">{campaign.characters.map((character) => character.name).join(', ')}</p></div> : null}
           <div className="space-y-2">
             <h3 className="font-semibold">{language === 'ko' ? '임무 결과' : 'Mission results'}</h3>
             {defaults.missions.length ? defaults.missions.map((mission) => {

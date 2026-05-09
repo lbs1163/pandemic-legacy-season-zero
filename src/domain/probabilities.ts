@@ -19,6 +19,7 @@ export interface CityProbability {
 export interface PlayerDeckComposition {
   remainingCities: number;
   remainingEvents: number;
+  remainingEventCardIds: string[];
   remainingByRegion: Record<Region, number>;
   remainingByAffiliation: Record<Affiliation, number>;
   handByPlayer: Record<string, string[]>;
@@ -133,6 +134,7 @@ export function calculatePlayerDeckComposition(
   const remainingByRegion = emptyRegionCounts();
   const remainingByAffiliation = emptyAffiliationCounts();
   const handByPlayer: Record<string, string[]> = {};
+  const remainingEventCardIds: string[] = [];
   let remainingCities = 0;
   let remainingEvents = 0;
   let discardCount = 0;
@@ -147,6 +149,7 @@ export function calculatePlayerDeckComposition(
         remainingByAffiliation[city.affiliation] += 1;
       } else if (eventIds.has(cardState.cardId)) {
         remainingEvents += 1;
+        remainingEventCardIds.push(cardState.cardId);
       }
     }
     if (cardState.zone === 'player-hand' && cardState.ownerPlayerId) {
@@ -169,5 +172,5 @@ export function calculatePlayerDeckComposition(
     }
   }
 
-  return { remainingCities, remainingEvents, remainingByRegion, remainingByAffiliation, handByPlayer, discardCount, removedCount };
+  return { remainingCities, remainingEvents, remainingEventCardIds, remainingByRegion, remainingByAffiliation, handByPlayer, discardCount, removedCount };
 }

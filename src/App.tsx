@@ -13,7 +13,7 @@ import { legacyRules } from './data/rules/legacyRules';
 import { createInitialCampaign } from './domain/createInitialCampaign';
 import { applyGameResult, createGameDecksForMonth } from './domain/campaignProgress';
 import { applySupportedEventEffect } from './domain/events';
-import { configureStartingHands, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
+import { configureStartingHands } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
 import { completePlayerDrawStep, completeThreatDrawStep } from './domain/turnFlow';
 import { uiText } from './i18n/uiText';
@@ -22,7 +22,7 @@ import { createEmptyEnvelope, loadLocalCache, saveLocalCache } from './services/
 import { pollGitHubDeviceFlowUntilComplete, startGitHubDeviceFlow } from './services/githubAuth';
 import type { LanguageCode } from './types/cards';
 import type { CharacterProfile, MissionResult, PlayerProfile } from './types/campaign';
-import type { PlayerCardDestination, StartingHandAssignment, UnidentifiedTargetCitySelection } from './types/deck';
+import type { StartingHandAssignment, UnidentifiedTargetCitySelection } from './types/deck';
 import type { AuthState, DeviceFlowUiState, GistSyncMetadata, PersistedEnvelope } from './types/sync';
 import { Alert } from './components/ui/alert';
 import { Button } from './components/ui/button';
@@ -167,6 +167,8 @@ export function App() {
   }
 
   function setupCurrentMonth(input: {
+    players: PlayerProfile[];
+    characters: CharacterProfile[];
     startingHands: StartingHandAssignment[];
     unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
     /** @deprecated Use unidentifiedTargetCitySelection instead. */
@@ -176,18 +178,18 @@ export function App() {
     updateActiveCampaign((campaign) => {
       const decks = createGameDecksForMonth({
         campaign,
-        players: campaign.players,
+        players: input.players,
         startingHands: input.startingHands,
         unidentifiedTargetCitySelections: input.unidentifiedTargetCitySelections,
         unidentifiedTargetCitySelection: input.unidentifiedTargetCitySelection,
         initialThreatCardIds: input.initialThreatCardIds
       });
-      return updateCampaignTimestamp({ ...campaign, ...decks });
+      return updateCampaignTimestamp({ ...campaign, players: input.players, characters: input.characters, ...decks });
     });
   }
 
-  function recordGameResult(input: { playedAt?: string; characters: CharacterProfile[]; missionResults: MissionResult[] }) {
-    updateActiveCampaign((campaign) => applyGameResult(campaign, input));
+  function recordGameResult(input: { playedAt?: string; missionResults: MissionResult[] }) {
+    updateActiveCampaign((campaign) => applyGameResult(campaign, { ...input, characters: campaign.characters ?? [] }));
   }
 
   function updateCampaignTimestamp<T extends { updatedAt: string }>(campaign: T): T {
@@ -298,12 +300,6 @@ export function App() {
             text={text}
             onCompletePlayerDraw={(selections) => updateActiveCampaign((campaign) => updateCampaignTimestamp(completePlayerDrawStep(campaign, selections)))}
             onCompleteThreatDraw={(cardIds) => updateActiveCampaign((campaign) => updateCampaignTimestamp(completeThreatDrawStep(campaign, cardIds)))}
-            onPlayerDraw={(cardId: string, destination: PlayerCardDestination) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, playerDeck: recordPlayerCardDraw(campaign.playerDeck, cardId, destination) }))}
-            onResolveEscalation={() => updateActiveCampaign((campaign) => {
-              const pile = campaign.playerDeck.piles[campaign.playerDeck.currentPileIndex];
-              if (!pile?.escalationCardId) return campaign;
-              return updateCampaignTimestamp({ ...campaign, playerDeck: resolveEscalationDraw(campaign.playerDeck, pile.escalationCardId) });
-            })}
             onOpenMonthSetup={() => setMonthSetupOpen(true)}
             onOpenGameResult={() => setGameResultOpen(true)}
             onApplyEventEffect={(eventCardId, targetCardId) => updateActiveCampaign((campaign) => applySupportedEventEffect(campaign, { eventCardId, targetCardId }))}

@@ -1,12 +1,9 @@
 import type { UiText } from '../i18n/uiText';
 import type { CityCard, EventCard, LanguageCode } from '../types/cards';
-import type { PlayerCardDestination, PlayerDeckState } from '../types/deck';
+import type { PlayerDeckState } from '../types/deck';
 import { calculateCurrentPileEscalationRisk, calculatePlayerDeckComposition } from '../domain/probabilities';
-import { useMemo, useState } from 'react';
-import { Button } from './ui/button';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { NativeSelect } from './ui/native-select';
-import { SearchableSelect } from './SearchableSelect';
 
 interface Props {
   state: PlayerDeckState;
@@ -14,8 +11,6 @@ interface Props {
   language: LanguageCode;
   cityCards: CityCard[];
   eventCards: EventCard[];
-  onDrawKnown: (cardId: string, destination: PlayerCardDestination) => void;
-  onResolveEscalation: () => void;
 }
 
 const regionLabels = {
@@ -28,24 +23,12 @@ const affiliationLabels = {
   ko: { allied: '서방연합', neutral: '중립', soviet: '소련' }
 } as const;
 
-export function PlayerDeckPanel({ state, text, language, cityCards, eventCards, onDrawKnown, onResolveEscalation }: Props) {
-  const [selectedCardId, setSelectedCardId] = useState('');
-  const [destination, setDestination] = useState<PlayerCardDestination>('player-discard');
+export function PlayerDeckPanel({ state, text, language, cityCards, eventCards }: Props) {
   const currentPile = state.piles[state.currentPileIndex];
   const risk = Math.round(calculateCurrentPileEscalationRisk(state) * 100);
   const composition = useMemo(() => calculatePlayerDeckComposition(state, cityCards, eventCards), [cityCards, eventCards, state]);
-  const drawableCards = useMemo(() => [...cityCards, ...eventCards].filter((card) => state.cardStates[card.id]?.zone === 'player-deck-unknown'), [cityCards, eventCards, state.cardStates]);
-  const cityMap = useMemo(() => new Map(cityCards.map((card) => [card.id, card])), [cityCards]);
-  const drawOptions = useMemo(() => drawableCards.map((card) => {
-    const city = cityMap.get(card.id);
-    return {
-      value: card.id,
-      label: card.name[language],
-      description: city
-        ? `${regionLabels[language][city.region]} · ${affiliationLabels[language][city.affiliation]}`
-        : (language === 'ko' ? '이벤트' : 'Event')
-    };
-  }), [cityMap, drawableCards, language]);
+  const eventMap = useMemo(() => new Map(eventCards.map((card) => [card.id, card])), [eventCards]);
+  const remainingEventCards = composition.remainingEventCardIds.map((cardId) => eventMap.get(cardId)).filter((card): card is EventCard => Boolean(card));
   return (
     <Card>
       <CardHeader><CardTitle>{text.playerDeck}</CardTitle></CardHeader>
@@ -56,7 +39,7 @@ export function PlayerDeckPanel({ state, text, language, cityCards, eventCards, 
         <div className="rounded-lg bg-muted p-3"><span className="text-sm text-muted-foreground">{text.escalationRisk}</span><strong className="block text-2xl">{risk}%</strong></div>
         <div className="rounded-lg bg-muted p-3"><span className="text-sm text-muted-foreground">{language === 'ko' ? '남은 이벤트' : 'Events left'}</span><strong className="block text-2xl">{composition.remainingEvents}</strong></div>
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-3">
         <div className="grid gap-1 rounded-lg border p-3">
           <strong>{language === 'ko' ? '대륙별 남은 도시' : 'Cities by region'}</strong>
           {Object.entries(composition.remainingByRegion).map(([region, count]) => <span key={region}>{regionLabels[language][region as keyof typeof regionLabels.ko]}: {count}</span>)}
@@ -64,6 +47,13 @@ export function PlayerDeckPanel({ state, text, language, cityCards, eventCards, 
         <div className="grid gap-1 rounded-lg border p-3">
           <strong>{language === 'ko' ? '진영별 남은 도시' : 'Cities by affiliation'}</strong>
           {Object.entries(composition.remainingByAffiliation).map(([affiliation, count]) => <span key={affiliation}>{affiliationLabels[language][affiliation as keyof typeof affiliationLabels.ko]}: {count}</span>)}
+        </div>
+        <div className="grid gap-2 rounded-lg border p-3">
+          <strong>{language === 'ko' ? '남은 이벤트 카드' : 'Remaining event cards'}</strong>
+          {remainingEventCards.length ? remainingEventCards.map((card) => {
+            const description = card.effect?.description[language] ?? card.notes?.[language] ?? (language === 'ko' ? '효과 설명이 없습니다.' : 'No effect text.');
+            return <span key={card.id} className="group relative w-fit rounded border px-2 py-1 text-sm" tabIndex={0} title={description}>{card.name[language]}<span className="pointer-events-none absolute left-0 top-full z-10 mt-1 hidden w-64 rounded-md border bg-popover p-2 text-xs text-popover-foreground shadow-md group-hover:block group-focus:block">{description}</span></span>;
+          }) : <span className="text-sm text-muted-foreground">{language === 'ko' ? '남은 이벤트 카드 없음' : 'No event cards left'}</span>}
         </div>
       </div>
       <div className="grid gap-2">
@@ -74,24 +64,6 @@ export function PlayerDeckPanel({ state, text, language, cityCards, eventCards, 
             <span>{pile.escalationResolved ? text.escalationResolved : text.escalationHidden}</span>
           </div>
         ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <SearchableSelect
-          className="max-w-xs"
-          value={selectedCardId}
-          placeholder={language === 'ko' ? '뽑은 카드 선택' : 'Select drawn card'}
-          searchPlaceholder={language === 'ko' ? '카드 검색...' : 'Search cards...'}
-          emptyText={language === 'ko' ? '카드가 없습니다.' : 'No cards found.'}
-          options={drawOptions}
-          onChange={setSelectedCardId}
-        />
-        <NativeSelect className="max-w-xs" value={destination} onChange={(event) => setDestination(event.target.value as PlayerCardDestination)}>
-          <option value="player-hand">{language === 'ko' ? '손패' : 'Hand'}</option>
-          <option value="player-discard">{language === 'ko' ? '버림' : 'Discard'}</option>
-          <option value="player-removed">{language === 'ko' ? '제거' : 'Removed'}</option>
-        </NativeSelect>
-        <Button onClick={() => { if (selectedCardId) { onDrawKnown(selectedCardId, destination); setSelectedCardId(''); } }} disabled={!selectedCardId}>{text.recordKnownDraw}</Button>
-        <Button variant="secondary" onClick={onResolveEscalation} disabled={!currentPile || currentPile.escalationResolved}>{text.resolveCurrentEscalation}</Button>
       </div>
       </CardContent>
     </Card>

@@ -125,6 +125,34 @@ describe('campaign progress domain', () => {
     expect(decks.turnFlow).toEqual({ step: 'player-draw', turnNumber: 1 });
   });
 
+  it('creates current-month player deck using the monthly player count', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Monthly player changes',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const monthlyPlayers = [
+      { id: 'p1', name: 'Player 1' },
+      { id: 'p2', name: 'Player 2' },
+      { id: 'p3', name: 'Player 3' }
+    ];
+    const startingHands = [
+      ...cityCards.slice(0, 3).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...eventCards.slice(0, 3).map((card) => ({ cardId: card.id, playerId: 'p2' })),
+      ...cityCards.slice(3, 6).map((card) => ({ cardId: card.id, playerId: 'p3' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign,
+      players: monthlyPlayers,
+      startingHands,
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    expect(decks.playerDeck.startingHand.requiredPerPlayer).toBe(3);
+    expect(decks.playerDeck.startingHand.requiredTotal).toBe(9);
+  });
+
   it('reports month setup incomplete until starting hands and initial threats are configured', () => {
     const campaign = createInitialCampaign({
       campaignName: 'Setup gate',
