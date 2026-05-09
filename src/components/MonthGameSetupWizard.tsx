@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { cityCards } from '../data/cards/cities';
 import { threatCards } from '../data/cards/threats';
 import { monthLabels } from '../data/campaign/months';
-import { getDefaultAvailableEventCardsForMonth, getMonthSetupDefaults } from '../domain/campaignProgress';
+import { getDefaultAvailableEventCardsForMonth, getMonthSetupDefaults, getRequiredEventCardCountForFunding } from '../domain/campaignProgress';
 import type { Affiliation, LanguageCode, Region } from '../types/cards';
 import type { CampaignState, CharacterProfile, PlayerProfile } from '../types/campaign';
 import type { StartingHandAssignment, UnidentifiedTargetCityFilter, UnidentifiedTargetCitySelection } from '../types/deck';
@@ -18,7 +18,7 @@ interface Props {
   campaign: CampaignState;
   language: LanguageCode;
   onOpenChange: (open: boolean) => void;
-  onSetup: (input: { players: PlayerProfile[]; characters: CharacterProfile[]; startingHands: StartingHandAssignment[]; unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[]; initialThreatCardIds: string[] }) => void;
+  onSetup: (input: { players: PlayerProfile[]; characters: CharacterProfile[]; startingHands: StartingHandAssignment[]; selectedEventCardIds: string[]; unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[]; initialThreatCardIds: string[] }) => void;
 }
 
 interface EditableUnidentifiedSetup {
@@ -77,6 +77,8 @@ function candidatesFor(filter: UnidentifiedTargetCityFilter) {
   return cityCards.filter((city) => filter.type === 'region' ? city.region === filter.value : city.affiliation === filter.value);
 }
 
+const totalSteps = 5;
+
 export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, onSetup }: Props) {
   const defaults = getMonthSetupDefaults(campaign.progress.currentMonth);
   const defaultSetups = defaults.unidentifiedTargetCities ?? (defaults.unidentifiedTargetCity ? [defaults.unidentifiedTargetCity] : []);
@@ -84,11 +86,17 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
   const [unidentifiedSetups, setUnidentifiedSetups] = useState<EditableUnidentifiedSetup[]>([]);
   const [initialThreatCardIds, setInitialThreatCardIds] = useState<string[]>([]);
   const [startingHands, setStartingHands] = useState<StartingHandAssignment[]>([]);
+  const [selectedEventCardIds, setSelectedEventCardIds] = useState<string[]>([]);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [characterNames, setCharacterNames] = useState<Record<string, string>>({});
   const requiredPerPlayer = startingHandSizeForPlayers(players.length);
   const requiredTotal = requiredPerPlayer * players.length;
-  const eventCards = useMemo(() => getDefaultAvailableEventCardsForMonth(campaign.progress.currentMonth), [campaign.progress.currentMonth]);
+  const availableEventCards = useMemo(() => getDefaultAvailableEventCardsForMonth(campaign.progress.currentMonth), [campaign.progress.currentMonth]);
+  const requiredEventCount = getRequiredEventCardCountForFunding(campaign.progress.fundingLevel, availableEventCards.length);
+  const selectedEventCards = useMemo(
+    () => availableEventCards.filter((card) => selectedEventCardIds.includes(card.id)),
+    [availableEventCards, selectedEventCardIds]
+  );
   const activeSelections = unidentifiedSetups.filter((setup) => setup.enabled).map(selectionFromEditable);
   const changedDefault = defaultSetups.length !== unidentifiedSetups.length || unidentifiedSetups.some((setup, index) => {
     const defaultSetup = defaultSetups[index];
@@ -100,7 +108,16 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     return selection.hiddenRemovedCount !== undefined && selection.hiddenRemovedCount > 0 && candidates.length >= selection.hiddenRemovedCount;
   });
   const validPlayers = players.length >= 2 && players.length <= 4 && players.every((player) => player.name.trim().length > 0);
-  const canContinue = step === 0 ? validPlayers : step === 1 ? validUnidentifiedSetups : step === 2 ? initialThreatCardIds.length === 9 : startingHands.length === requiredTotal;
+  const validEventSelection = selectedEventCardIds.length === requiredEventCount;
+  const canContinue = step === 0
+    ? validPlayers
+    : step === 1
+      ? validEventSelection
+      : step === 2
+        ? validUnidentifiedSetups
+        : step === 3
+          ? initialThreatCardIds.length === 9
+          : startingHands.length === requiredTotal;
 
   useEffect(() => {
     if (!open) return;
@@ -111,6 +128,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     setUnidentifiedSetups(defaultSetups.length ? defaultSetups.map(editableSetupFromSelection) : [editableSetupFromSelection()]);
     setInitialThreatCardIds([]);
     setStartingHands([]);
+    setSelectedEventCardIds([]);
   }, [campaign.characters, campaign.players, defaults, language, open]);
 
   const updatePlayerCount = (count: number) => {
@@ -126,12 +144,25 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     setUnidentifiedSetups((current) => current.map((setup, setupIndex) => setupIndex === index ? updater(setup) : setup));
   };
 
+  const toggleEventCardSelection = (cardId: string) => {
+    setSelectedEventCardIds((current) => {
+      const next = current.includes(cardId)
+        ? current.filter((selectedId) => selectedId !== cardId)
+        : current.length < requiredEventCount
+          ? [...current, cardId]
+          : current;
+      if (next !== current) setStartingHands([]);
+      return next;
+    });
+  };
+
   const finish = () => {
     const trimmedPlayers = players.map((player, index) => ({ ...player, id: `p${index + 1}`, name: player.name.trim() || defaultPlayerName(language, index) }));
     onSetup({
       players: trimmedPlayers,
       characters: makeCharacters(trimmedPlayers, characterNames),
       startingHands,
+      selectedEventCardIds,
       unidentifiedTargetCitySelections: activeSelections.length ? activeSelections : undefined,
       initialThreatCardIds
     });
@@ -141,7 +172,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
-        <DialogHeader><DialogTitle>{language === 'ko' ? '현재 월 게임 준비' : 'Set up current month game'}</DialogTitle><DialogDescription>{monthLabels[campaign.progress.currentMonth][language]} · {language === 'ko' ? `${step + 1}/4단계` : `Step ${step + 1} of 4`}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{language === 'ko' ? '현재 월 게임 준비' : 'Set up current month game'}</DialogTitle><DialogDescription>{monthLabels[campaign.progress.currentMonth][language]} · {language === 'ko' ? `${step + 1}/${totalSteps}단계` : `Step ${step + 1} of ${totalSteps}`}</DialogDescription></DialogHeader>
         {step === 0 ? <section className="space-y-4">
           <div>
             <h3 className="font-semibold">{language === 'ko' ? '이번 달 플레이어/캐릭터 설정' : 'Monthly players and characters'}</h3>
@@ -162,6 +193,32 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
           {!validPlayers ? <p className="text-sm text-destructive">{language === 'ko' ? '모든 플레이어 이름을 입력하세요.' : 'Enter every player name.'}</p> : null}
         </section> : null}
         {step === 1 ? <section className="space-y-4">
+          <div>
+            <h3 className="font-semibold">{language === 'ko' ? '이벤트 카드 선택' : 'Event card selection'}</h3>
+            <p className="text-sm text-muted-foreground">
+              {language === 'ko'
+                ? `현재 자금 지원 단계는 ${campaign.progress.fundingLevel}입니다. 이번 달 플레이어 덱에 넣을 이벤트 카드 ${requiredEventCount}장을 선택하세요.`
+                : `Current funding level is ${campaign.progress.fundingLevel}. Choose ${requiredEventCount} event card(s) to include in this month's player deck.`}
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {availableEventCards.map((card) => {
+              const selected = selectedEventCardIds.includes(card.id);
+              const disabled = !selected && selectedEventCardIds.length >= requiredEventCount;
+              return <label key={card.id} className={`flex gap-3 rounded-lg border p-3 text-sm ${disabled ? 'opacity-60' : ''}`}>
+                <input type="checkbox" checked={selected} disabled={disabled} onChange={() => toggleEventCardSelection(card.id)} />
+                <span className="space-y-1">
+                  <span className="block font-semibold">{card.name[language]}</span>
+                  {card.effect?.description ? <span className="block text-muted-foreground">{card.effect.description[language]}</span> : null}
+                </span>
+              </label>;
+            })}
+          </div>
+          <p className={`text-sm ${validEventSelection ? 'text-muted-foreground' : 'text-destructive'}`}>
+            {language === 'ko' ? `${selectedEventCardIds.length}/${requiredEventCount}장 선택됨` : `${selectedEventCardIds.length}/${requiredEventCount} selected`}
+          </p>
+        </section> : null}
+        {step === 2 ? <section className="space-y-4">
           <div>
             <h3 className="font-semibold">{language === 'ko' ? '미식별/시험 대상 도시 준비' : 'Unidentified/test target city setup'}</h3>
             <p className="text-sm text-muted-foreground">{language === 'ko' ? '표적 확보와 시험 저지는 모두 게임 시작 전에 후보 도시 중 지정 수를 비공개 제외하는 방식으로 처리합니다.' : 'Both target acquisition and test prevention remove the configured number of matching city candidates before the game starts.'}</p>
@@ -187,9 +244,9 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
           </div>
           {changedDefault ? <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">{defaultSetups[0]?.warningWhenChanged[language]}</p> : null}
         </section> : null}
-        {step === 2 ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{initialThreatCardIds.length}/9</p><InitialThreatSetupEditor selectedCardIds={initialThreatCardIds} cityCards={cityCards} threatCards={threatCards} language={language} onChange={setInitialThreatCardIds} /></section> : null}
-        {step === 3 ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p><StartingHandAssignmentEditor players={players} requiredPerPlayer={requiredPerPlayer} selectedAssignments={startingHands} cityCards={cityCards} eventCards={eventCards} language={language} onChange={setStartingHands} /></section> : null}
-        <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => step === 0 ? onOpenChange(false) : setStep((current) => current - 1)}>{step === 0 ? (language === 'ko' ? '취소' : 'Cancel') : (language === 'ko' ? '이전' : 'Back')}</Button><Button disabled={!canContinue} onClick={() => step === 3 ? finish() : setStep((current) => current + 1)}>{step === 3 ? (language === 'ko' ? '적용' : 'Apply setup') : (language === 'ko' ? '다음' : 'Next')}</Button></div>
+        {step === 3 ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{initialThreatCardIds.length}/9</p><InitialThreatSetupEditor selectedCardIds={initialThreatCardIds} cityCards={cityCards} threatCards={threatCards} language={language} onChange={setInitialThreatCardIds} /></section> : null}
+        {step === 4 ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p><StartingHandAssignmentEditor players={players} requiredPerPlayer={requiredPerPlayer} selectedAssignments={startingHands} cityCards={cityCards} eventCards={selectedEventCards} language={language} onChange={setStartingHands} /></section> : null}
+        <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => step === 0 ? onOpenChange(false) : setStep((current) => current - 1)}>{step === 0 ? (language === 'ko' ? '취소' : 'Cancel') : (language === 'ko' ? '이전' : 'Back')}</Button><Button disabled={!canContinue} onClick={() => step === totalSteps - 1 ? finish() : setStep((current) => current + 1)}>{step === totalSteps - 1 ? (language === 'ko' ? '적용' : 'Apply setup') : (language === 'ko' ? '다음' : 'Next')}</Button></div>
       </DialogContent>
     </Dialog>
   );

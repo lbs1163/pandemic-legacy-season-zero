@@ -170,6 +170,7 @@ export function App() {
     players: PlayerProfile[];
     characters: CharacterProfile[];
     startingHands: StartingHandAssignment[];
+    selectedEventCardIds: string[];
     unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
     /** @deprecated Use unidentifiedTargetCitySelection instead. */
     unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
@@ -180,6 +181,7 @@ export function App() {
         campaign,
         players: input.players,
         startingHands: input.startingHands,
+        selectedEventCardIds: input.selectedEventCardIds,
         unidentifiedTargetCitySelections: input.unidentifiedTargetCitySelections,
         unidentifiedTargetCitySelection: input.unidentifiedTargetCitySelection,
         initialThreatCardIds: input.initialThreatCardIds

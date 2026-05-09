@@ -7,58 +7,100 @@ export const eventCards: EventCard[] = [
     initialSet: true,
     availability: { fromMonth: 'prologue' },
     name: { en: 'Counterintelligence Team', ko: '방첩 부대' },
-    notes: { en: 'Title/effect wording placeholder; replace when exact card text is provided.', ko: '정확한 카드 문구가 제공되면 교체하세요.' },
     effect: {
       kind: 'move-threat-discard-to-game-end',
       description: {
         en: 'Choose 1 card from the Threat discard area and move it to the Game End area.',
-        ko: '버린 위협 카드 구획에서 카드 1장을 골라 게임 종료 구획으로 이동합니다.'
+        ko: "'버린 위협 카드' 구획에서 카드 1장을 골라 '게임 종료' 구획으로 옮깁니다."
       }
     }
   },
   {
-    id: 'event-government-grant-placeholder',
+    id: 'event-forecast',
     kind: 'event',
     initialSet: true,
     availability: { fromMonth: 'prologue' },
-    name: { en: 'Event Card 2', ko: '이벤트 카드 2' },
-    notes: { en: 'Placeholder; verify exact initial event name from rulebook/cards.', ko: '초기 이벤트 카드 이름 확인 필요.' },
-    effect: { kind: 'unknown', description: { en: 'Effect text not entered yet.', ko: '효과 문구가 아직 입력되지 않았습니다.' } }
+    name: { en: 'Forecast', ko: '예측' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'Look at the top 6 cards of the Threat deck, then arrange them in any order and put them back on top of the Threat deck.',
+        ko: '위협 덱 맨 위에서부터 카드 6장을 확인한 후, 원하는 순서대로 정리하여 다시 위협 덱 위에 얹습니다.'
+      }
+    }
   },
   {
-    id: 'event-one-quiet-night-placeholder',
+    id: 'event-in-the-shadows',
     kind: 'event',
     initialSet: true,
     availability: { fromMonth: 'prologue' },
-    name: { en: 'Event Card 3', ko: '이벤트 카드 3' },
-    notes: { en: 'Placeholder; verify exact initial event name from rulebook/cards.', ko: '초기 이벤트 카드 이름 확인 필요.' },
-    effect: { kind: 'unknown', description: { en: 'Effect text not entered yet.', ko: '효과 문구가 아직 입력되지 않았습니다.' } }
+    name: { en: 'In the Shadows', ko: '어둠 속에서' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'This turn, remove 1 Soviet agent from each city a player character enters by driving/ferrying.',
+        ko: '이번 차례에, 플레이어 캐릭터가 자동차/배 이동으로 들어가는 도시마다 소련 비밀요원 말을 1개씩 제거합니다.'
+      }
+    }
   },
   {
-    id: 'event-resilient-population-placeholder',
+    id: 'event-war-relics',
     kind: 'event',
     initialSet: true,
     availability: { fromMonth: 'prologue' },
-    name: { en: 'Event Card 4', ko: '이벤트 카드 4' },
-    notes: { en: 'Placeholder; verify exact initial event name from rulebook/cards.', ko: '초기 이벤트 카드 이름 확인 필요.' },
-    effect: { kind: 'unknown', description: { en: 'Effect text not entered yet.', ko: '효과 문구가 아직 입력되지 않았습니다.' } }
+    name: { en: 'War Relics', ko: '전쟁 유물' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'Place 1 safehouse in any city.',
+        ko: '아무 도시 1곳에 안전가옥 1개를 놓습니다.'
+      }
+    }
   },
   {
-    id: 'event-special-orders-placeholder',
+    id: 'event-airlift',
     kind: 'event',
     initialSet: true,
     availability: { fromMonth: 'prologue' },
-    name: { en: 'Event Card 5', ko: '이벤트 카드 5' },
-    notes: { en: 'Placeholder; verify exact initial event name from rulebook/cards.', ko: '초기 이벤트 카드 이름 확인 필요.' },
-    effect: { kind: 'unknown', description: { en: 'Effect text not entered yet.', ko: '효과 문구가 아직 입력되지 않았습니다.' } }
+    name: { en: 'Airlift', ko: '공중 수송' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'Move any 1 character pawn to any city, or move any 1 team pawn to any city.',
+        ko: '아무 캐릭터 말 1개를 아무 도시로 옮깁니다. 또는 아무 작전팀 말 1개를 아무 도시로 옮깁니다.'
+      }
+    }
   },
-  ...[1, 2, 3, 4].map((index): EventCard => ({
-    id: `event-february-${index}-placeholder`,
+  {
+    id: 'event-dispatch-teams',
     kind: 'event',
     initialSet: false,
     availability: { fromMonth: 'february' },
-    name: { en: `February Event Card ${index}`, ko: `2월 이벤트 카드 ${index}` },
-    notes: { en: 'February event placeholder; exact title/effect pending.', ko: '2월 이벤트 카드 자리표시자입니다. 정확한 이름/효과 대기 중.' },
-    effect: { kind: 'unknown', description: { en: 'Effect text not entered yet.', ko: '효과 문구가 아직 입력되지 않았습니다.' } }
-  }))
+    name: { en: 'Dispatch Teams', ko: '작전팀 급파' },
+    effect: { kind: 'informational', description: { en: 'Resolve this event card according to its card text.', ko: '카드에 적힌 효과를 적용합니다.' } }
+  },
+  {
+    id: 'event-weekend-rendezvous',
+    kind: 'event',
+    initialSet: false,
+    availability: { fromMonth: 'february' },
+    name: { en: 'Weekend Rendezvous', ko: '주말 접선' },
+    effect: { kind: 'informational', description: { en: 'Resolve this event card according to its card text.', ko: '카드에 적힌 효과를 적용합니다.' } }
+  },
+  {
+    id: 'event-coded-message',
+    kind: 'event',
+    initialSet: false,
+    availability: { fromMonth: 'february' },
+    name: { en: 'Coded Message', ko: '암호 메세지' },
+    effect: { kind: 'informational', description: { en: 'Resolve this event card according to its card text.', ko: '카드에 적힌 효과를 적용합니다.' } }
+  },
+  {
+    id: 'event-bureaucratic-trap',
+    kind: 'event',
+    initialSet: false,
+    availability: { fromMonth: 'february' },
+    name: { en: 'Bureaucratic Trap', ko: '관료주의의 덫' },
+    effect: { kind: 'informational', description: { en: 'Resolve this event card according to its card text.', ko: '카드에 적힌 효과를 적용합니다.' } }
+  }
 ];

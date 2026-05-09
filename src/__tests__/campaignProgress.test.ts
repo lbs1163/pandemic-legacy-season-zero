@@ -125,6 +125,95 @@ describe('campaign progress domain', () => {
     expect(decks.turnFlow).toEqual({ step: 'player-draw', turnNumber: 1 });
   });
 
+  it('creates current-month player deck with selected funded events only', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Selected events',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const availableEventIds = eventCards.slice(0, 5).map((card) => card.id);
+    const selectedEventCardIds = availableEventIds.slice(0, 4);
+    const unselectedEventCardId = availableEventIds[4];
+    const startingHands = [
+      ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign,
+      players: campaign.players,
+      startingHands,
+      selectedEventCardIds,
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    for (const cardId of selectedEventCardIds) {
+      expect(decks.playerDeck.cardStates[cardId]).toBeDefined();
+    }
+    expect(decks.playerDeck.cardStates[unselectedEventCardId]).toBeUndefined();
+    for (const assignment of startingHands) {
+      expect(decks.playerDeck.cardStates[assignment.cardId]).toMatchObject({
+        zone: 'player-hand',
+        ownerPlayerId: assignment.playerId
+      });
+    }
+  });
+
+  it('rejects selected event cards that do not match funding count', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Funding mismatch',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const baseInput = {
+      campaign,
+      players: campaign.players,
+      startingHands: cityCards.slice(0, 8).map((card, index) => ({ cardId: card.id, playerId: index < 4 ? 'p1' : 'p2' })),
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    };
+
+    expect(() => createGameDecksForMonth({ ...baseInput, selectedEventCardIds: eventCards.slice(0, 3).map((card) => card.id) })).toThrow(/Expected 4 event card/);
+    expect(() => createGameDecksForMonth({ ...baseInput, selectedEventCardIds: eventCards.slice(0, 5).map((card) => card.id) })).toThrow(/Expected 4 event card/);
+  });
+
+  it('rejects event cards unavailable for the current month', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Unavailable event',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const selectedEventCardIds = [
+      'event-counterintelligence-team',
+      'event-forecast',
+      'event-in-the-shadows',
+      'event-dispatch-teams'
+    ];
+
+    expect(() => createGameDecksForMonth({
+      campaign,
+      players: campaign.players,
+      startingHands: cityCards.slice(0, 8).map((card, index) => ({ cardId: card.id, playerId: index < 4 ? 'p1' : 'p2' })),
+      selectedEventCardIds,
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    })).toThrow(/not available/);
+  });
+
+  it('rejects duplicate selected event cards', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Duplicate event',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+
+    expect(() => createGameDecksForMonth({
+      campaign,
+      players: campaign.players,
+      startingHands: cityCards.slice(0, 8).map((card, index) => ({ cardId: card.id, playerId: index < 4 ? 'p1' : 'p2' })),
+      selectedEventCardIds: ['event-counterintelligence-team', 'event-counterintelligence-team', 'event-forecast', 'event-airlift'],
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    })).toThrow(/Duplicate/);
+  });
+
   it('creates current-month player deck using the monthly player count', () => {
     const campaign = createInitialCampaign({
       campaignName: 'Monthly player changes',

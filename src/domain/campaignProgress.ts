@@ -66,6 +66,35 @@ export function getDefaultAvailableEventCardsForMonth(month: CampaignMonthId): E
   return getAvailableEventCardsForMonth(eventCards, month);
 }
 
+export function getRequiredEventCardCountForFunding(fundingLevel: number, availableEventCount: number): number {
+  return Math.min(clampFundingLevel(fundingLevel), Math.max(0, availableEventCount));
+}
+
+export function selectEventCardsForMonth(
+  cards: EventCard[],
+  month: CampaignMonthId,
+  selectedEventCardIds: string[] | undefined,
+  fundingLevel: number
+): EventCard[] {
+  const availableEvents = getAvailableEventCardsForMonth(cards, month);
+  if (selectedEventCardIds === undefined) return availableEvents;
+
+  const requiredCount = getRequiredEventCardCountForFunding(fundingLevel, availableEvents.length);
+  if (selectedEventCardIds.length !== new Set(selectedEventCardIds).size) {
+    throw new Error('Duplicate selected event cards are not allowed.');
+  }
+  if (selectedEventCardIds.length !== requiredCount) {
+    throw new Error(`Expected ${requiredCount} event card(s) for funding level ${clampFundingLevel(fundingLevel)}, but received ${selectedEventCardIds.length}.`);
+  }
+
+  const availableById = new Map(availableEvents.map((card) => [card.id, card]));
+  return selectedEventCardIds.map((cardId) => {
+    const card = availableById.get(cardId);
+    if (!card) throw new Error(`Event card ${cardId} is not available for ${month}.`);
+    return card;
+  });
+}
+
 export function isCampaignMonthSetupComplete(campaign: CampaignState): boolean {
   return campaign.playerDeck.startingHand.configured && campaign.threatDeck.discardCardIds.length > 0;
 }
@@ -78,13 +107,14 @@ export function createGameDecksForMonth(input: {
   /** @deprecated Use unidentifiedTargetCitySelections instead. */
   unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
   initialThreatCardIds: string[];
+  selectedEventCardIds?: string[];
   now?: string;
 }): Pick<CampaignState, 'playerDeck' | 'threatDeck' | 'turnFlow'> {
   const month = input.campaign.progress.currentMonth;
   const now = input.now ?? new Date().toISOString();
-  const availableEvents = getDefaultAvailableEventCardsForMonth(month);
+  const selectedEvents = selectEventCardsForMonth(eventCards, month, input.selectedEventCardIds, input.campaign.progress.fundingLevel);
   const initialPlayerDeck = createInitialPlayerDeckState({
-    playerCardIds: [...cityCards.map((card) => card.id), ...availableEvents.map((card) => card.id)],
+    playerCardIds: [...cityCards.map((card) => card.id), ...selectedEvents.map((card) => card.id)],
     playerCount: input.players.length,
     escalationCardIds: escalationCards.map((card) => card.id),
     now
