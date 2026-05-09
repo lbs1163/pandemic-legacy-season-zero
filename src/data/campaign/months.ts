@@ -64,7 +64,7 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   prologue: {
     month: 'prologue',
     name: monthLabels.prologue,
-    defaultFundingLevel: 4,
+    defaultFundingLevel: 5,
     missions: [
       mission('prologue', 1, 'Acquire Project MEDUSA sample', '메두사 프로젝트 샘플 입수'),
       mission('prologue', 2, 'Search for Agent Sabik', '사빅 요원 수색')
@@ -82,6 +82,7 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   january: {
     month: 'january',
     name: monthLabels.january,
+    defaultFundingLevel: 5,
     missions: [
       mission('january', 1, 'Interrogate Soviet scientist', '소련 과학자 취조'),
       mission('january', 2, 'Find Agent Sabik', '사빅 요원 찾기')

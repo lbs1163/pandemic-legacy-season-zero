@@ -1,86 +1,84 @@
 # Implementation Plan
 
 [Overview]
-앱 상단 알림 메시지를 번역 키 기반 상태로 저장해 언어 변경 시 즉시 재번역되게 하고, 알림 닫기 버튼과 현재 캠페인 월 이름 번역 표시를 추가한다.
+프롤로그 결과가 1월 자금 지원 단계에 영향을 주지 않도록 캠페인 진행 계산을 수정해 프롤로그와 1월의 자금 지원 단계가 모두 5로 유지되게 한다.
 
-현재 앱은 React + TypeScript + Vite 기반 Pandemic Legacy Season 0 덱 카운터이며, UI 문구는 대부분 `src/i18n/uiText.ts`의 `uiText[language]` 또는 각 데이터 객체의 localized text를 통해 렌더링 시점에 선택된다. 그러나 `src/App.tsx`의 `syncMessage` 상태는 `string | undefined`로 저장되고, `handleResetStorage()`, `handlePull()`, `handlePush()`, `handleStartSignIn()` 등에서 현재 언어의 완성된 문자열을 저장한다. 이 때문에 “로컬 저장 데이터가 초기화되었습니다.” 알림처럼 이미 상태에 저장된 문구는 언어 선택을 바꿔도 다시 번역되지 않는다.
+현재 앱은 React + TypeScript + Vite 기반 Pandemic Legacy Season 0 덱 카운터이며, 캠페인 월 진행과 자금 지원 단계 계산은 주로 `src/domain/campaignProgress.ts`에 집중되어 있다. 새 캠페인은 `src/domain/createInitialCampaign.ts`에서 프롤로그로 시작하며 기본 자금 지원 단계는 이미 5로 생성된다. 그러나 `applyGameResult()`는 모든 월 결과에 대해 `calculateNextFundingLevel(progress.fundingLevel, rating)`을 적용하고, 프롤로그에서 성공하면 다음 월인 1월의 `progress.fundingLevel`이 4가 되는 현재 테스트 기대값도 존재한다.
 
-해결 방향은 알림 상태에 완성된 문자열 대신 번역 key와 필요한 interpolation parameter만 저장하는 것이다. 렌더링 시점에 현재 `language`로부터 `text = uiText[language]`를 다시 계산하고, 알림 key를 현재 언어의 문자열로 변환한다. 이렇게 하면 알림이 떠 있는 동안 언어를 바꿔도 같은 key가 새 언어 문구로 표시된다. 동시에 사용자가 알림을 수동으로 없앨 수 있도록 `Alert` 내부에 닫기 버튼을 배치하고, 닫기 시 알림 상태를 `undefined`로 만든다.
+요구사항은 “캠페인에서 월별 결과에 따라 자금 지원 단계가 변화하는 것은 프롤로그는 예외적으로 아니야. 즉, 프롤로그와 1월은 자금 지원단계가 5야.”이다. 따라서 프롤로그의 게임 결과는 게임 기록에는 그대로 저장하되, 다음 상태가 1월로 이동할 때 자금 지원 단계는 결과 기반 증감이 아니라 고정값 5를 사용해야 한다. 1월 이후부터는 기존 성공 -1, 보통 +1, 실패 +2 규칙과 Secret File 14 경고 로직을 유지한다.
 
-현재 캠페인 월 표시는 `src/components/DeckCounterDashboard.tsx`에서 `props.campaign.progress.currentMonth`를 그대로 출력하고 있어 `january`, `february` 같은 내부 ID가 노출된다. 이미 `src/data/campaign/months.ts`에 `monthLabels`가 정의되어 있고 `MonthGameSetupWizard`, `GameResultDialog`, `CampaignTimelinePanel`은 이를 사용한다. 따라서 `DeckCounterDashboard`도 같은 `monthLabels[currentMonth][language]` 패턴을 사용하도록 수정해 현재 언어에 맞는 월 이름을 표시한다.
+구현은 도메인 함수에 프롤로그 예외를 명시적으로 모델링하는 작은 helper를 추가하는 방식이 적합하다. `calculateNextFundingLevel()` 자체는 순수 “일반 결과 기반 계산”으로 유지해 기존 단위 테스트와 재사용성을 보존하고, 월 문맥이 필요한 `applyGameResult()`에서만 현재 월이 `prologue`인지 판단해 다음 자금 지원 단계를 결정한다. 이렇게 하면 UI 컴포넌트는 이미 `campaign.progress.fundingLevel`을 기준으로 이벤트 카드 수와 월 준비 기본값을 표시하므로 별도 UI 변경 없이 1월 월 준비 단계가 자금 5로 동작한다.
+
+기존 `monthSetupDefaults.prologue.defaultFundingLevel`은 현재 4로 정의되어 있지만 실제 `MonthGameSetupWizard`는 이 필드를 사용하지 않고 `campaign.progress.fundingLevel`을 기본값으로 사용한다. 혼동을 줄이고 데이터 정의를 요구사항과 일치시키기 위해 `src/data/campaign/months.ts`의 프롤로그 기본 자금 지원 값을 5로 수정하고, 1월에도 명시적으로 `defaultFundingLevel: 5`를 추가한다. 이 필드는 현재 런타임 로직에 직접 연결되어 있지 않지만, 월별 기본 설정 데이터의 의미를 정확히 유지하기 위한 변경이다.
 
 [Types]
-동기화/상태 알림을 완성 문자열이 아닌 번역 key와 parameter로 표현하는 로컬 UI 상태 타입을 추가한다.
+새로운 영속 데이터 타입은 추가하지 않고 기존 `CampaignMonthId`, `CampaignProgressState`, `CampaignState` 구조를 유지한다.
 
-`src/App.tsx` 내부 또는 별도 export가 필요 없는 module-local type으로 다음 타입을 추가한다.
+변경 대상 타입과 데이터 구조는 다음과 같다.
+
+- `CampaignMonthId`
+  - File: `src/types/campaign.ts`
+  - Existing union includes `'prologue' | 'january' | ... | 'december'`.
+  - 변경 없음.
+  - 프롤로그 예외는 타입 확장이 아니라 기존 `CampaignMonthId` 값 중 `'prologue'`에 대한 도메인 규칙으로 처리한다.
+
+- `PerformanceRating`
+  - File: `src/types/campaign.ts`
+  - Existing union: `'success' | 'adequate' | 'failure'`.
+  - 변경 없음.
+  - 프롤로그에서도 성과 평가는 게임 기록의 `performanceRating`에 저장되지만, 다음 자금 지원 단계 계산에는 반영하지 않는다.
+
+- `CampaignProgressState.fundingLevel`
+  - File: `src/types/campaign.ts`
+  - Type: `number`.
+  - Validation: persistence layer에서 `z.number().int().min(1).max(10)`로 검증된다.
+  - 변경 없음.
+  - 새 규칙: `currentMonth`가 `january`로 진입하는 순간에는 프롤로그 결과와 관계없이 `fundingLevel`이 5여야 한다.
+
+- `MonthSetupDefaults.defaultFundingLevel`
+  - File: `src/types/campaignSetup.ts`
+  - Existing type: `defaultFundingLevel?: number`.
+  - 변경 없음.
+  - 데이터 규칙 보강:
+    - `monthSetupDefaults.prologue.defaultFundingLevel`은 5여야 한다.
+    - `monthSetupDefaults.january.defaultFundingLevel`은 5여야 한다.
+  - 이 필드는 선택 필드이므로 타입 변경이나 migration은 필요 없다.
+
+새 타입 후보는 없다. 필요 시 구현 중 module-local constant를 추가할 수 있다.
 
 ```ts
-type SyncMessageKey = 'openAndEnterCode' | 'signedInGistReady' | 'pulledState' | 'pushedState' | 'resetStorageDone';
-
-interface SyncMessageState {
-  key: SyncMessageKey;
-  params?: Record<string, string>;
-}
+const initialCampaignFundingLevel = 5;
 ```
 
-필드 규칙:
-
-- `SyncMessageState.key`
-  - Type: string literal union
-  - Required: yes
-  - Validation: TypeScript compile-time only
-  - Domain meaning: `uiText[language]`에서 조회할 알림 문구 key
-  - Allowed values: `openAndEnterCode`, `signedInGistReady`, `pulledState`, `pushedState`, `resetStorageDone`
-- `SyncMessageState.params`
-  - Type: `Record<string, string> | undefined`
-  - Required: no
-  - Validation: key별 필요한 placeholder만 제공
-  - Domain meaning: `uiText` 문자열의 `{placeholder}` 치환값
-  - `openAndEnterCode`일 때 `{ uri: flow.verificationUri, code: flow.userCode }`가 필요함
-  - 나머지 key는 params가 없어야 하거나 무시 가능함
-
-`src/i18n/uiText.ts`의 구조는 유지하되 alert 닫기 버튼에 사용할 새 번역 key를 추가한다.
-
-```ts
-dismissAlert: string;
-```
-
-필드 규칙:
-
-- `dismissAlert`
-  - Type: string
-  - Required: yes for both `en` and `ko`
-  - English value: `Dismiss alert`
-  - Korean value: `알림 닫기`
-  - Usage: visible button label 또는 `aria-label`로 사용
-
-월 이름 타입은 변경하지 않는다. 기존 `monthLabels: Record<CampaignMonthId, { en: string; ko: string }>`를 그대로 사용한다. 필요하면 `LocalizedText` 타입을 import해 `Record<CampaignMonthId, LocalizedText>`로 정리할 수 있지만 이번 변경의 필수 범위는 아니다.
+이 상수는 타입이 아니라 도메인 상수이며, `src/domain/campaignProgress.ts`와 `src/domain/createInitialCampaign.ts` 사이에서 공유하려면 export할 수 있다. 다만 순환 import를 피하려면 `campaignProgress.ts`에 export하고 `createInitialCampaign.ts`가 이미 해당 파일에서 import하므로 자연스럽게 사용할 수 있다.
 
 [Files]
-앱 알림 상태, UI 번역 사전, 현재 월 표시 컴포넌트, 테스트를 수정하고 기존 저장 스키마 및 의존성 설정은 건드리지 않는다.
+도메인 진행 계산, 월 기본 데이터, 캠페인 진행 테스트를 수정하고 필요 시 영속성 테스트 기대값을 보강한다.
 
 - New files to be created:
-  - 없음. 기존 파일 안에서 타입, 렌더링, 테스트를 수정한다.
+  - 없음. 기존 도메인 파일과 테스트 파일 안에서 변경한다.
 
 - Existing files to be modified:
-  - `src/App.tsx`
-    - `syncMessage` state를 `string | undefined`에서 `SyncMessageState | undefined`로 변경한다.
-    - `setSyncMessage(text.someKey...)` 호출을 `{ key: 'someKey', params?: ... }` 형태로 변경한다.
-    - 현재 언어의 `text`와 `syncMessage` key/params를 이용해 표시 문자열을 만드는 helper를 추가한다.
-    - `<Alert>{syncMessage}</Alert>` 렌더링을 닫기 버튼이 포함된 dismissible alert UI로 변경한다.
-    - 닫기 버튼 클릭 시 `setSyncMessage(undefined)`를 호출한다.
-  - `src/i18n/uiText.ts`
-    - `en`과 `ko` 양쪽에 `dismissAlert` key를 추가한다.
-    - 기존 `resetStorageDone`, `pulledState`, `pushedState`, `signedInGistReady`, `openAndEnterCode` 값은 유지한다.
-  - `src/components/DeckCounterDashboard.tsx`
-    - `monthLabels`를 `../data/campaign/months`에서 import한다.
-    - 현재 월 표시에서 `props.campaign.progress.currentMonth` 대신 `monthLabels[props.campaign.progress.currentMonth][props.language]`를 사용한다.
-    - 시도/자금 표시 문구는 기존 언어 분기와 동일하게 유지한다.
-  - `src/__tests__/uiText.test.ts`
-    - 신규 파일 생성을 권장한다.
-    - `uiText.en.dismissAlert`와 `uiText.ko.dismissAlert`가 존재하는지 검증한다.
-    - `resetStorageDone` 양 언어 번역이 key로 유지되는지 검증한다.
-    - `monthLabels.january`와 `monthLabels.february`의 영어/한국어 라벨을 검증한다.
+  - `src/domain/campaignProgress.ts`
+    - 프롤로그 결과 이후 다음 자금 지원 단계가 항상 5가 되도록 `applyGameResult()`의 funding 계산 흐름을 수정한다.
+    - 권장: `initialCampaignFundingLevel` 상수 또는 `getNextFundingAfterGameResult(currentMonth, currentFunding, rating)` helper를 추가한다.
+    - `calculateNextFundingLevel()`은 일반 월 결과 기반 계산으로 유지한다.
+    - Secret File 14 경고는 프롤로그에서는 발생하지 않아야 하며, 1월 이후 기존 조건을 유지한다.
+  - `src/domain/createInitialCampaign.ts`
+    - 기본 자금 지원 값 `5`를 새 상수로 대체할 수 있다.
+    - 기능상 필수는 아니지만 magic number 중복을 줄인다.
+  - `src/data/campaign/months.ts`
+    - `monthSetupDefaults.prologue.defaultFundingLevel`을 4에서 5로 변경한다.
+    - `monthSetupDefaults.january.defaultFundingLevel: 5`를 추가한다.
+  - `src/__tests__/campaignProgress.test.ts`
+    - 기존 `advances after success or adequate result and records game history` 테스트의 기대값을 수정한다: 프롤로그 성공 후 `next.progress.fundingLevel`은 5여야 한다.
+    - 프롤로그 성공/보통/실패 결과가 1월 또는 프롤로그 재시도 상태에서 모두 funding 5를 유지하는지 검증하는 테스트를 추가한다.
+    - 1월 이후에는 기존 결과 기반 funding 계산이 계속 적용되는지 검증하는 테스트를 추가한다.
+    - `calculateNextFundingLevel()` 단위 테스트는 기존 일반 계산 테스트로 유지한다.
+  - `src/__tests__/campaignPersistence.test.ts`
+    - 기존 v1 migration 테스트는 `createInitialCampaign()` 기반 fixture 때문에 이미 5를 기대한다.
+    - 별도 수정은 필수 아님.
+    - 구현 중 `createInitialCampaign.ts`가 상수 import로 바뀌어도 테스트 기대값은 유지된다.
 
 - Files to be deleted or moved:
   - 없음.
@@ -89,59 +87,67 @@ dismissAlert: string;
   - 없음. `package.json`, `tsconfig.json`, `vite.config.ts` 변경은 필요 없다.
 
 [Functions]
-알림 메시지 key를 현재 언어 문자열로 변환하는 helper를 추가하고 기존 이벤트 핸들러들의 알림 저장 방식을 수정한다.
+프롤로그 예외를 반영하는 funding 결정 helper를 추가하거나 `applyGameResult()` 내부 계산을 분기한다.
 
 - New functions:
-  - `formatSyncMessage(message: SyncMessageState | undefined, text: UiText): string | undefined`
-    - File: `src/App.tsx`
+  - 권장 함수: `calculateNextCampaignFundingLevel(currentMonth: CampaignMonthId, currentFunding: number, rating: PerformanceRating): { fundingLevel: number; secretFile14Required: boolean; rawFundingLevel: number }`
+    - File: `src/domain/campaignProgress.ts`
     - Suggested signature:
       ```ts
-      function formatSyncMessage(message: SyncMessageState | undefined, text: UiText): string | undefined
+      export function calculateNextCampaignFundingLevel(
+        currentMonth: CampaignMonthId,
+        currentFunding: number,
+        rating: PerformanceRating
+      ): { fundingLevel: number; secretFile14Required: boolean; rawFundingLevel: number }
       ```
-    - Purpose: 저장된 알림 key와 params를 현재 언어의 `UiText` 문자열로 변환한다.
+    - Purpose: 월 문맥을 포함한 캠페인 진행용 다음 funding 계산을 담당한다.
     - Logic:
-      1. `message`가 없으면 `undefined` 반환.
-      2. `let rendered = text[message.key]`로 현재 언어 문구를 조회.
-      3. `message.params`가 있으면 각 `[name, value]`에 대해 `rendered = rendered.split(`{${name}}`).join(value)` 수행.
-      4. 최종 문자열 반환.
+      1. `currentMonth === 'prologue'`이면 `{ fundingLevel: 5, rawFundingLevel: 5, secretFile14Required: false }` 반환.
+      2. 그 외 월은 기존 `calculateNextFundingLevel(currentFunding, rating)` 결과 반환.
+    - Export 여부: 테스트에서 직접 검증하려면 export를 권장한다. export하지 않고 `applyGameResult()` 결과만 테스트해도 가능하다.
+
+  - 권장 상수: `initialCampaignFundingLevel`
+    - File: `src/domain/campaignProgress.ts`
+    - Suggested declaration:
+      ```ts
+      export const initialCampaignFundingLevel = 5;
+      ```
+    - Purpose: 프롤로그 및 1월 고정 funding 5 규칙을 magic number 없이 공유한다.
+    - Used by:
+      - `calculateNextCampaignFundingLevel()`
+      - `createInitialCampaign()`의 기본 funding 값
+      - 선택적으로 tests의 기대값
 
 - Modified functions:
-  - `App()`
-    - File: `src/App.tsx`
+  - `applyGameResult(campaign, input)`
+    - File: `src/domain/campaignProgress.ts`
+    - Current behavior:
+      - 모든 월에서 `const nextFunding = calculateNextFundingLevel(progress.fundingLevel, rating);`를 호출한다.
+      - 프롤로그 성공 시 funding 4, 보통 6, 실패 7이 될 수 있다.
     - Required changes:
-      - `const [syncMessage, setSyncMessage] = useState<string>();`를 `useState<SyncMessageState>();`로 변경한다.
-      - `const renderedSyncMessage = formatSyncMessage(syncMessage, text);`를 `text` 계산 이후에 추가한다.
-      - JSX에서 `renderedSyncMessage`를 조건부 렌더링한다.
-  - `handleStartSignIn()`
-    - File: `src/App.tsx`
-    - Current behavior: `setSyncMessage(text.openAndEnterCode.replace('{uri}', flow.verificationUri).replace('{code}', flow.userCode));`
-    - Required change: `setSyncMessage({ key: 'openAndEnterCode', params: { uri: flow.verificationUri, code: flow.userCode } });`
-    - Current behavior after successful auth: `setSyncMessage(text.signedInGistReady);`
-    - Required change: `setSyncMessage({ key: 'signedInGistReady' });`
-  - `handlePull()`
-    - File: `src/App.tsx`
-    - Current behavior: `setSyncMessage(text.pulledState);`
-    - Required change: `setSyncMessage({ key: 'pulledState' });`
-  - `handlePush()`
-    - File: `src/App.tsx`
-    - Current behavior: `setSyncMessage(text.pushedState);`
-    - Required change: `setSyncMessage({ key: 'pushedState' });`
-  - `handleResetStorage()`
-    - File: `src/App.tsx`
-    - Current behavior: `setSyncMessage(text.resetStorageDone);`
-    - Required change: `setSyncMessage({ key: 'resetStorageDone' });`
-  - `DeckCounterDashboard(props: Props)`
-    - File: `src/components/DeckCounterDashboard.tsx`
+      - `const nextFunding = calculateNextCampaignFundingLevel(progress.currentMonth, progress.fundingLevel, rating);`로 변경한다.
+      - `record.fundingLevel`은 해당 게임을 플레이한 funding이므로 기존처럼 `progress.fundingLevel`을 유지한다.
+      - `retryCurrentMonth`와 `nextMonth` 계산은 기존과 동일하게 유지한다.
+      - 프롤로그 첫 실패로 같은 프롤로그를 재시도하는 경우에도 funding 5가 유지되어야 한다.
+      - 프롤로그 두 번째 실패 후 1월로 넘어가는 경우에도 funding 5가 유지되어야 한다.
+      - 1월 결과로 2월에 진입할 때부터는 일반 계산을 적용한다.
+  - `createInitialCampaign(input)`
+    - File: `src/domain/createInitialCampaign.ts`
+    - Current behavior: `const fundingLevel = clampFundingLevel(input.fundingLevel ?? 5);`
     - Required changes:
-      - Import `monthLabels`.
-      - Add local constant `const currentMonthLabel = monthLabels[props.campaign.progress.currentMonth][props.language];`.
-      - Render `currentMonthLabel` in the current campaign month summary.
+      - `5`를 `initialCampaignFundingLevel` 상수로 대체하는 것을 권장한다.
+      - `input.fundingLevel` override 동작은 유지한다. 테스트 fixture와 사용자가 명시 입력한 값을 깨지 않기 위해 강제 5로 덮어쓰지 않는다.
+  - `monthSetupDefaults` object
+    - File: `src/data/campaign/months.ts`
+    - 함수는 아니지만 데이터 구조 변경이 필요하다.
+    - `prologue.defaultFundingLevel`을 5로 수정한다.
+    - `january.defaultFundingLevel`을 5로 추가한다.
 
 - Removed functions:
   - 없음.
 
 [Classes]
-클래스 기반 구조가 없는 함수형 React 코드이므로 클래스 추가, 수정, 삭제는 없다.
+클래스 기반 구조가 없는 함수형 React/도메인 코드이므로 클래스 추가, 수정, 삭제는 없다.
 
 - New classes:
   - 없음.
@@ -153,7 +159,7 @@ dismissAlert: string;
   - 없음.
 
 [Dependencies]
-새 패키지나 버전 변경은 필요하지 않으며 기존 React, TypeScript, Vitest만 사용한다.
+새 패키지나 버전 변경은 필요하지 않으며 기존 TypeScript와 Vitest만 사용한다.
 
 - New packages:
   - 없음.
@@ -162,31 +168,36 @@ dismissAlert: string;
   - 없음.
 
 - Integration requirements:
-  - `src/App.tsx`는 이미 `Alert`와 `Button`을 import하고 있으므로 dismissible alert에 새 UI dependency가 필요 없다.
-  - `src/components/DeckCounterDashboard.tsx`는 `monthLabels` import만 추가한다.
-  - `src/i18n/uiText.ts`의 `UiText` 타입은 `uiText` object에서 추론되므로 양 언어에 동일 key를 추가해야 타입 일관성이 유지된다.
-  - localStorage/gist 저장 schema는 변경하지 않는다. `syncMessage`는 React UI transient state이므로 `PersistedEnvelope`나 migration에 영향을 주지 않는다.
+  - `src/domain/createInitialCampaign.ts`는 이미 `src/domain/campaignProgress.ts`에서 `clampFundingLevel`, `getDefaultAvailableEventCardsForMonth`를 import하므로 `initialCampaignFundingLevel`을 같은 import에 추가할 수 있다.
+  - `src/domain/campaignProgress.ts`는 `CampaignMonthId`와 `PerformanceRating` 타입을 이미 import하므로 새 helper에 추가 import가 필요 없다.
+  - persistence schema는 funding level 범위만 검증하므로 schema version이나 migration 변경은 필요 없다.
+  - 기존 저장 데이터에서 이미 프롤로그 결과 때문에 1월 funding이 4 등으로 저장된 캠페인을 자동 보정하는 migration은 이번 범위에 포함하지 않는다. 요구사항은 앞으로의 캠페인 진행 계산과 월 기본 데이터에 반영한다. 만약 기존 저장 데이터 자동 보정이 필요하면 별도 migration 계획이 필요하다.
 
 [Testing]
-번역 key 추가와 타입 안정성을 테스트하고 전체 테스트/빌드로 회귀를 검증한다.
+도메인 단위 테스트로 프롤로그 funding 예외와 1월 이후 일반 funding 계산을 검증하고 전체 테스트/빌드로 회귀를 확인한다.
 
 테스트 요구사항:
 
-- Test file: `src/__tests__/uiText.test.ts` 신규 생성을 권장한다.
-- Required tests:
-  - `defines dismiss alert labels for every language`
-    - `expect(uiText.en.dismissAlert).toBe('Dismiss alert')`
-    - `expect(uiText.ko.dismissAlert).toBe('알림 닫기')`
-  - `keeps reset storage alert translations available by key`
-    - `expect(uiText.en.resetStorageDone).toBe('Local saved data has been reset.')`
-    - `expect(uiText.ko.resetStorageDone).toBe('로컬 저장 데이터가 초기화되었습니다.')`
-  - `defines translated month labels for campaign month ids`
-    - `expect(monthLabels.january.en).toBe('January')`
-    - `expect(monthLabels.january.ko).toBe('1월')`
-    - `expect(monthLabels.february.en).toBe('February')`
-    - `expect(monthLabels.february.ko).toBe('2월')`
-- Optional UI-level test:
-  - React Testing Library로 `App` 전체를 렌더링해 reset 후 언어 변경 시 alert가 재번역되는지 검증할 수 있으나, reset dialog 조작과 localStorage 초기화가 필요해 scope가 커진다. 이번 변경은 `SyncMessageState` 타입과 `formatSyncMessage` helper, TypeScript build로 충분히 안정성을 확보한다.
+- Test file: `src/__tests__/campaignProgress.test.ts`
+- Required test updates:
+  - Existing test `advances after success or adequate result and records game history`
+    - `expect(next.progress.fundingLevel).toBe(4);`를 `toBe(5)`로 변경한다.
+    - `gameRecords[0].fundingLevel`은 프롤로그 게임을 5 funding으로 플레이했음을 나타내므로 기존 `5` 기대값을 유지한다.
+  - Existing test `retries after first failure and advances after second failure`
+    - `retry.progress.fundingLevel`이 5인지 추가 검증한다.
+    - `advance.progress.fundingLevel`이 5인지 추가 검증한다.
+  - New test: `keeps funding at 5 when prologue result advances to january`
+    - 프롤로그 성공: 1월 진입, funding 5.
+    - 프롤로그 보통: 1월 진입, funding 5.
+    - 프롤로그 두 번째 실패 또는 실패 후 advance: 1월 진입 시 funding 5.
+    - 필요하면 각 케이스마다 fresh campaign을 생성한다.
+  - New test: `applies result-based funding changes after january`
+    - campaign을 1월 상태와 funding 5로 구성한다.
+    - 1월 성공 결과 후 2월 funding 4를 기대한다.
+    - 별도 케이스로 1월 보통 결과 후 2월 funding 6 또는 실패 후 재시도 funding 7을 검증할 수 있다.
+  - New or updated test: `stores default funding levels for prologue and january`
+    - `expect(getMonthSetupDefaults('prologue').defaultFundingLevel).toBe(5)`
+    - `expect(getMonthSetupDefaults('january').defaultFundingLevel).toBe(5)`
 
 Validation commands:
 
@@ -197,22 +208,22 @@ Commit workflow:
 
 - 구현 전 `git status --short | cat`으로 작업 트리 상태를 확인한다.
 - 관련 없는 변경이 있으면 stage/commit 전에 사용자에게 확인한다.
-- 관련 파일만 stage한다: `src/App.tsx`, `src/i18n/uiText.ts`, `src/components/DeckCounterDashboard.tsx`, `src/__tests__/uiText.test.ts`, `implementation_plan.md`.
+- 관련 파일만 stage한다: `src/domain/campaignProgress.ts`, `src/domain/createInitialCampaign.ts`, `src/data/campaign/months.ts`, `src/__tests__/campaignProgress.test.ts`, `implementation_plan.md`.
 - 테스트와 빌드가 통과하면 atomic commit을 생성한다.
-- 권장 커밋 메시지: `Translate transient alerts and month labels`
+- 권장 커밋 메시지: `Keep January funding fixed after prologue`
 - `.clinerules`에 따라 commit 후 현재 branch에 push한다.
 
 [Implementation Order]
-알림 상태 모델을 key 기반으로 바꾼 뒤 닫기 UI와 월 라벨 번역을 추가하고 테스트/검증/커밋한다.
+먼저 도메인 funding 규칙을 상수와 helper로 명확히 한 뒤 월 기본 데이터와 테스트 기대값을 갱신하고 검증/커밋한다.
 
 1. `git status --short | cat`으로 작업 트리 상태를 확인하고 관련 없는 변경이 있으면 사용자에게 확인한다.
-2. `src/i18n/uiText.ts`에 `dismissAlert` 번역 key를 영어/한국어 모두 추가한다.
-3. `src/App.tsx`에 `SyncMessageKey`, `SyncMessageState`, `formatSyncMessage()`를 추가한다.
-4. `src/App.tsx`의 `syncMessage` state와 `handleStartSignIn()`, `handlePull()`, `handlePush()`, `handleResetStorage()`의 `setSyncMessage()` 호출을 key/params 저장 방식으로 변경한다.
-5. `src/App.tsx`의 sync alert 렌더링을 `renderedSyncMessage` 기반으로 변경하고, `text.dismissAlert`를 사용하는 닫기 버튼을 추가해 클릭 시 `setSyncMessage(undefined)`를 호출하게 한다.
-6. `src/components/DeckCounterDashboard.tsx`에서 `monthLabels`를 import하고 현재 캠페인 월 표시를 `monthLabels[currentMonth][language]`로 변경한다.
-7. `src/__tests__/uiText.test.ts`를 추가해 alert 관련 번역 key와 `january`/`february` 월 번역 라벨을 검증한다.
-8. `npm test`를 실행해 기존 도메인/영속성 테스트와 신규 i18n 테스트를 검증한다.
-9. `npm run build`를 실행해 TypeScript와 production build를 검증한다.
+2. `src/domain/campaignProgress.ts`에 `initialCampaignFundingLevel = 5` 상수와 `calculateNextCampaignFundingLevel()` helper를 추가한다.
+3. `src/domain/campaignProgress.ts`의 `applyGameResult()`가 기존 `calculateNextFundingLevel()` 대신 월 문맥 helper를 사용하도록 변경한다.
+4. `src/domain/createInitialCampaign.ts`에서 기본 funding magic number `5`를 `initialCampaignFundingLevel` 상수로 대체한다.
+5. `src/data/campaign/months.ts`에서 프롤로그 `defaultFundingLevel`을 5로 수정하고 1월 `defaultFundingLevel: 5`를 추가한다.
+6. `src/__tests__/campaignProgress.test.ts`의 기존 프롤로그 진행 테스트 기대값을 funding 5 유지 규칙에 맞게 수정한다.
+7. `src/__tests__/campaignProgress.test.ts`에 프롤로그 성공/보통/실패 예외와 1월 이후 일반 funding 변화, 월 기본 funding 데이터를 검증하는 테스트를 추가한다.
+8. `npm test`를 실행해 도메인 및 영속성 테스트 회귀를 확인한다.
+9. `npm run build`를 실행해 TypeScript와 production build를 확인한다.
 10. `git status --short | cat`으로 변경 파일을 확인하고 관련 파일만 stage한다.
 11. 테스트가 통과한 상태로 atomic commit을 생성하고 현재 branch에 push한다.

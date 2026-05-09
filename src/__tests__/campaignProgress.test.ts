@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createInitialCampaign } from '../domain/createInitialCampaign';
 import {
   applyGameResult,
+  calculateNextCampaignFundingLevel,
   calculateNextFundingLevel,
   calculatePerformanceRating,
   clampFundingLevel,
@@ -13,6 +14,7 @@ import {
 import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
 import { threatCards } from '../data/cards/threats';
+import type { MissionResult, PerformanceRating } from '../types/campaign';
 
 describe('campaign progress domain', () => {
   it('clamps funding levels to the supported 1..10 range', () => {
@@ -31,6 +33,24 @@ describe('campaign progress domain', () => {
     expect(calculateNextFundingLevel(5, 'success')).toMatchObject({ fundingLevel: 4, secretFile14Required: false });
     expect(calculateNextFundingLevel(5, 'adequate')).toMatchObject({ fundingLevel: 6, secretFile14Required: false });
     expect(calculateNextFundingLevel(9, 'failure')).toMatchObject({ fundingLevel: 10, secretFile14Required: true });
+  });
+
+  it('keeps campaign funding fixed at 5 for prologue results', () => {
+    expect(calculateNextCampaignFundingLevel('prologue', 5, 'success')).toEqual({
+      rawFundingLevel: 5,
+      fundingLevel: 5,
+      secretFile14Required: false
+    });
+    expect(calculateNextCampaignFundingLevel('prologue', 5, 'adequate')).toEqual({
+      rawFundingLevel: 5,
+      fundingLevel: 5,
+      secretFile14Required: false
+    });
+    expect(calculateNextCampaignFundingLevel('prologue', 10, 'failure')).toEqual({
+      rawFundingLevel: 5,
+      fundingLevel: 5,
+      secretFile14Required: false
+    });
   });
 
   it('advances after success or adequate result and records game history', () => {
@@ -62,7 +82,7 @@ describe('campaign progress domain', () => {
 
     expect(next.progress.currentMonth).toBe('january');
     expect(next.progress.currentAttempt).toBe(1);
-    expect(next.progress.fundingLevel).toBe(4);
+    expect(next.progress.fundingLevel).toBe(5);
     expect(next.progress.gameRecords[0]).toMatchObject({
       month: 'prologue',
       attempt: 1,
@@ -104,14 +124,103 @@ describe('campaign progress domain', () => {
 
     expect(retry.progress.currentMonth).toBe('prologue');
     expect(retry.progress.currentAttempt).toBe(2);
+    expect(retry.progress.fundingLevel).toBe(5);
     expect(isCampaignMonthSetupComplete(retry)).toBe(false);
     expect(retry.playerDeck.startingHand.configured).toBe(false);
     expect(retry.threatDeck.discardCardIds).toEqual([]);
     expect(retry.turnFlow).toEqual({ step: 'player-draw', turnNumber: 1 });
     expect(advance.progress.currentMonth).toBe('january');
     expect(advance.progress.currentAttempt).toBe(1);
+    expect(advance.progress.fundingLevel).toBe(5);
     expect(isCampaignMonthSetupComplete(advance)).toBe(false);
     expect(advance.progress.gameRecords).toHaveLength(2);
+  });
+
+  it('keeps funding at 5 when prologue result advances to january', () => {
+    const missionCases: { expectedRating: PerformanceRating; missionResults: MissionResult[] }[] = [
+      {
+        expectedRating: 'success',
+        missionResults: [{ missionId: 'm1', succeeded: true }, { missionId: 'm2', succeeded: true }]
+      },
+      {
+        expectedRating: 'adequate',
+        missionResults: [{ missionId: 'm1', succeeded: false }, { missionId: 'm2', succeeded: true }]
+      }
+    ];
+
+    for (const testCase of missionCases) {
+      const campaign = createInitialCampaign({
+        campaignName: `Prologue ${testCase.expectedRating}`,
+        language: 'ko',
+        players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+      });
+
+      const next = applyGameResult(campaign, {
+        characters: [],
+        missionResults: testCase.missionResults,
+        now: `2026-05-09T00:00:00.000Z`
+      });
+
+      expect(next.progress.currentMonth).toBe('january');
+      expect(next.progress.currentAttempt).toBe(1);
+      expect(next.progress.fundingLevel).toBe(5);
+      expect(next.progress.gameRecords[0]).toMatchObject({
+        month: 'prologue',
+        fundingLevel: 5,
+        performanceRating: testCase.expectedRating
+      });
+    }
+
+    const failedMissions = [{ missionId: 'm1', succeeded: false }, { missionId: 'm2', succeeded: false }];
+    const campaign = createInitialCampaign({
+      campaignName: 'Prologue failure',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+
+    const retry = applyGameResult(campaign, { characters: [], missionResults: failedMissions, now: '2026-05-09T00:00:00.000Z' });
+    const next = applyGameResult(retry, { characters: [], missionResults: failedMissions, now: '2026-05-10T00:00:00.000Z' });
+
+    expect(retry.progress.currentMonth).toBe('prologue');
+    expect(retry.progress.currentAttempt).toBe(2);
+    expect(retry.progress.fundingLevel).toBe(5);
+    expect(next.progress.currentMonth).toBe('january');
+    expect(next.progress.currentAttempt).toBe(1);
+    expect(next.progress.fundingLevel).toBe(5);
+  });
+
+  it('applies result-based funding changes after january', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'January funding',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const januaryCampaign = {
+      ...campaign,
+      currentMonth: 'january' as const,
+      fundingLevel: 5,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'january' as const,
+        currentAttempt: 1,
+        fundingLevel: 5
+      }
+    };
+
+    const next = applyGameResult(januaryCampaign, {
+      characters: [],
+      missionResults: [{ missionId: 'm1', succeeded: true }, { missionId: 'm2', succeeded: true }],
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(next.progress.currentMonth).toBe('february');
+    expect(next.progress.currentAttempt).toBe(1);
+    expect(next.progress.fundingLevel).toBe(4);
+    expect(next.progress.gameRecords[0]).toMatchObject({
+      month: 'january',
+      fundingLevel: 5,
+      performanceRating: 'success'
+    });
   });
 
   it('filters event card availability by month', () => {
@@ -157,6 +266,8 @@ describe('campaign progress domain', () => {
   });
 
   it('stores hidden city setup defaults for prologue through february', () => {
+    expect(getMonthSetupDefaults('prologue').defaultFundingLevel).toBe(5);
+    expect(getMonthSetupDefaults('january').defaultFundingLevel).toBe(5);
     expect(getMonthSetupDefaults('prologue').unidentifiedTargetCities).toMatchObject([
       { enabled: true, filter: { type: 'region', value: 'europe' }, hiddenRemovedCount: 1 }
     ]);

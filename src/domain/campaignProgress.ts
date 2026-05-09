@@ -19,6 +19,8 @@ import { createInitialThreatDeckState, recordInitialThreatSetup } from './threat
 
 const secretFile14Warning = 'Funding would exceed 10. Secret File 14 may be required, but this app does not reveal or implement it yet.';
 
+export const initialCampaignFundingLevel = 5;
+
 export function clampFundingLevel(value: number): number {
   if (!Number.isFinite(value)) return 1;
   return Math.min(10, Math.max(1, Math.trunc(value)));
@@ -42,6 +44,22 @@ export function calculateNextFundingLevel(
     fundingLevel: clampFundingLevel(rawFundingLevel),
     secretFile14Required: rawFundingLevel > 10
   };
+}
+
+export function calculateNextCampaignFundingLevel(
+  currentMonth: CampaignMonthId,
+  currentFunding: number,
+  rating: PerformanceRating
+): { fundingLevel: number; secretFile14Required: boolean; rawFundingLevel: number } {
+  if (currentMonth === 'prologue') {
+    return {
+      rawFundingLevel: initialCampaignFundingLevel,
+      fundingLevel: initialCampaignFundingLevel,
+      secretFile14Required: false
+    };
+  }
+
+  return calculateNextFundingLevel(currentFunding, rating);
 }
 
 export function getNextCampaignMonth(month: CampaignMonthId): CampaignMonthId | undefined {
@@ -162,7 +180,7 @@ export function applyGameResult(campaign: CampaignState, input: {
   const now = input.now ?? new Date().toISOString();
   const progress = campaign.progress;
   const rating = calculatePerformanceRating(input.missionResults);
-  const nextFunding = calculateNextFundingLevel(progress.fundingLevel, rating);
+  const nextFunding = calculateNextCampaignFundingLevel(progress.currentMonth, progress.fundingLevel, rating);
   const record = {
     id: `${campaign.campaignId}-${progress.currentMonth}-attempt-${progress.currentAttempt}-${Date.parse(now) || Date.now()}`,
     month: progress.currentMonth,

@@ -5,7 +5,7 @@ import { escalationCards } from '../data/cards/escalations';
 import { threatCards } from '../data/cards/threats';
 import { baseRules } from '../data/rules/baseRules';
 import { legacyRules } from '../data/rules/legacyRules';
-import { clampFundingLevel, getDefaultAvailableEventCardsForMonth } from './campaignProgress';
+import { clampFundingLevel, getDefaultAvailableEventCardsForMonth, initialCampaignFundingLevel } from './campaignProgress';
 import { createInitialPlayerDeckState } from './playerDeck';
 import { createInitialThreatDeckState } from './threatDeck';
 
@@ -20,7 +20,7 @@ export function createInitialCampaign(input: CreateInitialCampaignInput): Campai
   const now = new Date().toISOString();
   const toggles = [...baseRules, ...legacyRules];
   const currentMonth = 'prologue' as const;
-  const fundingLevel = clampFundingLevel(input.fundingLevel ?? 5);
+  const fundingLevel = clampFundingLevel(input.fundingLevel ?? initialCampaignFundingLevel);
   const availableEvents = getDefaultAvailableEventCardsForMonth(currentMonth);
   return {
     schemaVersion: 2,
