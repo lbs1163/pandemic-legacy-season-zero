@@ -87,7 +87,7 @@ export function AppTopBar({
             <DropdownMenuItem onClick={onCreateCampaign}>{text.newCampaign}</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenMonthSetup} disabled={!activeCampaignId}>{text.setupCurrentMonth}</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenGameResult} disabled={!activeCampaignId}>{text.recordGameResult}</DropdownMenuItem>
-            <DropdownMenuItem onClick={onOpenRuleOptions}>{text.ruleOptions}</DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenRuleOptions} disabled={!activeCampaignId}>{text.ruleOptions}</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenStartingHands} disabled={!activeCampaignId}>{text.editStartingHands}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onUndo} disabled={!canUndo}>{text.undo}</DropdownMenuItem>
