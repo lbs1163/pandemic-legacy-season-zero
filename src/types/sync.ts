@@ -1,4 +1,5 @@
 import type { CampaignState } from './campaign';
+import type { LanguageCode } from './cards';
 
 export interface GitHubUser {
   login: string;
@@ -36,9 +37,14 @@ export interface GistSyncMetadata {
   dirty: boolean;
 }
 
+export interface AppSettings {
+  language: LanguageCode;
+}
+
 export interface PersistedEnvelope {
   appId: 'pandemic-legacy-season-zero-deck-counter';
-  schemaVersion: 4;
+  schemaVersion: 5;
+  settings: AppSettings;
   campaigns: CampaignState[];
   activeCampaignId?: string;
 }

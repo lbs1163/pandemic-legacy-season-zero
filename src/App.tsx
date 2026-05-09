@@ -66,7 +66,7 @@ export function App() {
     () => envelope.campaigns.find((campaign) => campaign.campaignId === envelope.activeCampaignId) ?? envelope.campaigns[0],
     [envelope]
   );
-  const language: LanguageCode = activeCampaign?.language ?? 'ko';
+  const language: LanguageCode = envelope.settings.language;
   const text = uiText[language];
 
   useEffect(() => {
@@ -146,8 +146,10 @@ export function App() {
   }
 
   function setLanguage(nextLanguage: LanguageCode) {
-    if (!activeCampaign) return;
-    updateActiveCampaign((campaign) => ({ ...campaign, language: nextLanguage, updatedAt: new Date().toISOString() }));
+    updateEnvelope((current) => ({
+      ...current,
+      settings: { ...current.settings, language: nextLanguage }
+    }));
   }
 
   function createCampaignFromWizard(input: {

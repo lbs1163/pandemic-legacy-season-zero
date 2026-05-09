@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { PersistedEnvelope } from '../types/sync';
 import type { CampaignState } from '../types/campaign';
+import type { LanguageCode } from '../types/cards';
 import { cityCards } from '../data/cards/cities';
 import { escalationCards } from '../data/cards/escalations';
 import { threatCards } from '../data/cards/threats';
@@ -150,12 +151,40 @@ const campaignV2Schema = z.object({
   updatedAt: z.string()
 });
 
+const appSettingsSchema = z.object({
+  language: z.union([z.literal('en'), z.literal('ko')])
+});
+
 export const persistedEnvelopeSchema = z.object({
   appId: z.literal('pandemic-legacy-season-zero-deck-counter'),
-  schemaVersion: z.literal(4),
+  schemaVersion: z.literal(5),
+  settings: appSettingsSchema,
   activeCampaignId: z.string().optional(),
   campaigns: z.array(campaignV2Schema)
 });
+
+function isLanguageCode(value: unknown): value is LanguageCode {
+  return value === 'en' || value === 'ko';
+}
+
+function resolveEnvelopeLanguage(envelope: { activeCampaignId?: unknown; campaigns?: unknown[]; settings?: unknown }): LanguageCode {
+  const settings = envelope.settings as { language?: unknown } | undefined;
+  if (settings && isLanguageCode(settings.language)) return settings.language;
+
+  const campaigns = Array.isArray(envelope.campaigns) ? envelope.campaigns : [];
+  if (typeof envelope.activeCampaignId === 'string') {
+    const activeCampaign = campaigns.find((campaign) => {
+      const current = campaign as { campaignId?: unknown };
+      return current.campaignId === envelope.activeCampaignId;
+    }) as { language?: unknown } | undefined;
+    if (activeCampaign && isLanguageCode(activeCampaign.language)) return activeCampaign.language;
+  }
+
+  const firstCampaign = campaigns[0] as { language?: unknown } | undefined;
+  if (firstCampaign && isLanguageCode(firstCampaign.language)) return firstCampaign.language;
+
+  return 'ko';
+}
 
 function coerceCampaignMonth(value: unknown): CampaignMonthId {
   return typeof value === 'string' && campaignMonths.includes(value as CampaignMonthId) ? value as CampaignMonthId : 'prologue';
@@ -258,14 +287,28 @@ function migrateEnvelopeToV4(value: unknown): unknown {
   };
 }
 
+function migrateEnvelopeToV5(value: unknown): unknown {
+  const envelope = migrateEnvelopeToV4(value) as { appId?: unknown; schemaVersion?: unknown; campaigns?: unknown[]; activeCampaignId?: unknown; settings?: unknown };
+  if (envelope?.appId !== 'pandemic-legacy-season-zero-deck-counter') return value;
+  if (envelope.schemaVersion === 5) return envelope;
+  if (envelope.schemaVersion !== 4) return envelope;
+
+  return {
+    ...envelope,
+    schemaVersion: 5,
+    settings: { language: resolveEnvelopeLanguage(envelope) }
+  };
+}
+
 export function validatePersistedEnvelope(value: unknown): PersistedEnvelope {
-  return persistedEnvelopeSchema.parse(migrateEnvelopeToV4(value)) as PersistedEnvelope;
+  return persistedEnvelopeSchema.parse(migrateEnvelopeToV5(value)) as PersistedEnvelope;
 }
 
 export function createEmptyEnvelope(): PersistedEnvelope {
   return {
     appId: 'pandemic-legacy-season-zero-deck-counter',
-    schemaVersion: 4,
+    schemaVersion: 5,
+    settings: { language: 'ko' },
     campaigns: []
   };
 }

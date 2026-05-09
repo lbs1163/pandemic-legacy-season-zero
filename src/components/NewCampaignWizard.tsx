@@ -86,14 +86,14 @@ export function NewCampaignWizard({ open, language, existingCampaignCount, onOpe
             <section className="space-y-3">
               <div>
                 <h3 className="font-semibold">{language === 'ko' ? '캠페인 기본 정보' : 'Campaign details'}</h3>
-                <p className="text-sm text-muted-foreground">{language === 'ko' ? '언어는 현재 앱 언어를 사용합니다.' : 'The current app language will be used.'}</p>
+                <p className="text-sm text-muted-foreground">{language === 'ko' ? '앱 언어는 캠페인과 별도로 저장됩니다. 기본 이름만 현재 언어를 따릅니다.' : 'The app language is saved separately from campaigns. Default names follow the current language only.'}</p>
               </div>
               <label className="block space-y-2">
                 <span className="text-sm font-medium">{language === 'ko' ? '캠페인 이름' : 'Campaign name'}</span>
                 <Input value={campaignName} onChange={(event) => setCampaignName(event.target.value)} />
               </label>
               <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-                {language === 'ko' ? '언어: 한국어' : 'Language: English'}
+                {language === 'ko' ? '기본 이름 언어: 한국어' : 'Default name language: English'}
               </div>
             </section>
           ) : null}

@@ -17,7 +17,8 @@ describe('campaign persistence validation', () => {
     });
     const envelope = {
       appId: 'pandemic-legacy-season-zero-deck-counter' as const,
-      schemaVersion: 4 as const,
+      schemaVersion: 5 as const,
+      settings: { language: 'ko' as const },
       activeCampaignId: campaign.campaignId,
       campaigns: [campaign]
     };
@@ -34,7 +35,8 @@ describe('campaign persistence validation', () => {
     });
     const envelope = {
       appId: 'pandemic-legacy-season-zero-deck-counter' as const,
-      schemaVersion: 4 as const,
+      schemaVersion: 5 as const,
+      settings: { language: 'ko' as const },
       activeCampaignId: campaign.campaignId,
       campaigns: [{
         ...campaign,
@@ -52,7 +54,7 @@ describe('campaign persistence validation', () => {
     expect(hydrated.campaigns[0].threatDeck.knownTopStackCardIds).toEqual(['threat-city-atlanta', 'threat-city-chicago']);
   });
 
-  it('migrates v1 envelopes to v4 campaign progress and card-state decks', () => {
+  it('migrates v1 envelopes to v5 campaign progress, card-state decks, and settings', () => {
     const campaign = createInitialCampaign({
       campaignName: 'Legacy local state',
       language: 'ko',
@@ -78,7 +80,8 @@ describe('campaign persistence validation', () => {
 
     const migrated = validatePersistedEnvelope(legacyEnvelope);
 
-    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.settings.language).toBe('ko');
     expect(migrated.campaigns[0].schemaVersion).toBe(2);
     expect(migrated.campaigns[0].progress.currentMonth).toBe('prologue');
     expect(migrated.campaigns[0].progress.currentAttempt).toBe(1);
@@ -88,7 +91,7 @@ describe('campaign persistence validation', () => {
     expect(Object.keys(migrated.campaigns[0].threatDeck.cardStates).length).toBeGreaterThan(0);
   });
 
-  it('migrates v2 campaign state without progress to v4/v2 progress state', () => {
+  it('migrates v2 campaign state without progress to v5/v2 progress state', () => {
     const campaign = createInitialCampaign({
       campaignName: 'January legacy',
       language: 'ko',
@@ -109,7 +112,8 @@ describe('campaign persistence validation', () => {
 
     const migrated = validatePersistedEnvelope(legacyEnvelope);
 
-    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.settings.language).toBe('ko');
     expect(migrated.campaigns[0].schemaVersion).toBe(2);
     expect(migrated.campaigns[0].progress.currentMonth).toBe('january');
     expect(migrated.campaigns[0].progress.fundingLevel).toBe(7);
@@ -144,14 +148,91 @@ describe('campaign persistence validation', () => {
 
     const migrated = validatePersistedEnvelope(legacyEnvelope);
 
-    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.settings.language).toBe('ko');
     expect(migrated.campaigns[0].playerDeck.unidentifiedTargetCities).toEqual([singleSetup]);
+  });
+
+  it('migrates active campaign language into global settings', () => {
+    const englishCampaign = createInitialCampaign({
+      campaignName: 'English campaign',
+      language: 'en',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const koreanCampaign = {
+      ...createInitialCampaign({
+      campaignName: 'Korean campaign',
+      language: 'ko',
+      players: [{ id: 'p1', name: '플레이어 1' }, { id: 'p2', name: '플레이어 2' }]
+      }),
+      campaignId: 'active-korean-campaign'
+    };
+    const legacyEnvelope = {
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 4 as const,
+      activeCampaignId: koreanCampaign.campaignId,
+      campaigns: [englishCampaign, koreanCampaign]
+    };
+
+    const migrated = validatePersistedEnvelope(legacyEnvelope);
+
+    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.settings.language).toBe('ko');
+  });
+
+  it('falls back to first campaign language when active campaign is missing', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'English campaign',
+      language: 'en',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const legacyEnvelope = {
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 4 as const,
+      activeCampaignId: 'missing-campaign-id',
+      campaigns: [campaign]
+    };
+
+    const migrated = validatePersistedEnvelope(legacyEnvelope);
+
+    expect(migrated.settings.language).toBe('en');
+  });
+
+  it('defaults global settings language to Korean for empty legacy envelopes', () => {
+    const migrated = validatePersistedEnvelope({
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 4 as const,
+      campaigns: []
+    });
+
+    expect(migrated.settings.language).toBe('ko');
+  });
+
+  it('keeps campaign language separate from global settings', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Korean campaign',
+      language: 'ko',
+      players: [{ id: 'p1', name: '플레이어 1' }, { id: 'p2', name: '플레이어 2' }]
+    });
+    const envelope = {
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 5 as const,
+      settings: { language: 'en' as const },
+      activeCampaignId: campaign.campaignId,
+      campaigns: [campaign]
+    };
+
+    const validated = validatePersistedEnvelope(envelope);
+
+    expect(validated.settings.language).toBe('en');
+    expect(validated.campaigns[0].language).toBe('ko');
   });
 
   it('rejects unsupported schema versions', () => {
     expect(() => validatePersistedEnvelope({
       appId: 'pandemic-legacy-season-zero-deck-counter',
-      schemaVersion: 5,
+      schemaVersion: 6,
+      settings: { language: 'ko' },
       campaigns: []
     })).toThrow();
   });
