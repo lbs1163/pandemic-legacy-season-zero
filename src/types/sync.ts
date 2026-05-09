@@ -38,7 +38,7 @@ export interface GistSyncMetadata {
 
 export interface PersistedEnvelope {
   appId: 'pandemic-legacy-season-zero-deck-counter';
-  schemaVersion: 2;
+  schemaVersion: 3;
   campaigns: CampaignState[];
   activeCampaignId?: string;
 }

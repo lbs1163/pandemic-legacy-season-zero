@@ -123,6 +123,44 @@ describe('player deck domain', () => {
     expect(next.piles).toHaveLength(5);
   });
 
+  it('records multiple hidden unidentified target city removals without revealing which cities', () => {
+    const africaCities: CityCard[] = Array.from({ length: 6 }, (_, index) => ({
+      id: `africa-${index + 1}`,
+      kind: 'city',
+      name: { en: `Africa ${index + 1}`, ko: `아프리카 ${index + 1}` },
+      region: 'africa',
+      affiliation: 'neutral'
+    }));
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...africaCities.map((city) => city.id), ...Array.from({ length: 12 }, (_, index) => `event-${index + 1}`)],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+    const beforeRemaining = getPlayerDeckRemaining(state);
+
+    const next = prepareUnidentifiedTargetCity(state, africaCities, {
+      filter: { type: 'region', value: 'africa' },
+      hiddenRemovedCount: 3
+    });
+
+    expect(next.unidentifiedTargetCity?.candidateCardIds).toHaveLength(6);
+    expect(next.unidentifiedTargetCity?.hiddenRemovedCount).toBe(3);
+    expect(getPlayerDeckRemaining(next)).toBe(beforeRemaining - 3);
+  });
+
+  it('rejects unidentified target city hidden removal counts above available candidates', () => {
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...testCities.map((city) => city.id), ...Array.from({ length: 10 }, (_, index) => `event-${index + 1}`)],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+
+    expect(() => prepareUnidentifiedTargetCity(state, testCities, {
+      filter: { type: 'region', value: 'asia' },
+      hiddenRemovedCount: 3
+    })).toThrow(/at least 3 candidate/);
+  });
+
   it('preserves a hidden unidentified target city removal when starting hands are configured afterward', () => {
     const state = createInitialPlayerDeckState({
       playerCardIds: [...testCities.map((city) => city.id), ...Array.from({ length: 10 }, (_, index) => `event-${index + 1}`)],
@@ -140,5 +178,29 @@ describe('player deck domain', () => {
     expect(next.unidentifiedTargetCity?.hiddenRemovedCount).toBe(1);
     expect(next.unidentifiedTargetCity?.candidateCardIds).toEqual(['asia-1', 'asia-2']);
     expect(getPlayerDeckRemaining(next)).toBe(9);
+  });
+
+  it('rejects starting hands that consume too many candidates for multiple hidden removals', () => {
+    const africaCities: CityCard[] = Array.from({ length: 6 }, (_, index) => ({
+      id: `africa-hand-${index + 1}`,
+      kind: 'city',
+      name: { en: `Africa ${index + 1}`, ko: `아프리카 ${index + 1}` },
+      region: 'africa',
+      affiliation: 'neutral'
+    }));
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...africaCities.map((city) => city.id), ...Array.from({ length: 10 }, (_, index) => `event-hand-${index + 1}`)],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+    const prepared = prepareUnidentifiedTargetCity(state, africaCities, {
+      filter: { type: 'region', value: 'africa' },
+      hiddenRemovedCount: 3
+    });
+
+    expect(() => configureStartingHands(prepared, [
+      ...africaCities.slice(0, 4).map((city, index) => ({ cardId: city.id, playerId: index < 2 ? 'p1' : 'p2' })),
+      ...Array.from({ length: 4 }, (_, index) => ({ cardId: `event-hand-${index + 1}`, playerId: index < 2 ? 'p1' : 'p2' }))
+    ])).toThrow(/at least 3 unidentified target city candidate/);
   });
 });

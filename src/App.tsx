@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppTopBar } from './components/AppTopBar';
 import { DeckCounterDashboard } from './components/DeckCounterDashboard';
 import { NewCampaignWizard } from './components/NewCampaignWizard';
+import { MonthGameSetupWizard } from './components/MonthGameSetupWizard';
+import { GameResultDialog } from './components/GameResultDialog';
 import { StartingHandSetup } from './components/StartingHandSetup';
 import { cityCards } from './data/cards/cities';
 import { eventCards } from './data/cards/events';
 import { baseRules } from './data/rules/baseRules';
 import { legacyRules } from './data/rules/legacyRules';
 import { createInitialCampaign } from './domain/createInitialCampaign';
+import { applyGameResult, createGameDecksForMonth } from './domain/campaignProgress';
+import { applySupportedEventEffect } from './domain/events';
 import { configureStartingHands, prepareUnidentifiedTargetCity, recordPlayerCardDraw, resolveEscalationDraw } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
 import { completePlayerDrawStep, completeThreatDrawStep } from './domain/turnFlow';
@@ -25,7 +29,7 @@ import { findOrCreateStateGist, pullStateFromGist, pushStateToGist } from './ser
 import { createEmptyEnvelope, loadLocalCache, saveLocalCache } from './services/localCache';
 import { pollGitHubDeviceFlowUntilComplete, startGitHubDeviceFlow } from './services/githubAuth';
 import type { LanguageCode } from './types/cards';
-import type { PlayerProfile } from './types/campaign';
+import type { CharacterProfile, MissionResult, PlayerProfile } from './types/campaign';
 import type { PlayerCardDestination, StartingHandAssignment, UnidentifiedTargetCitySelection } from './types/deck';
 import type { AuthState, DeviceFlowUiState, GistSyncMetadata, PersistedEnvelope } from './types/sync';
 import { Alert } from './components/ui/alert';
@@ -56,6 +60,8 @@ export function App() {
   const [deviceFlow, setDeviceFlow] = useState<DeviceFlowUiState>();
   const [ruleOptionsOpen, setRuleOptionsOpen] = useState(false);
   const [newCampaignWizardOpen, setNewCampaignWizardOpen] = useState(false);
+  const [monthSetupOpen, setMonthSetupOpen] = useState(false);
+  const [gameResultOpen, setGameResultOpen] = useState(false);
   const [resetStorageOpen, setResetStorageOpen] = useState(false);
   const [startingHandsOpen, setStartingHandsOpen] = useState(false);
 
@@ -180,6 +186,27 @@ export function App() {
     }));
   }
 
+  function setupCurrentMonth(input: {
+    startingHands: StartingHandAssignment[];
+    unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
+    initialThreatCardIds: string[];
+  }) {
+    updateActiveCampaign((campaign) => {
+      const decks = createGameDecksForMonth({
+        campaign,
+        players: campaign.players,
+        startingHands: input.startingHands,
+        unidentifiedTargetCitySelection: input.unidentifiedTargetCitySelection,
+        initialThreatCardIds: input.initialThreatCardIds
+      });
+      return updateCampaignTimestamp({ ...campaign, ...decks });
+    });
+  }
+
+  function recordGameResult(input: { playedAt?: string; characters: CharacterProfile[]; missionResults: MissionResult[] }) {
+    updateActiveCampaign((campaign) => applyGameResult(campaign, input));
+  }
+
   function updateCampaignTimestamp<T extends { updatedAt: string }>(campaign: T): T {
     return { ...campaign, updatedAt: new Date().toISOString() };
   }
@@ -260,6 +287,8 @@ export function App() {
         onOpenRuleOptions={() => setRuleOptionsOpen(true)}
         onResetStorage={() => setResetStorageOpen(true)}
         onOpenStartingHands={() => setStartingHandsOpen(true)}
+        onOpenMonthSetup={() => setMonthSetupOpen(true)}
+        onOpenGameResult={() => setGameResultOpen(true)}
         onUndo={undoEnvelope}
         onRedo={redoEnvelope}
         canUndo={canUndo}
@@ -297,6 +326,9 @@ export function App() {
             onThreatMoveToGameEnd={(cardId: string) => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: moveThreatCardToGameEndArea(campaign.threatDeck, cardId) }))}
             onThreatIntensify={() => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: intensifyThreatDiscard(campaign.threatDeck) }))}
             onCleanupGameEnd={() => updateActiveCampaign((campaign) => updateCampaignTimestamp({ ...campaign, threatDeck: clearThreatGameEndArea(campaign.threatDeck) }))}
+            onOpenMonthSetup={() => setMonthSetupOpen(true)}
+            onOpenGameResult={() => setGameResultOpen(true)}
+            onApplyEventEffect={(eventCardId, targetCardId) => updateActiveCampaign((campaign) => applySupportedEventEffect(campaign, { eventCardId, targetCardId }))}
           />
         ) : (
           <section className="rounded-lg border bg-card p-12 text-center"><h2 className="text-2xl font-semibold">{text.noCampaignYet}</h2><p className="mt-2 text-muted-foreground">{text.createCampaignPrompt}</p></section>
@@ -312,6 +344,24 @@ export function App() {
             <RuleTogglePanel rules={allRules} enabledMap={activeCampaign.ruleToggles} language={language} text={text} onToggle={(ruleId, enabled) => updateActiveCampaign((campaign) => setRuleEnabled(campaign, ruleId, enabled))} embedded />
           </DialogContent>
         </Dialog>
+      ) : null}
+      {activeCampaign ? (
+        <MonthGameSetupWizard
+          open={monthSetupOpen}
+          campaign={activeCampaign}
+          language={language}
+          onOpenChange={setMonthSetupOpen}
+          onSetup={setupCurrentMonth}
+        />
+      ) : null}
+      {activeCampaign ? (
+        <GameResultDialog
+          open={gameResultOpen}
+          campaign={activeCampaign}
+          language={language}
+          onOpenChange={setGameResultOpen}
+          onSubmit={recordGameResult}
+        />
       ) : null}
       {activeCampaign ? (
         <Dialog open={startingHandsOpen} onOpenChange={setStartingHandsOpen}>

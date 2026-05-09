@@ -3,6 +3,7 @@ import {
   clearThreatGameEndArea,
   createInitialThreatDeckState,
   intensifyThreatDiscard,
+  moveDiscardedThreatCardToGameEndArea,
   moveThreatCardToGameEndArea,
   recordInitialThreatSetup,
   recordThreatBottomDrawToDiscard,
@@ -61,6 +62,26 @@ describe('threat deck domain', () => {
     expect(next.cardStates['threat-seoul'].zone).toBe('threat-game-end-area');
     expect(next.gameEndAreaCardIds).toEqual(['threat-seoul']);
     expect(next.discardCardIds).toEqual([]);
+  });
+
+  it('moves a discarded threat card to game end area via discard-only event helper', () => {
+    const state = recordThreatDraw(createInitialThreatDeckState(['threat-seoul', 'threat-tokyo']), 'threat-seoul');
+    const next = moveDiscardedThreatCardToGameEndArea(state, 'threat-seoul');
+
+    expect(next.cardStates['threat-seoul'].zone).toBe('threat-game-end-area');
+    expect(next.gameEndAreaCardIds).toEqual(['threat-seoul']);
+    expect(next.discardCardIds).toEqual([]);
+  });
+
+  it('rejects non-discard threat cards via discard-only event helper', () => {
+    const unknownState = createInitialThreatDeckState(['threat-lagos']);
+    expect(() => moveDiscardedThreatCardToGameEndArea(unknownState, 'threat-lagos')).toThrow(/discard area/);
+
+    const knownTopState = intensifyThreatDiscard(recordThreatDraw(createInitialThreatDeckState(['a', 'b']), 'a'));
+    expect(() => moveDiscardedThreatCardToGameEndArea(knownTopState, 'a')).toThrow(/discard area/);
+
+    const gameEndState = recordThreatBottomDrawToGameEndArea(createInitialThreatDeckState(['threat-london']), 'threat-london');
+    expect(() => moveDiscardedThreatCardToGameEndArea(gameEndState, 'threat-london')).toThrow(/discard area/);
   });
 
   it('moves any tracked threat card from known top stacks to the game end area', () => {

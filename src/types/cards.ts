@@ -1,3 +1,5 @@
+import type { CampaignMonthId } from './campaign';
+
 export type LanguageCode = 'en' | 'ko';
 export type CardKind = 'city' | 'event' | 'escalation' | 'threat';
 export type Affiliation = 'allied' | 'neutral' | 'soviet';
@@ -22,9 +24,22 @@ export interface CityCard extends BaseCard {
   country?: LocalizedText;
 }
 
+export interface EventAvailability {
+  fromMonth: CampaignMonthId;
+}
+
+export type EventEffectKind = 'move-threat-discard-to-game-end' | 'informational' | 'unknown';
+
+export interface EventEffectDefinition {
+  kind: EventEffectKind;
+  description: LocalizedText;
+}
+
 export interface EventCard extends BaseCard {
   kind: 'event';
   initialSet: boolean;
+  availability?: EventAvailability;
+  effect?: EventEffectDefinition;
 }
 
 export interface EscalationCard extends BaseCard {

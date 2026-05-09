@@ -17,11 +17,22 @@ function createCampaign(): CampaignState {
   );
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     campaignId: 'campaign-1',
     campaignName: 'Test campaign',
     language: 'ko',
     players: [{ id: 'p1', name: 'P1' }, { id: 'p2', name: 'P2' }],
+    characters: [],
+    currentMonth: 'prologue',
+    fundingLevel: 4,
+    progress: {
+      currentMonth: 'prologue',
+      currentAttempt: 1,
+      fundingLevel: 4,
+      gameRecords: [],
+      openedLegacyCardIds: [],
+      nonSpoilerWarnings: []
+    },
     playerDeck,
     threatDeck,
     turnFlow: { step: 'player-draw', turnNumber: 1 },

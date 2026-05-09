@@ -32,6 +32,8 @@ interface Props {
   onOpenRuleOptions: () => void;
   onResetStorage: () => void;
   onOpenStartingHands: () => void;
+  onOpenMonthSetup: () => void;
+  onOpenGameResult: () => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -55,6 +57,8 @@ export function AppTopBar({
   onOpenRuleOptions,
   onResetStorage,
   onOpenStartingHands,
+  onOpenMonthSetup,
+  onOpenGameResult,
   onUndo,
   onRedo,
   canUndo,
@@ -81,6 +85,8 @@ export function AppTopBar({
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>{language === 'ko' ? '설정' : 'Settings'}</DropdownMenuLabel>
             <DropdownMenuItem onClick={onCreateCampaign}>{text.newCampaign}</DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenMonthSetup} disabled={!activeCampaignId}>{text.setupCurrentMonth}</DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenGameResult} disabled={!activeCampaignId}>{text.recordGameResult}</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenRuleOptions}>{text.ruleOptions}</DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenStartingHands} disabled={!activeCampaignId}>{text.editStartingHands}</DropdownMenuItem>
             <DropdownMenuSeparator />

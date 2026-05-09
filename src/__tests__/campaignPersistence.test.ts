@@ -17,12 +17,13 @@ describe('campaign persistence validation', () => {
     });
     const envelope = {
       appId: 'pandemic-legacy-season-zero-deck-counter' as const,
-      schemaVersion: 2 as const,
+      schemaVersion: 3 as const,
       activeCampaignId: campaign.campaignId,
       campaigns: [campaign]
     };
 
     expect(validatePersistedEnvelope(envelope).campaigns[0].campaignName).toBe('Prologue');
+    expect(validatePersistedEnvelope(envelope).campaigns[0].schemaVersion).toBe(2);
   });
 
   it('hydrates legacy single known top stack arrays into grouped known top stacks', () => {
@@ -33,7 +34,7 @@ describe('campaign persistence validation', () => {
     });
     const envelope = {
       appId: 'pandemic-legacy-season-zero-deck-counter' as const,
-      schemaVersion: 2 as const,
+      schemaVersion: 3 as const,
       activeCampaignId: campaign.campaignId,
       campaigns: [{
         ...campaign,
@@ -51,7 +52,7 @@ describe('campaign persistence validation', () => {
     expect(hydrated.campaigns[0].threatDeck.knownTopStackCardIds).toEqual(['threat-city-atlanta', 'threat-city-chicago']);
   });
 
-  it('migrates v1 envelopes to v2 card-state decks', () => {
+  it('migrates v1 envelopes to v3 campaign progress and card-state decks', () => {
     const campaign = createInitialCampaign({
       campaignName: 'Legacy local state',
       language: 'ko',
@@ -77,15 +78,48 @@ describe('campaign persistence validation', () => {
 
     const migrated = validatePersistedEnvelope(legacyEnvelope);
 
-    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.campaigns[0].schemaVersion).toBe(2);
+    expect(migrated.campaigns[0].progress.currentMonth).toBe('prologue');
+    expect(migrated.campaigns[0].progress.currentAttempt).toBe(1);
+    expect(migrated.campaigns[0].progress.fundingLevel).toBe(4);
+    expect(migrated.campaigns[0].progress.gameRecords).toEqual([]);
     expect(migrated.campaigns[0].playerDeck.startingHand.configured).toBe(false);
     expect(Object.keys(migrated.campaigns[0].threatDeck.cardStates).length).toBeGreaterThan(0);
+  });
+
+  it('migrates v2 campaign state without progress to v3/v2 progress state', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'January legacy',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const { progress: _progress, characters: _characters, ...legacyCampaign } = campaign;
+    const legacyEnvelope = {
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 2 as const,
+      activeCampaignId: campaign.campaignId,
+      campaigns: [{
+        ...legacyCampaign,
+        schemaVersion: 1 as const,
+        currentMonth: 'january',
+        fundingLevel: 7
+      }]
+    };
+
+    const migrated = validatePersistedEnvelope(legacyEnvelope);
+
+    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.campaigns[0].schemaVersion).toBe(2);
+    expect(migrated.campaigns[0].progress.currentMonth).toBe('january');
+    expect(migrated.campaigns[0].progress.fundingLevel).toBe(7);
+    expect(migrated.campaigns[0].characters).toEqual([]);
   });
 
   it('rejects unsupported schema versions', () => {
     expect(() => validatePersistedEnvelope({
       appId: 'pandemic-legacy-season-zero-deck-counter',
-      schemaVersion: 3,
+      schemaVersion: 4,
       campaigns: []
     })).toThrow();
   });

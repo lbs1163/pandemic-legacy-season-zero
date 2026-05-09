@@ -162,6 +162,15 @@ export function moveThreatCardToGameEndArea(state: ThreatDeckState, cardId: stri
   }, knownTopStacks);
 }
 
+export function moveDiscardedThreatCardToGameEndArea(state: ThreatDeckState, cardId: string): ThreatDeckState {
+  const existing = state.cardStates[cardId];
+  if (!existing) throw new Error(`Unknown threat card: ${cardId}`);
+  if (existing.zone !== 'threat-discard' || !state.discardCardIds.includes(cardId)) {
+    throw new Error(`Threat card is not in the discard area: ${cardId}`);
+  }
+  return moveThreatCardToGameEndArea(state, cardId);
+}
+
 export function intensifyThreatDiscard(state: ThreatDeckState, orderedCardIds?: string[]): ThreatDeckState {
   const stack = orderedCardIds?.length ? orderedCardIds : [...state.discardCardIds];
   const discardSet = new Set(state.discardCardIds);

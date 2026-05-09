@@ -83,6 +83,7 @@ export interface StartingHandAssignment {
 
 export interface UnidentifiedTargetCitySelection {
   filter: UnidentifiedTargetCityFilter;
+  hiddenRemovedCount?: number;
 }
 
 export type PlayerCardDestination = 'player-hand' | 'player-discard' | 'player-removed';
