@@ -1,395 +1,418 @@
-# Implementation Plan
+# Implementation Status and Forward Plan
 
-[Overview]
-Pandemic Legacy Season 0 deck counter MVP will convert the existing English and Korean PDF rulebooks into committed markdown references, then implement a browser web app that tracks the Player deck and Threat deck with GitHub OAuth + private gist persistence and rule-toggle-ready data structures.
+## Overview
 
-The repository currently contains only two source documents: `docs/en/pandemic_legacy_season_0_rulebook_english.pdf` and `docs/ko/pandemic_legacy_season_0_rulebook_korean.pdf`; there is no existing application code, dependency manifest, test setup, or build configuration. The implementation therefore starts by creating a new TypeScript browser application in the repository root while preserving the existing `docs/` layout.
+This document now tracks the current implementation status of the Pandemic Legacy Season 0 deck counter and the forward plan for campaign content that will be added as play progresses.
 
-The user’s requested long-term workflow is that newly discovered Legacy rules are continuously added to markdown rule files, and the deck counter updates from those rule definitions. The MVP should not attempt to fully automate arbitrary natural-language rule interpretation. Instead, it should establish a maintainable bridge: human-readable markdown rulebooks and rule updates live under `docs/`, while app-consumable structured rule metadata lives under `src/data/rules/`. Each structured rule can reference one or more markdown anchors and can be enabled or disabled through the UI.
+The original plan described building a single-game MVP deck counter from scratch. The app has since moved beyond that baseline: it now includes a campaign-progress model, month setup defaults, game result history, event-card metadata, multi-card unidentified city support, and persistence migration.
 
-Terminology policy: code identifiers, TypeScript domain names, test names, and stable ids should follow the English rulebook terminology, while Korean UI strings, Korean markdown prose, and `LocalizedText.ko` values should follow the official Korean rulebook translation. For example, keep code concepts such as `EscalationCard` and `escalation`, but display the Korean official term `악화 카드` in UI and Korean documentation.
+The remaining work is mostly about replacing spoiler-safe placeholders with real campaign data when it becomes available during play, then adding automation for newly revealed monthly rules, event cards, legacy cards, and setup changes.
 
-The MVP scope is intentionally limited to deck-counter functionality. It should track Player deck counts, Player discard/removed/hand-visible card state where useful, Escalation card setup across piles, Threat deck draw/discard/top-stack behavior, Threat cards moved to the Game End area by incidents, and probability/risk summaries. City board state such as agents, incidents, surveillance, safehouses, teams, and objectives should be represented only as future extension points, not implemented as full board simulation in this first phase.
+## Before / After Summary
 
-Persistence should avoid a custom database. The selected approach is GitHub OAuth plus private gist storage. Because a browser-only app cannot safely hold a GitHub OAuth client secret, the plan uses a static-site-friendly OAuth device flow or a token-based GitHub authentication strategy appropriate for public clients. The app stores campaign/deck state as JSON in a private gist owned by the authenticated GitHub user. A local fallback cache should be used for offline resilience and recovery, but the source of truth after sign-in is the private gist.
+### Before
 
-[Types]
-The type system will define explicit domain models for cards, deck zones, campaign state, rule toggles, GitHub gist synchronization, and UI-safe derived summaries.
+- One saved campaign effectively represented one deck-counter game.
+- The app tracked the Player deck, Threat deck, turn flow, rule toggles, local/GitHub persistence, and basic rule references.
+- Legacy campaign progression existed mostly as future extension space.
 
-```ts
-// src/types/cards.ts
-export type LanguageCode = 'en' | 'ko';
+### After
 
-export type CardKind = 'city' | 'event' | 'escalation' | 'threat';
+- One saved campaign now represents an ongoing Prologue-through-December campaign.
+- The active month attempt still powers the visible Player deck, Threat deck, and turn flow.
+- Campaign-level progress now tracks:
+  - current month
+  - current attempt
+  - funding level
+  - historical game records
+  - characters used
+  - mission results
+  - performance rating
+  - non-spoiler warnings
+- Month and event data are intentionally extensible and placeholder-friendly so future revealed content can be appended without restructuring the app.
 
-export type Affiliation = 'allied' | 'neutral' | 'soviet';
+## Current Implementation Status
 
-export type Region =
-  | 'north-america'
-  | 'south-america'
-  | 'europe'
-  | 'africa'
-  | 'asia'
-  | 'pacific';
+### Campaign progress model
 
-export interface LocalizedText {
-  en: string;
-  ko: string;
-}
+Implemented in:
 
-export interface BaseCard {
-  id: string;                 // Stable unique id, kebab-case, never localized.
-  kind: CardKind;
-  name: LocalizedText;
-  notes?: LocalizedText;
-}
+- `src/types/campaign.ts`
+- `src/domain/campaignProgress.ts`
+- `src/domain/createInitialCampaign.ts`
 
-export interface CityCard extends BaseCard {
-  kind: 'city';
-  region: Region;
-  affiliation: Affiliation;
-  country?: LocalizedText;
-}
+Current support:
 
-export interface EventCard extends BaseCard {
-  kind: 'event';
-  initialSet: boolean;        // true for the initial five Event cards mentioned in setup.
-}
+- `CampaignMonthId` covers `prologue` through `december`.
+- `CampaignProgressState` tracks current month, attempt, funding, game records, opened legacy card ids, and non-spoiler warnings.
+- `CampaignGameRecord` stores month, attempt, funding, players, characters, play date, mission results, and rating.
+- Funding is clamped to 1–10.
+- Performance rating is calculated from mission failures:
+  - 0 failed missions: `success`
+  - 1 failed mission: `adequate`
+  - 2+ failed missions: `failure`
+- Result application behavior is implemented:
+  - success/adequate advances to the next month
+  - first failure retries the same month
+  - second failure advances to the next month
+- Secret File 14 is not revealed; if funding would exceed 10, the app records a non-spoiler warning only.
 
-export interface EscalationCard extends BaseCard {
-  kind: 'escalation';
-  escalationNumber: number;   // 1..5 for MVP setup.
-}
+### Month setup defaults
 
-export interface ThreatCard extends BaseCard {
-  kind: 'threat';
-  cityCardId: string;         // References matching CityCard.id.
-  incidentEffect?: LocalizedText;
-}
+Implemented in:
 
-export type PlayerCard = CityCard | EventCard | EscalationCard;
+- `src/types/campaignSetup.ts`
+- `src/data/campaign/months.ts`
+- `src/components/MonthGameSetupWizard.tsx`
+
+Current support:
+
+- Ordered campaign months are defined from Prologue through December.
+- Localized month labels exist in English and Korean.
+- Prologue, January, and February have initial default structures.
+- February includes the special unidentified target city setup:
+  - filter: Africa region
+  - hidden removed count: 3
+  - warning if the default setup is changed
+- March through December intentionally use spoiler-safe empty placeholders.
+
+### Player deck and unidentified target city behavior
+
+Implemented in:
+
+- `src/types/deck.ts`
+- `src/domain/playerDeck.ts`
+- `src/domain/probabilities.ts`
+- `src/__tests__/playerDeck.test.ts`
+
+Current support:
+
+- Unidentified target city setup supports arbitrary hidden removed counts, not just one card.
+- Starting-hand validation ensures enough candidate cards remain hidden for the configured removal count.
+- Player deck remaining/composition calculations account for hidden removed counts.
+- February-style hidden removal of 3 Africa city cards is tested.
+
+### Event card metadata and effects
+
+Implemented in:
+
+- `src/types/cards.ts`
+- `src/data/cards/events.ts`
+- `src/domain/campaignProgress.ts`
+- `src/domain/events.ts`
+- `src/components/EventCardsPanel.tsx`
+
+Current support:
+
+- Event cards can define availability by campaign month.
+- Event cards can define effect metadata.
+- Available events are filtered by the current campaign month.
+- Prologue currently has 5 available event card slots.
+- February currently adds 4 additional placeholder event card slots.
+- `방첩 부대 / Counterintelligence Team` has a supported effect:
+  - choose 1 card from the Threat discard area
+  - move it to the Game End area
+- Unsupported/unknown event effects are displayed as placeholders and do not automate behavior yet.
+
+### Threat deck event helper
+
+Implemented in:
+
+- `src/domain/threatDeck.ts`
+- `src/__tests__/threatDeck.test.ts`
+
+Current support:
+
+- Generic manual movement to the Game End area remains available for correction/manual tracking.
+- Event-specific movement is stricter:
+  - the target card must be in the Threat discard area
+  - cards in the unknown deck, known top stack, removed area, or already in Game End are rejected for this event helper
+
+### Persistence and migration
+
+Implemented in:
+
+- `src/types/sync.ts`
+- `src/services/localCache.ts`
+- `src/__tests__/campaignPersistence.test.ts`
+
+Current support:
+
+- Persisted envelope schema is now version 3.
+- Campaign schema is now version 2.
+- Older persisted data is migrated forward.
+- Campaign progress is seeded from older state using existing month/funding fields where possible.
+- Local cache validation uses zod schemas.
+
+### UI integration
+
+Implemented in:
+
+- `src/App.tsx`
+- `src/components/AppTopBar.tsx`
+- `src/components/DeckCounterDashboard.tsx`
+- `src/components/CampaignTimelinePanel.tsx`
+- `src/components/GameResultDialog.tsx`
+- `src/components/MonthGameSetupWizard.tsx`
+- `src/components/EventCardsPanel.tsx`
+
+Current support:
+
+- Top-bar actions exist for:
+  - creating campaigns
+  - setting up the current month
+  - recording a game result
+  - editing starting hands
+  - rule options
+  - undo/redo
+  - local/GitHub persistence actions
+- Dashboard shows the current campaign month, attempt, and funding level.
+- Campaign timeline displays recorded game results.
+- Current month setup wizard can rebuild decks for the active month attempt.
+- Game result dialog records played date, characters, and mission success/failure.
+- Event card panel lists currently available events and exposes supported event actions.
+
+### Tests
+
+Current validation result:
+
+```bash
+npm test -- --run
 ```
 
+Result at review time:
+
+- 5 test files passed
+- 48 tests passed
+
+Covered areas include:
+
+- campaign progress
+- campaign persistence/migration
+- player deck behavior
+- threat deck behavior
+- turn flow
+
+## Known Placeholder Data
+
+The app intentionally avoids adding spoilers that have not been provided yet. These areas are present structurally but still need real campaign data.
+
+### Event cards
+
+Current event data:
+
+- `event-counterintelligence-team`
+  - English: `Counterintelligence Team`
+  - Korean: `방첩 부대`
+  - Supported effect is implemented.
+  - Exact title/effect wording should still be verified against the real card if needed.
+- Four other Prologue initial events are placeholders:
+  - `event-government-grant-placeholder`
+  - `event-one-quiet-night-placeholder`
+  - `event-resilient-population-placeholder`
+  - `event-special-orders-placeholder`
+- Four February-added events are placeholders:
+  - `event-february-1-placeholder`
+  - `event-february-2-placeholder`
+  - `event-february-3-placeholder`
+  - `event-february-4-placeholder`
+
+Needed later:
+
+- exact card id or stable app id
+- English title
+- Korean title
+- exact effect text
+- month when the card becomes available
+- whether the effect should be automated or informational only
+
+### Monthly missions
+
+Current month data:
+
+- Prologue has placeholder mission names.
+- January has placeholder mission names.
+- February has placeholder mission names, with one mission label indicating Africa city securing.
+- March through December have empty mission arrays.
+
+Needed later:
+
+- exact mission names
+- localized mission descriptions
+- number of missions for each month
+- default success/failure entry behavior if any
+- special result handling if a legacy rule changes normal performance calculation
+
+### Monthly setup changes
+
+Current setup data:
+
+- February Africa unidentified target city setup is represented.
+- Later month setup changes are not filled in.
+
+Needed later:
+
+- city/region/affiliation filters for any new hidden setup
+- number of hidden/removed cards
+- new event cards added to the Player deck
+- new escalation/threat/player deck setup instructions
+- any rule that changes hand size, funding, setup, or cleanup
+
+### Legacy cards and opened files
+
+Current support:
+
+- `openedLegacyCardIds` exists in campaign progress.
+- `legacyCardIdsApplied` exists in month setup defaults.
+
+Current limitation:
+
+- No real legacy card ids/effects are entered yet.
+- The app does not reveal Secret File 14 content.
+
+Needed later:
+
+- legacy card/file id
+- non-spoiler trigger condition
+- opened month/timing
+- app behavior change, if any
+- localized text to display, if safe to include
+
+## Future Content to Add During Campaign Play
+
+When new campaign content is revealed, add it in small, isolated updates.
+
+### New event cards
+
+Add or update entries in:
+
+- `src/data/cards/events.ts`
+
+For each event card, capture:
+
 ```ts
-// src/types/deck.ts
-export type PlayerCardZone =
-  | 'player-deck-unknown'
-  | 'player-hand'
-  | 'player-discard'
-  | 'player-removed'
-  | 'player-drawn-escalation';
-
-export type ThreatCardZone =
-  | 'threat-deck-unknown'
-  | 'threat-discard'
-  | 'threat-top-stack-known'
-  | 'threat-game-end-area'
-  | 'threat-removed';
-
-export interface CardInstanceState {
-  cardId: string;
-  zone: PlayerCardZone | ThreatCardZone;
-  ownerPlayerId?: string;     // only for player-hand zone.
-  order?: number;             // known ordering within a known stack; lower means nearer top.
-  updatedAt: string;          // ISO timestamp.
-}
-
-export interface PlayerDeckPile {
-  id: string;                 // e.g. pile-1..pile-5.
-  initialUnknownCount: number;
-  remainingUnknownCount: number;
-  escalationCardId?: string;
-  escalationResolved: boolean;
-}
-
-export interface PlayerDeckState {
-  totalInitialCount: number;
-  drawCountPerTurn: 2;
-  piles: PlayerDeckPile[];
-  cardStates: Record<string, CardInstanceState>;
-  currentPileIndex: number;   // 0-based pile currently being drawn from.
-}
-
-export interface ThreatDeckState {
-  totalInitialCount: number;
-  unknownDrawPileCount: number;
-  discardCardIds: string[];
-  knownTopStackCardIds: string[]; // produced after Escalation intensify.
-  gameEndAreaCardIds: string[];
-  removedCardIds: string[];
+{
+  id: 'event-stable-kebab-case-id',
+  kind: 'event',
+  initialSet: false,
+  availability: { fromMonth: 'february' },
+  name: { en: 'English title', ko: 'Korean title' },
+  notes: { en: 'Optional note', ko: '선택 메모' },
+  effect: {
+    kind: 'informational',
+    description: { en: 'Effect text', ko: '효과 문구' }
+  }
 }
 ```
 
+Use `effect.kind: 'unknown'` if the text is known but automation has not been decided yet. Add a new effect kind only when the behavior should be automated.
+
+### New month setup data
+
+Add or update entries in:
+
+- `src/data/campaign/months.ts`
+
+For each month, capture:
+
 ```ts
-// src/types/rules.ts
-export type RuleCategory = 'base' | 'legacy' | 'month' | 'house-rule';
-
-export interface RuleReference {
-  language: LanguageCode;
-  markdownPath: string;       // e.g. docs/en/rulebook.md.
-  anchor: string;             // markdown heading anchor.
-}
-
-export interface RuleToggle {
-  id: string;                 // e.g. base.escalation, legacy.prologue.incidents.
-  label: LocalizedText;
-  description: LocalizedText;
-  category: RuleCategory;
-  defaultEnabled: boolean;
-  enabled: boolean;
-  introducedBy?: string;      // e.g. prologue, january, user-added.
-  references: RuleReference[];
-  affects: Array<'player-deck' | 'threat-deck' | 'sync' | 'ui'>;
+{
+  month: 'march',
+  name: monthLabels.march,
+  missions: [
+    {
+      id: 'march-mission-1',
+      month: 'march',
+      name: { en: 'Mission name', ko: '임무 이름' },
+      description: { en: 'Optional description', ko: '선택 설명' },
+      defaultResult: false
+    }
+  ],
+  eventCardIdsAvailable: ['event-existing-or-new-id'],
+  legacyCardIdsApplied: ['legacy-card-id-if-safe']
 }
 ```
 
-```ts
-// src/types/campaign.ts
-export interface PlayerProfile {
-  id: string;
-  name: string;
-}
+### New rule or legacy effects
 
-export interface CampaignState {
-  schemaVersion: 1;
-  campaignId: string;
-  campaignName: string;
-  language: LanguageCode;
-  players: PlayerProfile[];
-  currentMonth?: string;
-  fundingLevel?: number;
-  playerDeck: PlayerDeckState;
-  threatDeck: ThreatDeckState;
-  ruleToggles: Record<string, boolean>;
-  createdAt: string;
-  updatedAt: string;
-}
+Depending on the effect, update one or more of:
 
-export interface DeckCounterSummary {
-  playerDeckRemaining: number;
-  playerDeckDiscardCount: number;
-  unresolvedEscalations: number;
-  currentPileEscalationRisk: number; // 0..1.
-  threatDeckUnknownRemaining: number;
-  threatDiscardCount: number;
-  threatKnownTopStackCount: number;
-  gameEndAreaCount: number;
-}
+- `src/data/rules/legacyRules.ts`
+- `src/domain/campaignProgress.ts`
+- `src/domain/events.ts`
+- `src/domain/playerDeck.ts`
+- `src/domain/threatDeck.ts`
+- relevant UI components
+- relevant tests
+
+Prefer pure domain helpers first, then wire them into React components.
+
+## Recommended User Input Format for Future Revealed Content
+
+When providing newly revealed content, use this format to make updates straightforward.
+
+### Event card
+
+```md
+Month available: February
+English title: ...
+Korean title: ...
+Effect text EN: ...
+Effect text KO: ...
+Should automate?: yes/no
+If automate, what should happen in app state?: ...
 ```
 
-```ts
-// src/types/sync.ts
-export interface GitHubUser {
-  login: string;
-  avatarUrl: string;
-}
+### Month mission/setup
 
-export interface AuthState {
-  status: 'signed-out' | 'pending-device-flow' | 'signed-in' | 'error';
-  accessToken?: string;       // stored only in browser storage; never committed.
-  user?: GitHubUser;
-  errorMessage?: string;
-}
+```md
+Month: March
+Missions:
+1. EN / KO / description if any
+2. EN / KO / description if any
 
-export interface GistSyncMetadata {
-  gistId?: string;
-  fileName: 'pandemic-legacy-season-zero-state.json';
-  etag?: string;
-  lastPulledAt?: string;
-  lastPushedAt?: string;
-  dirty: boolean;
-}
+Setup changes:
+- ...
 
-export interface PersistedEnvelope {
-  appId: 'pandemic-legacy-season-zero-deck-counter';
-  schemaVersion: 1;
-  campaigns: CampaignState[];
-  activeCampaignId?: string;
-}
+New event cards:
+- ...
+
+Legacy cards/files opened:
+- ...
 ```
 
-Validation rules:
-- All ids must be stable lowercase kebab-case strings.
-- `CampaignState.schemaVersion` and `PersistedEnvelope.schemaVersion` must be checked before loading.
-- Count fields must never be negative.
-- `PlayerDeckState.piles.length` must be 5 for the MVP because the base setup shuffles 5 Escalation cards into 5 piles.
-- `currentPileEscalationRisk` must be derived, not manually edited.
-- A `ThreatCard.cityCardId` must reference an existing `CityCard.id`.
-- Unknown card ordering must not be inferred unless the user explicitly records a known top stack.
+### Rule change
 
-[Files]
-The implementation will create a new TypeScript React/Vite application, add markdown rulebook outputs, add structured game/rule data, and add GitHub gist synchronization modules.
+```md
+Introduced by: month/card/file
+Rule summary:
+Exact text if safe:
+Affected area:
+- Player deck / Threat deck / Turn flow / Result handling / Setup / UI only
+Automation desired?: yes/no
+```
 
-New files to be created:
-- `package.json`: npm scripts and project dependencies for the browser app.
-- `package-lock.json`: locked dependency graph after installation.
-- `tsconfig.json`: TypeScript compiler configuration.
-- `tsconfig.node.json`: Vite/node-specific TypeScript configuration if required by the chosen Vite template.
-- `vite.config.ts`: Vite build/test configuration.
-- `index.html`: root HTML entrypoint.
-- `.gitignore`: excludes `node_modules`, build outputs, env files, local caches, and generated temporary extraction files.
-- `.env.example`: documents required public GitHub OAuth/device-flow settings if any.
-- `docs/en/rulebook.md`: English markdown conversion of `docs/en/pandemic_legacy_season_0_rulebook_english.pdf`.
-- `docs/ko/rulebook.md`: Korean markdown conversion of `docs/ko/pandemic_legacy_season_0_rulebook_korean.pdf`.
-- `docs/en/legacy-rules.md`: human-maintained English additions discovered during campaign play.
-- `docs/ko/legacy-rules.md`: human-maintained Korean additions discovered during campaign play.
-- `docs/rule-authoring.md`: explains how to add new markdown rule sections and corresponding structured toggles.
-- `scripts/extract-rulebooks.mjs`: converts PDFs to raw text/markdown-friendly files using local tooling or Node packages.
-- `src/main.tsx`: React entrypoint.
-- `src/App.tsx`: top-level app shell.
-- `src/styles.css`: global styling.
-- `src/types/cards.ts`: card and localization domain types.
-- `src/types/deck.ts`: deck zone and deck state types.
-- `src/types/rules.ts`: rule toggle/reference types.
-- `src/types/campaign.ts`: campaign state and derived summary types.
-- `src/types/sync.ts`: GitHub auth/gist sync types.
-- `src/data/cards/cities.ts`: base city card metadata in English and Korean.
-- `src/data/cards/events.ts`: initial event card metadata; can use placeholders where exact event names require manual confirmation.
-- `src/data/cards/escalations.ts`: five Escalation card definitions.
-- `src/data/cards/threats.ts`: threat card metadata linked to cities, including incident effect placeholders where extraction is unreliable.
-- `src/data/rules/baseRules.ts`: structured base rule toggles for deck setup, Escalation, Threat draws, incidents/Game End area.
-- `src/data/rules/legacyRules.ts`: initial empty or sample legacy rule toggle registry for future monthly rules.
-- `src/domain/createInitialCampaign.ts`: creates a validated default campaign/deck state.
-- `src/domain/playerDeck.ts`: pure functions for Player deck operations.
-- `src/domain/threatDeck.ts`: pure functions for Threat deck operations.
-- `src/domain/probabilities.ts`: pure functions for risk summaries.
-- `src/domain/ruleToggles.ts`: applies and lists enabled/disabled rules.
-- `src/services/githubAuth.ts`: GitHub sign-in/device-flow logic.
-- `src/services/gistStorage.ts`: private gist CRUD for persisted state.
-- `src/services/localCache.ts`: local fallback cache.
-- `src/components/AuthPanel.tsx`: sign-in/sign-out/sync status UI.
-- `src/components/CampaignSelector.tsx`: campaign selection and creation UI.
-- `src/components/DeckCounterDashboard.tsx`: page layout for deck counters and summaries.
-- `src/components/PlayerDeckPanel.tsx`: Player deck state display and actions.
-- `src/components/ThreatDeckPanel.tsx`: Threat deck state display and actions.
-- `src/components/RuleTogglePanel.tsx`: rule options UI.
-- `src/components/RuleReferencePanel.tsx`: links active rules to markdown reference sections.
-- `src/components/SyncStatus.tsx`: shows dirty/synced/conflict/error status.
-- `src/__tests__/playerDeck.test.ts`: tests Player deck operations and probability calculations.
-- `src/__tests__/threatDeck.test.ts`: tests Threat deck discard/top-stack/Game End behavior.
-- `src/__tests__/campaignPersistence.test.ts`: tests serialization and migration-safe loading.
+## Next Implementation Priorities
 
-Existing files to be modified:
-- `docs/en/pandemic_legacy_season_0_rulebook_english.pdf`: no content modification; used as source.
-- `docs/ko/pandemic_legacy_season_0_rulebook_korean.pdf`: no content modification; used as source.
-- `implementation_plan.md`: this plan document may be updated if implementation scope changes.
+1. Replace known placeholder event cards with exact titles/effects as soon as card data is available.
+2. Replace Prologue, January, and February placeholder mission names with exact mission text.
+3. Add March and later month setup data only when revealed during play.
+4. Add automated event effect kinds one at a time, with domain tests.
+5. Move remaining hard-coded campaign UI labels into `src/i18n/uiText.ts` for consistency.
+6. Add tests whenever a new rule changes deck behavior, result handling, or persistence.
+7. Continue validating with:
 
-Files to be deleted or moved:
-- None.
+```bash
+npm test
+npm run build
+```
 
-Configuration file updates:
-- `package.json` should include scripts: `dev`, `build`, `preview`, `test`, `lint`, `extract:rules`.
-- `.gitignore` should exclude `.env`, `.env.local`, `dist/`, `node_modules/`, and temporary extraction artifacts.
+## Commit and Validation Notes
 
-[Functions]
-The implementation will add pure domain functions for deck state transitions, derived risk calculations, rule toggle handling, and persistence adapters.
+Per `.clinerules`:
 
-New functions:
-- `createInitialCampaign(input: CreateInitialCampaignInput): CampaignState` in `src/domain/createInitialCampaign.ts`; initializes campaign state using selected language, players, funding level, and default enabled rules.
-- `createInitialPlayerDeckState(config: PlayerDeckSetupConfig): PlayerDeckState` in `src/domain/playerDeck.ts`; builds five piles after initial hands/events are configured.
-- `recordPlayerCardDraw(state: PlayerDeckState, cardId: string, destination: 'player-hand' | 'player-discard' | 'player-removed'): PlayerDeckState` in `src/domain/playerDeck.ts`; records a known non-Escalation draw.
-- `resolveEscalationDraw(state: PlayerDeckState, escalationCardId: string): PlayerDeckState` in `src/domain/playerDeck.ts`; marks an Escalation as resolved and advances pile metadata as needed.
-- `movePlayerCard(state: PlayerDeckState, cardId: string, zone: PlayerCardZone, ownerPlayerId?: string): PlayerDeckState` in `src/domain/playerDeck.ts`; moves known Player cards between zones.
-- `getPlayerDeckRemaining(state: PlayerDeckState): number` in `src/domain/playerDeck.ts`; returns derived remaining count.
-- `calculateCurrentPileEscalationRisk(state: PlayerDeckState): number` in `src/domain/probabilities.ts`; estimates probability that the next 2-card draw includes Escalation in the current pile based on remaining unknown count and unresolved escalation state.
-- `calculateDeckCounterSummary(campaign: CampaignState): DeckCounterSummary` in `src/domain/probabilities.ts`; aggregates UI summary values.
-- `recordThreatDraw(state: ThreatDeckState, cardId: string): ThreatDeckState` in `src/domain/threatDeck.ts`; moves a top/unknown Threat card to discard.
-- `recordThreatBottomDrawToDiscard(state: ThreatDeckState, cardId: string): ThreatDeckState` in `src/domain/threatDeck.ts`; records Escalation add-agents bottom draw and places it in discard.
-- `recordThreatBottomDrawToGameEndArea(state: ThreatDeckState, cardId: string): ThreatDeckState` in `src/domain/threatDeck.ts`; records incident bottom draw and moves it to Game End area.
-- `intensifyThreatDiscard(state: ThreatDeckState, orderedCardIds?: string[]): ThreatDeckState` in `src/domain/threatDeck.ts`; moves discard to known top stack if order supplied, otherwise tracks count and known ids without pretending exact order.
-- `clearThreatGameEndArea(state: ThreatDeckState): ThreatDeckState` in `src/domain/threatDeck.ts`; implements after-game movement from Game End area to discard.
-- `listEnabledRules(toggles: RuleToggle[], state: CampaignState): RuleToggle[]` in `src/domain/ruleToggles.ts`; returns active rules for UI and behavior checks.
-- `setRuleEnabled(campaign: CampaignState, ruleId: string, enabled: boolean): CampaignState` in `src/domain/ruleToggles.ts`; updates a rule option.
-- `startGitHubDeviceFlow(): Promise<DeviceFlowStartResult>` in `src/services/githubAuth.ts`; begins GitHub OAuth for public clients.
-- `pollGitHubDeviceFlow(deviceCode: string): Promise<AuthState>` in `src/services/githubAuth.ts`; completes sign-in.
-- `getGitHubUser(token: string): Promise<GitHubUser>` in `src/services/githubAuth.ts`; loads signed-in user profile.
-- `findOrCreateStateGist(token: string): Promise<GistSyncMetadata>` in `src/services/gistStorage.ts`; locates existing private app gist or creates one.
-- `pullStateFromGist(token: string, metadata: GistSyncMetadata): Promise<PersistedEnvelope>` in `src/services/gistStorage.ts`; loads persisted state.
-- `pushStateToGist(token: string, metadata: GistSyncMetadata, envelope: PersistedEnvelope): Promise<GistSyncMetadata>` in `src/services/gistStorage.ts`; saves state.
-- `loadLocalCache(): PersistedEnvelope | undefined` in `src/services/localCache.ts`; loads offline fallback.
-- `saveLocalCache(envelope: PersistedEnvelope): void` in `src/services/localCache.ts`; writes offline fallback.
-
-Modified functions:
-- None; no existing source functions are present.
-
-Removed functions:
-- None.
-
-[Classes]
-The implementation should prefer plain TypeScript interfaces, pure functions, and React function components; no domain classes are required for the MVP.
-
-New classes:
-- None.
-
-Modified classes:
-- None; no existing classes are present.
-
-Removed classes:
-- None.
-
-React function components to be created instead of classes:
-- `App` in `src/App.tsx`: owns top-level auth, persistence, and active campaign state.
-- `AuthPanel` in `src/components/AuthPanel.tsx`: manages GitHub sign-in prompts and sign-out action.
-- `CampaignSelector` in `src/components/CampaignSelector.tsx`: selects or creates a campaign.
-- `DeckCounterDashboard` in `src/components/DeckCounterDashboard.tsx`: composes summary, Player deck, Threat deck, and rules panels.
-- `PlayerDeckPanel` in `src/components/PlayerDeckPanel.tsx`: exposes actions for drawing cards, resolving Escalations, and moving Player cards.
-- `ThreatDeckPanel` in `src/components/ThreatDeckPanel.tsx`: exposes actions for Threat draws, bottom draws, intensify, and Game End area handling.
-- `RuleTogglePanel` in `src/components/RuleTogglePanel.tsx`: allows users to enable/disable optional rule modules.
-- `RuleReferencePanel` in `src/components/RuleReferencePanel.tsx`: displays links or excerpts pointing to relevant markdown rule anchors.
-- `SyncStatus` in `src/components/SyncStatus.tsx`: displays local/remote sync state and conflict warnings.
-
-[Dependencies]
-The implementation will add local npm dependencies for a TypeScript React/Vite web app, testing, and PDF-to-markdown extraction support without requiring a custom database.
-
-Recommended dependencies:
-- `@vitejs/plugin-react`: Vite React integration.
-- `vite`: development server and production build.
-- `typescript`: static typing.
-- `react` and `react-dom`: UI framework.
-- `lucide-react` or no icon package: optional icons; can be omitted if minimizing dependencies.
-- `zod`: runtime validation for persisted JSON and future migrations.
-- `@octokit/rest`: GitHub REST API client for gist operations.
-- `vitest`: unit test runner.
-- `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`: component tests if component testing is included.
-- `eslint`, `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`: linting if project standardization is desired.
-
-PDF extraction options:
-- First try system/Python extraction through repository scripts. The current environment does not expose `pdftotext`; Python is available.
-- If Python extraction quality is insufficient, add a local npm package such as `pdf-parse` or a maintained alternative and wire it through `scripts/extract-rulebooks.mjs`.
-- The Korean PDF extraction is noisy based on initial inspection, so the markdown conversion step should include cleanup headings and sections manually where extraction fails.
-
-GitHub OAuth/gist requirements:
-- No custom app database.
-- Use GitHub OAuth/device flow or a public-client-compatible OAuth flow.
-- Required GitHub scopes should be minimal but must allow private gist creation/update. GitHub’s classic OAuth scope for this is typically `gist`.
-- Never commit tokens or client secrets.
-- Document setup in `.env.example` and app UI.
-
-[Testing]
-Testing will focus on pure deck logic, persistence validation, and critical UI workflows rather than full end-to-end automation in the MVP.
-
-Test files and validation:
-- `src/__tests__/playerDeck.test.ts` should verify initial pile creation, remaining card counts, card zone transitions, Escalation resolution, and current-pile risk calculations.
-- `src/__tests__/threatDeck.test.ts` should verify Threat draws to discard, bottom draws to discard for Escalation, bottom draws to Game End area for incidents, intensify behavior, and after-game Game End cleanup.
-- `src/__tests__/campaignPersistence.test.ts` should verify `PersistedEnvelope` validation, schema version checks, serialization/deserialization, and local cache compatibility.
-- Component tests should cover `RuleTogglePanel` and the main deck action buttons if time permits.
-- Manual validation should include starting the dev server, creating a campaign, performing a sample setup, drawing Player cards, resolving Escalation, drawing Threat cards, toggling a rule, refreshing the browser, and confirming state recovery.
-- GitHub gist sync should be manually tested with a real GitHub account or mocked in unit tests to avoid network-dependent CI failures.
-
-[Implementation Order]
-The implementation should proceed from documentation extraction and project scaffolding, then domain models and tests, then UI, then GitHub gist persistence, minimizing rework and keeping the MVP usable at each stage.
-
-1. Create the React/Vite TypeScript project scaffold at the repository root with `package.json`, TypeScript config, Vite config, `index.html`, `src/main.tsx`, and base styling.
-2. Add `.gitignore` and `.env.example` before introducing auth or generated artifacts.
-3. Create markdown rulebook outputs: `docs/en/rulebook.md` and `docs/ko/rulebook.md`, using the PDFs as source and preserving clear headings/anchors for Setup, Player Turn, Player Deck, Escalation Cards, Threat Cards, Incidents, Game End, and After the Game.
-4. Add `docs/en/legacy-rules.md`, `docs/ko/legacy-rules.md`, and `docs/rule-authoring.md` to define the future rule update workflow.
-5. Add TypeScript domain types under `src/types/` exactly covering cards, decks, rules, campaign state, and sync metadata.
-6. Add base card/rule data under `src/data/`, including city metadata, five Escalation cards, initial event placeholders if needed, threat metadata, base rule toggles, and an empty legacy rule registry.
-7. Implement pure domain functions in `src/domain/` for initial campaign creation, Player deck operations, Threat deck operations, probabilities, and rule toggles.
-8. Add unit tests for domain functions and persistence validation; run tests and fix logic issues before building UI behavior on top.
-9. Implement React components for auth shell placeholder, campaign selection, dashboard, Player deck panel, Threat deck panel, rule toggles, rule references, and sync status.
-10. Wire local cache persistence first so the app is usable before GitHub sync is complete.
-11. Implement GitHub OAuth/device-flow sign-in and private gist find/create/pull/push behavior with explicit sync status and error handling.
-12. Integrate remote gist sync with local cache fallback, including dirty-state handling and safe overwrite/conflict prompts.
-13. Run `npm test`, `npm run build`, and manual dev-server validation.
-14. Update `implementation_plan.md` if scope adjustments were necessary during implementation, then create a concise handoff summary.
+- Check `git status --short` before staging.
+- Stage only task-related files.
+- Run relevant validation before commits.
+- Use atomic commits with concise imperative messages.
+- Push only when requested or when delivery/persistence is explicitly requested.
