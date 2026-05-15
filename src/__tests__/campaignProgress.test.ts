@@ -229,11 +229,19 @@ describe('campaign progress domain', () => {
     expect(getAvailableEventCardsForMonth(eventCards, 'march').map((card) => card.id)).toContain('event-diversion');
     expect(getAvailableEventCardsForMonth(eventCards, 'march').map((card) => card.id)).not.toContain('event-one-quiet-night');
     expect(getAvailableEventCardsForMonth(eventCards, 'april').map((card) => card.id)).toContain('event-one-quiet-night');
+    expect(getAvailableEventCardsForMonth(eventCards, 'april').map((card) => card.id)).not.toContain('event-time-extension');
+    expect(getAvailableEventCardsForMonth(eventCards, 'april').map((card) => card.id)).not.toContain('event-unauthorized-action');
+    expect(getAvailableEventCardsForMonth(eventCards, 'may').map((card) => card.id)).toEqual(expect.arrayContaining([
+      'event-time-extension',
+      'event-unauthorized-action'
+    ]));
   });
 
-  it('defines post-February and post-March event card effect descriptions', () => {
+  it('defines post-February, post-March, and post-April event card effect descriptions', () => {
     const diversion = eventCards.find((eventCard) => eventCard.id === 'event-diversion');
     const quietNight = eventCards.find((eventCard) => eventCard.id === 'event-one-quiet-night');
+    const timeExtension = eventCards.find((eventCard) => eventCard.id === 'event-time-extension');
+    const unauthorizedAction = eventCards.find((eventCard) => eventCard.id === 'event-unauthorized-action');
 
     expect(diversion).toMatchObject({
       availability: { fromMonth: 'march' },
@@ -252,6 +260,26 @@ describe('campaign progress domain', () => {
         description: {
           ko: "이번 차례의 5번 '위협 카드 공개' 단계를 건너뜁니다.",
           en: "Skip step 5, 'Reveal Threat cards,' this turn."
+        }
+      }
+    });
+    expect(timeExtension).toMatchObject({
+      availability: { fromMonth: 'may' },
+      effect: {
+        kind: 'informational',
+        description: {
+          ko: '공급처에서 행동 토큰 2개를 가져와 현재 차례를 진행 중인 플레이어에게 줍니다.',
+          en: 'Take 2 action tokens from the supply and give them to the player currently taking their turn.'
+        }
+      }
+    });
+    expect(unauthorizedAction).toMatchObject({
+      availability: { fromMonth: 'may' },
+      effect: {
+        kind: 'informational',
+        description: {
+          ko: '제약 카드 1장을 창고로 옮깁니다. 해당 제약 카드는 이번 게임에 더 이상 영향을 미치지 않습니다.',
+          en: 'Move 1 restriction card to the depot. That restriction card has no further effect during this game.'
         }
       }
     });
@@ -317,6 +345,10 @@ describe('campaign progress domain', () => {
       { enabled: true, filter: { type: 'city-ids', value: ['istanbul', 'beijing'] }, hiddenRemovedCount: 0, revealedRemovedCount: 2 },
       { enabled: true, filter: { type: 'region', value: 'south-america' }, hiddenRemovedCount: 1 }
     ]);
+    expect(getMonthSetupDefaults('may').eventCardIdsAvailable).toEqual(expect.arrayContaining([
+      'event-time-extension',
+      'event-unauthorized-action'
+    ]));
   });
 
   it('creates February decks with revealed Soviet test cards removed from the player deck', () => {

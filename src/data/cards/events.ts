@@ -154,5 +154,33 @@ export const eventCards: EventCard[] = [
         ko: "이번 차례의 5번 '위협 카드 공개' 단계를 건너뜁니다."
       }
     }
+  },
+  {
+    id: 'event-time-extension',
+    kind: 'event',
+    initialSet: false,
+    availability: { fromMonth: 'may' },
+    name: { en: 'Time Extension', ko: '시간 연장' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'Take 2 action tokens from the supply and give them to the player currently taking their turn.',
+        ko: '공급처에서 행동 토큰 2개를 가져와 현재 차례를 진행 중인 플레이어에게 줍니다.'
+      }
+    }
+  },
+  {
+    id: 'event-unauthorized-action',
+    kind: 'event',
+    initialSet: false,
+    availability: { fromMonth: 'may' },
+    name: { en: 'Unauthorized Action', ko: '무단 행동' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'Move 1 restriction card to the depot. That restriction card has no further effect during this game.',
+        ko: '제약 카드 1장을 창고로 옮깁니다. 해당 제약 카드는 이번 게임에 더 이상 영향을 미치지 않습니다.'
+      }
+    }
   }
 ];

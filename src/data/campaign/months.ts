@@ -102,6 +102,12 @@ const aprilEventCardIds = [
   'event-one-quiet-night'
 ];
 
+const mayEventCardIds = [
+  ...aprilEventCardIds,
+  'event-time-extension',
+  'event-unauthorized-action'
+];
+
 export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   prologue: {
     month: 'prologue',
@@ -169,7 +175,7 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
       mission('may', 3, 'Wiretap the control center', '관제소 도청')
     ],
     unidentifiedTargetCities: [revealedCityIdsSetup(['istanbul', 'beijing']), hiddenRegionSetup('south-america', 1)],
-    eventCardIdsAvailable: aprilEventCardIds,
+    eventCardIdsAvailable: mayEventCardIds,
     legacyCardIdsApplied: []
   },
   june: placeholderDefaults('june'),
