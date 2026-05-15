@@ -342,7 +342,6 @@ describe('campaign progress domain', () => {
     ]);
     expect(getMonthSetupDefaults('may').missions.map((mission) => mission.id)).toEqual(['may-mission-1', 'may-mission-2', 'may-mission-3']);
     expect(getMonthSetupDefaults('may').unidentifiedTargetCities).toMatchObject([
-      { enabled: true, filter: { type: 'city-ids', value: ['istanbul', 'beijing'] }, hiddenRemovedCount: 0, revealedRemovedCount: 2 },
       { enabled: true, filter: { type: 'region', value: 'south-america' }, hiddenRemovedCount: 1 }
     ]);
     expect(getMonthSetupDefaults('may').eventCardIdsAvailable).toEqual(expect.arrayContaining([
@@ -427,6 +426,49 @@ describe('campaign progress domain', () => {
     expect(decks.playerDeck.unidentifiedTargetCities?.[1]).toMatchObject({
       filter: { type: 'region', value: 'europe' },
       hiddenRemovedCount: 1
+    });
+  });
+
+  it('creates May decks without removing Istanbul and Beijing for Sabik subordinate agents', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'May Sabik agents setup',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const mayCampaign = {
+      ...campaign,
+      progress: { ...campaign.progress, currentMonth: 'may' as const, fundingLevel: 4 },
+      currentMonth: 'may' as const,
+      fundingLevel: 4
+    };
+    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'may').slice(0, 4).map((card) => card.id);
+    const startingHands = [
+      ...cityCards
+        .filter((card) => card.region !== 'south-america' && !['istanbul', 'beijing'].includes(card.id))
+        .slice(0, 4)
+        .map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign: mayCampaign,
+      players: mayCampaign.players,
+      startingHands,
+      selectedEventCardIds,
+      fundingLevel: 4,
+      unidentifiedTargetCitySelections: [
+        { filter: { type: 'region', value: 'south-america' }, hiddenRemovedCount: 1 }
+      ],
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    expect(decks.playerDeck.cardStates.istanbul.zone).toBe('player-deck-unknown');
+    expect(decks.playerDeck.cardStates.beijing.zone).toBe('player-deck-unknown');
+    expect(decks.playerDeck.unidentifiedTargetCities).toHaveLength(1);
+    expect(decks.playerDeck.unidentifiedTargetCities?.[0]).toMatchObject({
+      filter: { type: 'region', value: 'south-america' },
+      hiddenRemovedCount: 1,
+      revealedRemovedCardIds: []
     });
   });
 
