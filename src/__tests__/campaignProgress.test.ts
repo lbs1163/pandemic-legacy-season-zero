@@ -294,7 +294,7 @@ describe('campaign progress domain', () => {
     }
   });
 
-  it('stores hidden city setup defaults for prologue through february', () => {
+  it('stores hidden and revealed city setup defaults through april', () => {
     expect(getMonthSetupDefaults('prologue').defaultFundingLevel).toBe(5);
     expect(getMonthSetupDefaults('january').defaultFundingLevel).toBe(5);
     expect(getMonthSetupDefaults('prologue').unidentifiedTargetCities).toMatchObject([
@@ -306,6 +306,11 @@ describe('campaign progress domain', () => {
     expect(getMonthSetupDefaults('february').unidentifiedTargetCities).toMatchObject([
       { enabled: true, filter: { type: 'region', value: 'africa' }, hiddenRemovedCount: 0, revealedRemovedCount: 3 },
       { enabled: true, filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 1 }
+    ]);
+    expect(getMonthSetupDefaults('april').missions.map((mission) => mission.id)).toEqual(['april-mission-1', 'april-mission-2']);
+    expect(getMonthSetupDefaults('april').unidentifiedTargetCities).toMatchObject([
+      { enabled: true, filter: { type: 'region', value: 'south-america' }, hiddenRemovedCount: 0, revealedRemovedCount: 3 },
+      { enabled: true, filter: { type: 'region', value: 'europe' }, hiddenRemovedCount: 1 }
     ]);
   });
 
@@ -344,6 +349,48 @@ describe('campaign progress domain', () => {
     expect(decks.playerDeck.cardStates.lagos.zone).toBe('player-removed');
     expect(decks.playerDeck.cardStates.cairo.zone).toBe('player-removed');
     expect(decks.playerDeck.unidentifiedTargetCities?.[0].revealedRemovedCardIds).toEqual(['khartoum', 'lagos', 'cairo']);
+  });
+
+  it('creates April decks with revealed second-test cards and hidden European target removed from the player deck', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'April revealed setup',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const aprilCampaign = {
+      ...campaign,
+      progress: { ...campaign.progress, currentMonth: 'april' as const, fundingLevel: 4 },
+      currentMonth: 'april' as const,
+      fundingLevel: 4
+    };
+    const revealedSouthAmericaCityIds = ['lima', 'santiago', 'sao-paulo'];
+    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'april').slice(0, 4).map((card) => card.id);
+    const startingHands = [
+      ...cityCards.filter((card) => !revealedSouthAmericaCityIds.includes(card.id) && card.region !== 'europe').slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign: aprilCampaign,
+      players: aprilCampaign.players,
+      startingHands,
+      selectedEventCardIds,
+      fundingLevel: 4,
+      unidentifiedTargetCitySelections: [
+        { filter: { type: 'region', value: 'south-america' }, hiddenRemovedCount: 0, revealedRemovedCardIds: revealedSouthAmericaCityIds },
+        { filter: { type: 'region', value: 'europe' }, hiddenRemovedCount: 1 }
+      ],
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    expect(decks.playerDeck.cardStates.lima.zone).toBe('player-removed');
+    expect(decks.playerDeck.cardStates.santiago.zone).toBe('player-removed');
+    expect(decks.playerDeck.cardStates['sao-paulo'].zone).toBe('player-removed');
+    expect(decks.playerDeck.unidentifiedTargetCities?.[0].revealedRemovedCardIds).toEqual(revealedSouthAmericaCityIds);
+    expect(decks.playerDeck.unidentifiedTargetCities?.[1]).toMatchObject({
+      filter: { type: 'region', value: 'europe' },
+      hiddenRemovedCount: 1
+    });
   });
 
   it('adds infection cards for failed February first-test cities and starts them in threat discard next setup', () => {
@@ -415,6 +462,79 @@ describe('campaign progress domain', () => {
     ]);
     expect(decks.threatDeck.cardStates['infection-lagos'].zone).toBe('threat-discard');
     expect(decks.threatDeck.cardStates['infection-cairo'].zone).toBe('threat-discard');
+  });
+
+  it('adds infection cards for failed April second-test cities and starts them in threat discard next setup', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'April infections',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const aprilCampaign = {
+      ...campaign,
+      currentMonth: 'april' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'april' as const,
+        fundingLevel: 4
+      },
+      playerDeck: {
+        ...campaign.playerDeck,
+        unidentifiedTargetCities: [{
+          configured: true,
+          filter: { type: 'region' as const, value: 'south-america' as const },
+          candidateCardIds: ['lima', 'santiago', 'sao-paulo'],
+          hiddenRemovedCount: 0,
+          revealedRemovedCardIds: ['lima', 'santiago', 'sao-paulo']
+        }]
+      }
+    };
+
+    const next = applyGameResult(aprilCampaign, {
+      characters: [],
+      missionResults: [
+        {
+          missionId: 'april-mission-1',
+          succeeded: true,
+          cityResults: [
+            { cityCardId: 'lima', succeeded: true },
+            { cityCardId: 'santiago', succeeded: false },
+            { cityCardId: 'sao-paulo', succeeded: false }
+          ]
+        },
+        { missionId: 'april-mission-2', succeeded: true }
+      ],
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(next.progress.currentMonth).toBe('may');
+    expect(next.progress.infectionCardIds).toEqual([
+      getInfectionCardIdForCity('santiago'),
+      getInfectionCardIdForCity('sao-paulo')
+    ]);
+
+    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'may').slice(0, 3).map((card) => card.id);
+    const decks = createGameDecksForMonth({
+      campaign: next,
+      players: next.players,
+      startingHands: [
+        ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+        ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' })),
+        { cardId: cityCards[4].id, playerId: 'p2' }
+      ],
+      selectedEventCardIds,
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id),
+      now: '2026-05-10T00:00:00.000Z'
+    });
+
+    expect(decks.threatDeck.discardCardIds).toEqual([
+      ...threatCards.slice(0, 9).map((card) => card.id),
+      'infection-santiago',
+      'infection-sao-paulo'
+    ]);
+    expect(decks.threatDeck.cardStates['infection-santiago'].zone).toBe('threat-discard');
+    expect(decks.threatDeck.cardStates['infection-sao-paulo'].zone).toBe('threat-discard');
   });
 
   it('creates current-month decks with initial threats, starting hands, and turn flow', () => {

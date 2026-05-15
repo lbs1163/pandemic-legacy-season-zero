@@ -21,11 +21,18 @@ function formatCharacter(character: CharacterProfile) {
   return character.roleName ? `${character.name}(${character.roleName})` : character.name;
 }
 
+function getSovietTestMissionId(month: CampaignState['progress']['currentMonth']) {
+  if (month === 'february') return 'february-mission-1';
+  if (month === 'april') return 'april-mission-1';
+  return undefined;
+}
+
 export function GameResultDialog({ open, campaign, language, onOpenChange, onSubmit }: Props) {
   const defaults = getMonthSetupDefaults(campaign.progress.currentMonth);
   const [playedAt, setPlayedAt] = useState('');
   const [missionResults, setMissionResults] = useState<MissionResult[]>([]);
-  const februaryTestCityIds = campaign.progress.currentMonth === 'february'
+  const sovietTestMissionId = getSovietTestMissionId(campaign.progress.currentMonth);
+  const sovietTestCityIds = sovietTestMissionId
     ? campaign.playerDeck.unidentifiedTargetCities?.[0]?.revealedRemovedCardIds ?? []
     : [];
 
@@ -34,12 +41,12 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
     setPlayedAt(formatLocalDateInputValue());
     setMissionResults(defaults.missions.map((mission) => ({
       missionId: mission.id,
-      succeeded: mission.defaultResult ?? false,
-      cityResults: mission.id === 'february-mission-1' && februaryTestCityIds.length
-        ? februaryTestCityIds.map((cityCardId) => ({ cityCardId, succeeded: false }))
+      succeeded: mission.id === sovietTestMissionId && sovietTestCityIds.length ? false : mission.defaultResult ?? false,
+      cityResults: mission.id === sovietTestMissionId && sovietTestCityIds.length
+        ? sovietTestCityIds.map((cityCardId) => ({ cityCardId, succeeded: false }))
         : undefined
     })));
-  }, [defaults.missions, februaryTestCityIds.join('|'), open]);
+  }, [defaults.missions, sovietTestCityIds.join('|'), sovietTestMissionId, open]);
 
   const submit = () => {
     onSubmit({ playedAt: playedAt || undefined, missionResults });
@@ -60,14 +67,19 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
             <h3 className="font-semibold">{language === 'ko' ? '임무 결과' : 'Mission results'}</h3>
             {defaults.missions.length ? defaults.missions.map((mission) => {
               const result = missionResults.find((item) => item.missionId === mission.id);
+              const isSovietTestMission = mission.id === sovietTestMissionId && Boolean(result?.cityResults?.length);
               return <div key={mission.id} className="space-y-3 rounded-lg border p-3">
-                <label className="flex items-center gap-3"><input type="checkbox" checked={result?.succeeded ?? false} onChange={(event) => setMissionResults((current) => current.map((item) => item.missionId === mission.id ? { ...item, succeeded: event.target.checked } : item))} /><span>{mission.name[language]}</span></label>
-                {mission.id === 'february-mission-1' && result?.cityResults?.length ? <div className="ml-6 space-y-2 rounded-lg bg-muted/50 p-3">
+                <label className="flex items-center gap-3"><input type="checkbox" checked={result?.succeeded ?? false} disabled={isSovietTestMission} onChange={(event) => setMissionResults((current) => current.map((item) => item.missionId === mission.id ? { ...item, succeeded: event.target.checked } : item))} /><span>{mission.name[language]}</span></label>
+                {isSovietTestMission && result?.cityResults?.length ? <div className="ml-6 space-y-2 rounded-lg bg-muted/50 p-3">
                   <p className="text-sm font-medium">{language === 'ko' ? '도시별 시험 저지 결과' : 'Test prevention by city'}</p>
-                  <p className="text-xs text-muted-foreground">{language === 'ko' ? '체크한 도시는 시험 저지 성공입니다. 체크하지 않은 도시는 감염 카드가 추가됩니다.' : 'Checked cities were successfully protected. Unchecked cities add Infection cards.'}</p>
+                  <p className="text-xs text-muted-foreground">{language === 'ko' ? '체크한 도시는 시험 저지 성공입니다. 1곳 이상 성공하면 임무 성공이며, 체크하지 않은 도시는 감염 카드가 추가됩니다.' : 'Checked cities were successfully protected. Preventing at least 1 city succeeds the mission. Unchecked cities add Infection cards.'}</p>
                   {result.cityResults.map((cityResult) => {
                     const city = cityCards.find((card) => card.id === cityResult.cityCardId);
-                    return <label key={cityResult.cityCardId} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={cityResult.succeeded} onChange={(event) => setMissionResults((current) => current.map((item) => item.missionId === mission.id ? { ...item, cityResults: item.cityResults?.map((currentCityResult) => currentCityResult.cityCardId === cityResult.cityCardId ? { ...currentCityResult, succeeded: event.target.checked } : currentCityResult) } : item))} /><span>{city?.name[language] ?? cityResult.cityCardId} {language === 'ko' ? '시험 저지 성공' : 'test prevented'}</span></label>;
+                    return <label key={cityResult.cityCardId} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={cityResult.succeeded} onChange={(event) => setMissionResults((current) => current.map((item) => {
+                      if (item.missionId !== mission.id) return item;
+                      const cityResults = item.cityResults?.map((currentCityResult) => currentCityResult.cityCardId === cityResult.cityCardId ? { ...currentCityResult, succeeded: event.target.checked } : currentCityResult);
+                      return { ...item, cityResults, succeeded: cityResults?.some((currentCityResult) => currentCityResult.succeeded) ?? false };
+                    }))} /><span>{city?.name[language] ?? cityResult.cityCardId} {language === 'ko' ? '시험 저지 성공' : 'test prevented'}</span></label>;
                   })}
                 </div> : null}
               </div>;

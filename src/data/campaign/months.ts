@@ -142,8 +142,15 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
     legacyCardIdsApplied: []
   },
   april: {
-    ...placeholderDefaults('april'),
-    eventCardIdsAvailable: aprilEventCardIds
+    month: 'april',
+    name: monthLabels.april,
+    missions: [
+      mission('april', 1, 'Stop the second Soviet test', '소련 2차 시험 저지'),
+      mission('april', 2, 'Wiretap the control center', '관제소 도청')
+    ],
+    unidentifiedTargetCities: [revealedRegionSetup('south-america', 3), hiddenRegionSetup('europe', 1)],
+    eventCardIdsAvailable: aprilEventCardIds,
+    legacyCardIdsApplied: []
   },
   may: placeholderDefaults('may'),
   june: placeholderDefaults('june'),

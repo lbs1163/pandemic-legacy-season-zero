@@ -211,7 +211,7 @@ export function applyGameResult(campaign: CampaignState, input: {
   const nonSpoilerWarnings = nextFunding.secretFile14Required && !progress.nonSpoilerWarnings.includes(secretFile14Warning)
     ? [...progress.nonSpoilerWarnings, secretFile14Warning]
     : progress.nonSpoilerWarnings;
-  const infectionCardIds = applyFebruaryTestInfectionCards(progress.infectionCardIds ?? [], progress.currentMonth, input.missionResults);
+  const infectionCardIds = applySovietTestInfectionCards(progress.infectionCardIds ?? [], progress.currentMonth, input.missionResults);
   const resetDecks = createUnconfiguredDecksForMonth({
     month: nextMonth,
     players: campaign.players,
@@ -237,17 +237,23 @@ export function applyGameResult(campaign: CampaignState, input: {
   };
 }
 
-function applyFebruaryTestInfectionCards(
+const sovietTestMissionIdsByMonth: Partial<Record<CampaignMonthId, string>> = {
+  february: 'february-mission-1',
+  april: 'april-mission-1'
+};
+
+function applySovietTestInfectionCards(
   currentInfectionCardIds: string[],
   currentMonth: CampaignMonthId,
   missionResults: MissionResult[]
 ): string[] {
-  if (currentMonth !== 'february') return currentInfectionCardIds;
-  const firstMissionResult = missionResults.find((result) => result.missionId === 'february-mission-1');
-  if (!firstMissionResult?.cityResults?.length) return currentInfectionCardIds;
+  const missionId = sovietTestMissionIdsByMonth[currentMonth];
+  if (!missionId) return currentInfectionCardIds;
+  const testMissionResult = missionResults.find((result) => result.missionId === missionId);
+  if (!testMissionResult?.cityResults?.length) return currentInfectionCardIds;
 
   const nextInfectionCardIds = new Set(currentInfectionCardIds);
-  for (const cityResult of firstMissionResult.cityResults) {
+  for (const cityResult of testMissionResult.cityResults) {
     if (!cityResult.succeeded) nextInfectionCardIds.add(getInfectionCardIdForCity(cityResult.cityCardId));
   }
   return [...nextInfectionCardIds];
