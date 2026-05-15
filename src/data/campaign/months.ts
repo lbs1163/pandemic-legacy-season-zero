@@ -126,7 +126,27 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
     ],
     legacyCardIdsApplied: []
   },
-  march: placeholderDefaults('march'),
+  march: {
+    month: 'march',
+    name: monthLabels.march,
+    missions: [
+      mission('march', 1, 'Investigate Soviet factory', '소련 공장 조사'),
+      mission('march', 2, 'Stop Agent Sabik from selling CIA secrets', 'CIA 기밀을 판매하려는 사빅 요원 저지')
+    ],
+    unidentifiedTargetCities: [hiddenRegionSetup('pacific', 1)],
+    eventCardIdsAvailable: [
+      'event-counterintelligence-team',
+      'event-government-grant-placeholder',
+      'event-one-quiet-night-placeholder',
+      'event-resilient-population-placeholder',
+      'event-special-orders-placeholder',
+      'event-february-1-placeholder',
+      'event-february-2-placeholder',
+      'event-february-3-placeholder',
+      'event-february-4-placeholder'
+    ],
+    legacyCardIdsApplied: []
+  },
   april: placeholderDefaults('april'),
   may: placeholderDefaults('may'),
   june: placeholderDefaults('june'),
