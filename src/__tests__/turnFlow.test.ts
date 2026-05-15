@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isCampaignMonthSetupComplete } from '../domain/campaignProgress';
 import { createInitialPlayerDeckState } from '../domain/playerDeck';
 import { createInitialThreatDeckState, getThreatLevel, recordInitialThreatSetup } from '../domain/threatDeck';
 import { completePlayerDrawStep, completeThreatDrawStep } from '../domain/turnFlow';
@@ -33,7 +34,10 @@ function createCampaign(): CampaignState {
       openedLegacyCardIds: [],
       nonSpoilerWarnings: []
     },
-    playerDeck,
+    playerDeck: {
+      ...playerDeck,
+      startingHand: { ...playerDeck.startingHand, configured: true }
+    },
     threatDeck,
     turnFlow: { step: 'player-draw', turnNumber: 1 },
     ruleToggles: {},
@@ -80,6 +84,20 @@ describe('turn flow domain', () => {
     expect(getThreatLevel(next.threatDeck)).toBe(2);
     expect(next.threatDeck.discardCardIds).toEqual([]);
     expect(next.threatDeck.knownTopStackCardIds).toContain('threat-10');
+  });
+
+  it('keeps month setup complete after escalation intensifies the threat discard', () => {
+    const campaign = createCampaign();
+    expect(isCampaignMonthSetupComplete(campaign)).toBe(true);
+
+    const next = completePlayerDrawStep(campaign, [
+      { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' },
+      { kind: 'escalation', cardId: 'e1', bottomThreatCardId: 'threat-10' }
+    ]);
+
+    expect(next.threatDeck.discardCardIds).toEqual([]);
+    expect(next.turnFlow).toEqual({ step: 'threat-draw', turnNumber: 1 });
+    expect(isCampaignMonthSetupComplete(next)).toBe(true);
   });
 
   it('resolves two escalations sequentially', () => {

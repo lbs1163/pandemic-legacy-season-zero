@@ -114,7 +114,12 @@ export function selectEventCardsForMonth(
 }
 
 export function isCampaignMonthSetupComplete(campaign: CampaignState): boolean {
-  return campaign.playerDeck.startingHand.configured && campaign.threatDeck.discardCardIds.length > 0;
+  const threatSetupHasBeenRecorded =
+    campaign.threatDeck.discardCardIds.length > 0 ||
+    (campaign.threatDeck.knownTopStackCardIds?.length ?? 0) > 0 ||
+    (campaign.threatDeck.knownTopStacks ?? []).some((stack) => stack.length > 0);
+
+  return campaign.playerDeck.startingHand.configured && threatSetupHasBeenRecorded;
 }
 
 export function createGameDecksForMonth(input: {
