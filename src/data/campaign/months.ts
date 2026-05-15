@@ -53,6 +53,14 @@ const revealedRegionSetup = (value: 'north-america' | 'south-america' | 'europe'
   warningWhenChanged: defaultSetupWarning
 });
 
+const revealedCityIdsSetup = (value: string[]) => ({
+  enabled: true,
+  filter: { type: 'city-ids' as const, value },
+  hiddenRemovedCount: 0,
+  revealedRemovedCount: value.length,
+  warningWhenChanged: defaultSetupWarning
+});
+
 const mission = (month: CampaignMonthId, index: number, en: string, ko: string) => ({
   id: `${month}-mission-${index}`,
   month,
@@ -152,7 +160,18 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
     eventCardIdsAvailable: aprilEventCardIds,
     legacyCardIdsApplied: []
   },
-  may: placeholderDefaults('may'),
+  may: {
+    month: 'may',
+    name: monthLabels.may,
+    missions: [
+      mission('may', 1, 'Stop Soviet smuggling', '소련 밀수 차단'),
+      mission('may', 2, "Find Sabik's subordinate agents", '사빅 수하 공작원 찾기'),
+      mission('may', 3, 'Wiretap the control center', '관제소 도청')
+    ],
+    unidentifiedTargetCities: [revealedCityIdsSetup(['istanbul', 'beijing']), hiddenRegionSetup('south-america', 1)],
+    eventCardIdsAvailable: aprilEventCardIds,
+    legacyCardIdsApplied: []
+  },
   june: placeholderDefaults('june'),
   july: placeholderDefaults('july'),
   august: placeholderDefaults('august'),

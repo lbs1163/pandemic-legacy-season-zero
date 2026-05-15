@@ -167,7 +167,7 @@ export function calculatePlayerDeckComposition(
     removedCount += hiddenRemovedCount;
     if (unidentifiedTargetCity.filter.type === 'region') {
       remainingByRegion[unidentifiedTargetCity.filter.value] = Math.max(0, remainingByRegion[unidentifiedTargetCity.filter.value] - hiddenRemovedCount);
-    } else {
+    } else if (unidentifiedTargetCity.filter.type === 'affiliation') {
       remainingByAffiliation[unidentifiedTargetCity.filter.value] = Math.max(0, remainingByAffiliation[unidentifiedTargetCity.filter.value] - hiddenRemovedCount);
     }
   }

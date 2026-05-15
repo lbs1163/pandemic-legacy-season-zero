@@ -106,7 +106,9 @@ function getTotalHiddenRemovedCount(state: PlayerDeckState): number {
 }
 
 function cityMatchesUnidentifiedTargetFilter(city: CityCard, filter: UnidentifiedTargetCityFilter): boolean {
-  return filter.type === 'region' ? city.region === filter.value : city.affiliation === filter.value;
+  if (filter.type === 'region') return city.region === filter.value;
+  if (filter.type === 'affiliation') return city.affiliation === filter.value;
+  return filter.value.includes(city.id);
 }
 
 export function getUnidentifiedTargetCityCandidates(

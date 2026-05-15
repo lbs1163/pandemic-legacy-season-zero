@@ -312,6 +312,11 @@ describe('campaign progress domain', () => {
       { enabled: true, filter: { type: 'region', value: 'south-america' }, hiddenRemovedCount: 0, revealedRemovedCount: 3 },
       { enabled: true, filter: { type: 'region', value: 'europe' }, hiddenRemovedCount: 1 }
     ]);
+    expect(getMonthSetupDefaults('may').missions.map((mission) => mission.id)).toEqual(['may-mission-1', 'may-mission-2', 'may-mission-3']);
+    expect(getMonthSetupDefaults('may').unidentifiedTargetCities).toMatchObject([
+      { enabled: true, filter: { type: 'city-ids', value: ['istanbul', 'beijing'] }, hiddenRemovedCount: 0, revealedRemovedCount: 2 },
+      { enabled: true, filter: { type: 'region', value: 'south-america' }, hiddenRemovedCount: 1 }
+    ]);
   });
 
   it('creates February decks with revealed Soviet test cards removed from the player deck', () => {

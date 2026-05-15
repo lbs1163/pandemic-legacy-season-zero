@@ -27,6 +27,7 @@ interface EditableUnidentifiedSetup {
   filterType: UnidentifiedTargetCityFilter['type'];
   region: Region;
   affiliation: Affiliation;
+  cityIds: string[];
   hiddenRemovedCount: number;
   revealedRemovedCount: number;
   revealedRemovedCardIds: string[];
@@ -38,6 +39,7 @@ const playerCounts = [2, 3, 4] as const;
 const prologueTemporaryIdentities = ['병원 행정직', '의학학회 운영자', '진료소 기획자', '연구 조교'] as const;
 const regionLabels = { en: { 'north-america': 'North America', 'south-america': 'South America', europe: 'Europe', africa: 'Africa', asia: 'Asia', pacific: 'Pacific' }, ko: { 'north-america': '북미', 'south-america': '남미', europe: '유럽', africa: '아프리카', asia: '아시아', pacific: '태평양' } } as const;
 const affiliationLabels = { en: { allied: 'Allied', neutral: 'Neutral', soviet: 'Soviet' }, ko: { allied: '서방연합', neutral: '중립', soviet: '소련' } } as const;
+const filterTypeLabels = { en: { region: 'Region', affiliation: 'Affiliation', 'city-ids': 'Specific cities' }, ko: { region: '대륙', affiliation: '세력', 'city-ids': '지정 도시' } } as const;
 
 function startingHandSizeForPlayers(playerCount: number) { return playerCount <= 2 ? 4 : playerCount === 3 ? 3 : 2; }
 
@@ -67,22 +69,25 @@ function editableSetupFromSelection(selection?: { enabled: boolean; filter: Unid
     filterType: selection?.filter.type ?? 'region',
     region: selection?.filter.type === 'region' ? selection.filter.value : 'asia',
     affiliation: selection?.filter.type === 'affiliation' ? selection.filter.value : 'neutral',
+    cityIds: selection?.filter.type === 'city-ids' ? selection.filter.value : [],
     hiddenRemovedCount: selection?.hiddenRemovedCount ?? 1,
     revealedRemovedCount: 'revealedRemovedCount' in (selection ?? {}) ? (selection as { revealedRemovedCount?: number }).revealedRemovedCount ?? 0 : 0,
-    revealedRemovedCardIds: []
+    revealedRemovedCardIds: selection?.filter.type === 'city-ids' ? selection.filter.value.slice(0, (selection as { revealedRemovedCount?: number } | undefined)?.revealedRemovedCount ?? selection.filter.value.length) : []
   };
 }
 
 function selectionFromEditable(setup: EditableUnidentifiedSetup): UnidentifiedTargetCitySelection {
   return {
-    filter: setup.filterType === 'region' ? { type: 'region', value: setup.region } : { type: 'affiliation', value: setup.affiliation },
+    filter: setup.filterType === 'region' ? { type: 'region', value: setup.region } : setup.filterType === 'affiliation' ? { type: 'affiliation', value: setup.affiliation } : { type: 'city-ids', value: setup.cityIds },
     hiddenRemovedCount: setup.hiddenRemovedCount,
     revealedRemovedCardIds: setup.revealedRemovedCardIds
   };
 }
 
 function candidatesFor(filter: UnidentifiedTargetCityFilter) {
-  return cityCards.filter((city) => filter.type === 'region' ? city.region === filter.value : city.affiliation === filter.value);
+  if (filter.type === 'region') return cityCards.filter((city) => city.region === filter.value);
+  if (filter.type === 'affiliation') return cityCards.filter((city) => city.affiliation === filter.value);
+  return cityCards.filter((city) => filter.value.includes(city.id));
 }
 
 const totalSteps = 5;
@@ -192,6 +197,16 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     setStartingHands([]);
   };
 
+  const updateCityIdFilterCard = (setupIndex: number, slotIndex: number, cardId: string) => {
+    updateSetup(setupIndex, (current) => {
+      const nextCityIds = current.cityIds.filter((_, index) => index !== slotIndex);
+      if (cardId) nextCityIds.splice(slotIndex, 0, cardId);
+      const nextRevealedIds = current.revealedRemovedCardIds.filter((id) => nextCityIds.includes(id));
+      return { ...current, cityIds: nextCityIds, revealedRemovedCardIds: nextRevealedIds };
+    });
+    setStartingHands([]);
+  };
+
   const toggleEventCardSelection = (cardId: string) => {
     setSelectedEventCardIds((current) => {
       const next = current.includes(cardId)
@@ -296,6 +311,13 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
               const selection = selectionFromEditable(setup);
               const candidates = candidatesFor(selection.filter);
               const revealedSlots = Array.from({ length: setup.revealedRemovedCount }, (_, slotIndex) => slotIndex);
+              const cityIdFilterSlots = Array.from({ length: Math.max(setup.cityIds.length, setup.revealedRemovedCount, 1) }, (_, slotIndex) => slotIndex);
+              const cityIdFilterOptions = cityCards.map((city) => ({
+                value: city.id,
+                label: city.name[language],
+                description: city.country?.[language] ?? affiliationLabels[language][city.affiliation],
+                disabled: setup.cityIds.includes(city.id)
+              }));
               const revealedOptions = candidates.map((city) => ({
                 value: city.id,
                 label: city.name[language],
@@ -305,8 +327,16 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
               return <div key={index} className="space-y-3 rounded-lg border p-3">
                 <label className="flex gap-3 text-sm"><input type="checkbox" checked={setup.enabled} onChange={(event) => updateSetup(index, (current) => ({ ...current, enabled: event.target.checked }))} /><span>{language === 'ko' ? `도시 준비 #${index + 1} 사용` : `Use city setup #${index + 1}`}</span></label>
                 {setup.enabled ? <div className="grid gap-3 md:grid-cols-4">
-                  <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '구분' : 'Type'}</span><NativeSelect value={setup.filterType} onChange={(event) => updateSetup(index, (current) => ({ ...current, filterType: event.target.value as UnidentifiedTargetCityFilter['type'] }))}><option value="region">{language === 'ko' ? '대륙' : 'Region'}</option><option value="affiliation">{language === 'ko' ? '세력' : 'Affiliation'}</option></NativeSelect></label>
-                  <label className="space-y-1"><span className="text-xs text-muted-foreground">{setup.filterType === 'region' ? (language === 'ko' ? '대륙' : 'Region') : (language === 'ko' ? '세력' : 'Affiliation')}</span>{setup.filterType === 'region' ? <NativeSelect value={setup.region} onChange={(event) => updateSetup(index, (current) => ({ ...current, region: event.target.value as Region }))}>{regions.map((item) => <option key={item} value={item}>{regionLabels[language][item]}</option>)}</NativeSelect> : <NativeSelect value={setup.affiliation} onChange={(event) => updateSetup(index, (current) => ({ ...current, affiliation: event.target.value as Affiliation }))}>{affiliations.map((item) => <option key={item} value={item}>{affiliationLabels[language][item]}</option>)}</NativeSelect>}</label>
+                  <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '구분' : 'Type'}</span><NativeSelect value={setup.filterType} onChange={(event) => updateSetup(index, (current) => ({ ...current, filterType: event.target.value as UnidentifiedTargetCityFilter['type'] }))}><option value="region">{filterTypeLabels[language].region}</option><option value="affiliation">{filterTypeLabels[language].affiliation}</option><option value="city-ids">{filterTypeLabels[language]['city-ids']}</option></NativeSelect></label>
+                  {setup.filterType === 'city-ids' ? <div className="space-y-2 md:col-span-4">
+                    <p className="text-xs text-muted-foreground">{language === 'ko' ? '후보로 사용할 도시를 직접 지정합니다.' : 'Choose the exact cities to use as candidates.'}</p>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {cityIdFilterSlots.map((slotIndex) => {
+                        const value = setup.cityIds[slotIndex] ?? '';
+                        return <label key={slotIndex} className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? `지정 도시 #${slotIndex + 1}` : `Specific city #${slotIndex + 1}`}</span><SearchableSelect value={value} placeholder={language === 'ko' ? '도시 선택' : 'Select city'} searchPlaceholder={language === 'ko' ? '도시 검색...' : 'Search cities...'} emptyText={language === 'ko' ? '도시가 없습니다.' : 'No cities found.'} options={cityIdFilterOptions.map((option) => ({ ...option, disabled: option.disabled && option.value !== value }))} onChange={(cardId) => updateCityIdFilterCard(index, slotIndex, cardId)} /></label>;
+                      })}
+                    </div>
+                  </div> : <label className="space-y-1"><span className="text-xs text-muted-foreground">{setup.filterType === 'region' ? filterTypeLabels[language].region : filterTypeLabels[language].affiliation}</span>{setup.filterType === 'region' ? <NativeSelect value={setup.region} onChange={(event) => updateSetup(index, (current) => ({ ...current, region: event.target.value as Region }))}>{regions.map((item) => <option key={item} value={item}>{regionLabels[language][item]}</option>)}</NativeSelect> : <NativeSelect value={setup.affiliation} onChange={(event) => updateSetup(index, (current) => ({ ...current, affiliation: event.target.value as Affiliation }))}>{affiliations.map((item) => <option key={item} value={item}>{affiliationLabels[language][item]}</option>)}</NativeSelect>}</label>}
                   <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '비공개 제외 수' : 'Hidden removed count'}</span><Input type="number" min={0} value={setup.hiddenRemovedCount} onChange={(event) => updateSetup(index, (current) => ({ ...current, hiddenRemovedCount: Number(event.target.value) }))} /></label>
                   <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '공개 제외 수' : 'Revealed removed count'}</span><Input type="number" min={0} value={setup.revealedRemovedCount} onChange={(event) => updateSetup(index, (current) => ({ ...current, revealedRemovedCount: Number(event.target.value), revealedRemovedCardIds: current.revealedRemovedCardIds.slice(0, Math.max(0, Number(event.target.value))) }))} /></label>
                   <div className="self-end rounded-lg bg-muted p-2 text-sm md:col-span-4">{language === 'ko' ? `후보 ${candidates.length}장 · 공개 제외 ${setup.revealedRemovedCardIds.length}/${setup.revealedRemovedCount}장` : `${candidates.length} candidates · ${setup.revealedRemovedCardIds.length}/${setup.revealedRemovedCount} revealed removed`}</div>

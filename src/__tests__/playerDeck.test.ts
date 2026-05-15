@@ -120,6 +120,25 @@ describe('player deck domain', () => {
     expect(getUnidentifiedTargetCityCandidates(configured, testCities, { type: 'region', value: 'asia' })).toEqual(['asia-2']);
   });
 
+  it('supports exact city id unidentified target candidates', () => {
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...testCities.map((city) => city.id), ...Array.from({ length: 10 }, (_, index) => `event-city-id-${index + 1}`)],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+
+    const next = prepareUnidentifiedTargetCity(state, testCities, {
+      filter: { type: 'city-ids', value: ['asia-1', 'europe-1'] },
+      hiddenRemovedCount: 0,
+      revealedRemovedCardIds: ['asia-1', 'europe-1']
+    });
+
+    expect(getUnidentifiedTargetCityCandidates(state, testCities, { type: 'city-ids', value: ['asia-1', 'europe-1'] })).toEqual(['asia-1', 'europe-1']);
+    expect(next.unidentifiedTargetCity?.candidateCardIds).toEqual(['asia-1', 'europe-1']);
+    expect(next.cardStates['asia-1'].zone).toBe('player-removed');
+    expect(next.cardStates['europe-1'].zone).toBe('player-removed');
+  });
+
   it('records a hidden unidentified target city removal without revealing which city', () => {
     const state = createInitialPlayerDeckState({
       playerCardIds: [...testCities.map((city) => city.id), ...Array.from({ length: 10 }, (_, index) => `event-${index + 1}`)],

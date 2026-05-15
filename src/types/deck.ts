@@ -38,7 +38,8 @@ export interface StartingHandState {
 
 export type UnidentifiedTargetCityFilter =
   | { type: 'region'; value: Region }
-  | { type: 'affiliation'; value: Affiliation };
+  | { type: 'affiliation'; value: Affiliation }
+  | { type: 'city-ids'; value: string[] };
 
 export interface UnidentifiedTargetCitySetup {
   configured: boolean;
