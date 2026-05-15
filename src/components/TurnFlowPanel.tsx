@@ -139,16 +139,20 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
       </div>
       {handEventCards.length ? handEventCards.map((card) => {
         const target = targetByEvent[card.id] ?? discardCardIds[0] ?? '';
-        const isSupported = card.effect?.kind === 'move-threat-discard-to-game-end';
+        const isMoveThreatDiscardSupported = card.effect?.kind === 'move-threat-discard-to-game-end';
+        const isSkipThreatDrawSupported = card.effect?.kind === 'skip-current-threat-draw-step';
         return <div key={card.id} className="rounded-lg bg-muted/50 p-3">
           <div className="font-semibold">{card.name[language]}</div>
           <p className="text-sm text-muted-foreground">{card.effect?.description[language] ?? card.notes?.[language]}</p>
-          {isSupported ? <div className="mt-3 flex flex-wrap gap-2">
+          {isMoveThreatDiscardSupported ? <div className="mt-3 flex flex-wrap gap-2">
             <NativeSelect className="min-w-64" value={target} onChange={(event) => setTargetByEvent((current) => ({ ...current, [card.id]: event.target.value }))} disabled={discardCardIds.length === 0}>
               {discardCardIds.length === 0 ? <option value="">{language === 'ko' ? '버린 위협 카드 없음' : 'No discarded Threat cards'}</option> : null}
               {discardCardIds.map((cardId) => <option key={cardId} value={cardId}>{threatLabel(cardId)}</option>)}
             </NativeSelect>
             <Button type="button" disabled={!target} onClick={() => onApplyEventEffect(card.id, target)}>{language === 'ko' ? '효과 적용' : 'Apply effect'}</Button>
+          </div> : isSkipThreatDrawSupported ? <div className="mt-3 space-y-2">
+            <Button type="button" disabled={step !== 'threat-draw'} onClick={() => onApplyEventEffect(card.id)}>{language === 'ko' ? '위협 공개 스킵' : 'Skip Threat reveal'}</Button>
+            {step !== 'threat-draw' ? <p className="text-xs text-muted-foreground">{language === 'ko' ? '위협 카드 공개 단계에서 사용할 수 있습니다.' : 'Use this during the Threat reveal step.'}</p> : null}
           </div> : <p className="mt-2 text-xs text-muted-foreground">{language === 'ko' ? '자동 적용 지원 전: 카드 효과를 수동으로 처리하세요.' : 'Automation not supported yet: resolve this card manually.'}</p>}
         </div>;
       }) : <p className="text-sm text-muted-foreground">{language === 'ko' ? '현재 손패에 이벤트 카드가 없습니다.' : 'No event cards are currently in hand.'}</p>}

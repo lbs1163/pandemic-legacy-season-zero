@@ -226,6 +226,35 @@ describe('campaign progress domain', () => {
   it('filters event card availability by month', () => {
     expect(getAvailableEventCardsForMonth(eventCards, 'prologue')).toHaveLength(5);
     expect(getAvailableEventCardsForMonth(eventCards, 'february')).toHaveLength(9);
+    expect(getAvailableEventCardsForMonth(eventCards, 'march').map((card) => card.id)).toContain('event-diversion');
+    expect(getAvailableEventCardsForMonth(eventCards, 'march').map((card) => card.id)).not.toContain('event-one-quiet-night');
+    expect(getAvailableEventCardsForMonth(eventCards, 'april').map((card) => card.id)).toContain('event-one-quiet-night');
+  });
+
+  it('defines post-February and post-March event card effect descriptions', () => {
+    const diversion = eventCards.find((eventCard) => eventCard.id === 'event-diversion');
+    const quietNight = eventCards.find((eventCard) => eventCard.id === 'event-one-quiet-night');
+
+    expect(diversion).toMatchObject({
+      availability: { fromMonth: 'march' },
+      effect: {
+        kind: 'informational',
+        description: {
+          ko: '게임판에 있는 사건 토큰 최대 3개를 게임판의 도시 1곳으로 옮깁니다.',
+          en: 'Move up to 3 incident tokens on the board to 1 city on the board.'
+        }
+      }
+    });
+    expect(quietNight).toMatchObject({
+      availability: { fromMonth: 'april' },
+      effect: {
+        kind: 'skip-current-threat-draw-step',
+        description: {
+          ko: "이번 차례의 5번 '위협 카드 공개' 단계를 건너뜁니다.",
+          en: "Skip step 5, 'Reveal Threat cards,' this turn."
+        }
+      }
+    });
   });
 
   it('defines February event card effect descriptions', () => {

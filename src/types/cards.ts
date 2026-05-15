@@ -28,7 +28,7 @@ export interface EventAvailability {
   fromMonth: CampaignMonthId;
 }
 
-export type EventEffectKind = 'move-threat-discard-to-game-end' | 'informational' | 'unknown';
+export type EventEffectKind = 'move-threat-discard-to-game-end' | 'skip-current-threat-draw-step' | 'informational' | 'unknown';
 
 export interface EventEffectDefinition {
   kind: EventEffectKind;

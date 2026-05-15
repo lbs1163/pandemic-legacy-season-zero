@@ -66,6 +66,18 @@ export function completeThreatDrawStep(campaign: CampaignState, threatCardIds: s
   };
 }
 
+export function skipThreatDrawStep(campaign: CampaignState): CampaignState {
+  const turnFlow = campaign.turnFlow ?? { step: 'player-draw' as const, turnNumber: 1 };
+  if (turnFlow.step !== 'threat-draw') {
+    throw new Error('Threat draw step can only be skipped during the Threat draw step.');
+  }
+
+  return {
+    ...campaign,
+    turnFlow: { step: 'player-draw', turnNumber: turnFlow.turnNumber + 1 }
+  };
+}
+
 export function recordIncidentBottomThreatDraw(campaign: CampaignState, bottomThreatCardId: string): CampaignState {
   return {
     ...campaign,

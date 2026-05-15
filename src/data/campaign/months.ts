@@ -68,6 +68,32 @@ const placeholderDefaults = (month: CampaignMonthId): MonthSetupDefaults => ({
   legacyCardIdsApplied: []
 });
 
+const baseEventCardIds = [
+  'event-counterintelligence-team',
+  'event-forecast',
+  'event-in-the-shadows',
+  'event-war-relics',
+  'event-airlift'
+];
+
+const februaryEventCardIds = [
+  ...baseEventCardIds,
+  'event-dispatch-teams',
+  'event-weekend-rendezvous',
+  'event-coded-message',
+  'event-bureaucratic-trap'
+];
+
+const marchEventCardIds = [
+  ...februaryEventCardIds,
+  'event-diversion'
+];
+
+const aprilEventCardIds = [
+  ...marchEventCardIds,
+  'event-one-quiet-night'
+];
+
 export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   prologue: {
     month: 'prologue',
@@ -78,13 +104,7 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
       mission('prologue', 2, 'Search for Agent Sabik', '사빅 요원 수색')
     ],
     unidentifiedTargetCities: [hiddenRegionSetup('europe', 1)],
-    eventCardIdsAvailable: [
-      'event-counterintelligence-team',
-      'event-government-grant-placeholder',
-      'event-one-quiet-night-placeholder',
-      'event-resilient-population-placeholder',
-      'event-special-orders-placeholder'
-    ],
+    eventCardIdsAvailable: baseEventCardIds,
     legacyCardIdsApplied: []
   },
   january: {
@@ -96,13 +116,7 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
       mission('january', 2, 'Find Agent Sabik', '사빅 요원 찾기')
     ],
     unidentifiedTargetCities: [hiddenRegionSetup('asia', 1)],
-    eventCardIdsAvailable: [
-      'event-counterintelligence-team',
-      'event-government-grant-placeholder',
-      'event-one-quiet-night-placeholder',
-      'event-resilient-population-placeholder',
-      'event-special-orders-placeholder'
-    ],
+    eventCardIdsAvailable: baseEventCardIds,
     legacyCardIdsApplied: []
   },
   february: {
@@ -113,17 +127,7 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
       mission('february', 2, 'Investigate Soviet scientist', '소련 과학자 조사')
     ],
     unidentifiedTargetCities: [revealedRegionSetup('africa', 3), hiddenRegionSetup('north-america', 1)],
-    eventCardIdsAvailable: [
-      'event-counterintelligence-team',
-      'event-government-grant-placeholder',
-      'event-one-quiet-night-placeholder',
-      'event-resilient-population-placeholder',
-      'event-special-orders-placeholder',
-      'event-february-1-placeholder',
-      'event-february-2-placeholder',
-      'event-february-3-placeholder',
-      'event-february-4-placeholder'
-    ],
+    eventCardIdsAvailable: februaryEventCardIds,
     legacyCardIdsApplied: []
   },
   march: {
@@ -134,20 +138,13 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
       mission('march', 2, 'Stop Agent Sabik from selling CIA secrets', 'CIA 기밀을 판매하려는 사빅 요원 저지')
     ],
     unidentifiedTargetCities: [hiddenRegionSetup('pacific', 1)],
-    eventCardIdsAvailable: [
-      'event-counterintelligence-team',
-      'event-government-grant-placeholder',
-      'event-one-quiet-night-placeholder',
-      'event-resilient-population-placeholder',
-      'event-special-orders-placeholder',
-      'event-february-1-placeholder',
-      'event-february-2-placeholder',
-      'event-february-3-placeholder',
-      'event-february-4-placeholder'
-    ],
+    eventCardIdsAvailable: marchEventCardIds,
     legacyCardIdsApplied: []
   },
-  april: placeholderDefaults('april'),
+  april: {
+    ...placeholderDefaults('april'),
+    eventCardIdsAvailable: aprilEventCardIds
+  },
   may: placeholderDefaults('may'),
   june: placeholderDefaults('june'),
   july: placeholderDefaults('july'),

@@ -126,5 +126,33 @@ export const eventCards: EventCard[] = [
         ko: '게임판에서 소련 비밀요원 말 1개 또는 2개를 제거합니다.'
       }
     }
+  },
+  {
+    id: 'event-diversion',
+    kind: 'event',
+    initialSet: false,
+    availability: { fromMonth: 'march' },
+    name: { en: 'Diversion', ko: '주의 전환' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'Move up to 3 incident tokens on the board to 1 city on the board.',
+        ko: '게임판에 있는 사건 토큰 최대 3개를 게임판의 도시 1곳으로 옮깁니다.'
+      }
+    }
+  },
+  {
+    id: 'event-one-quiet-night',
+    kind: 'event',
+    initialSet: false,
+    availability: { fromMonth: 'april' },
+    name: { en: 'One Quiet Night', ko: '평온한 하룻밤' },
+    effect: {
+      kind: 'skip-current-threat-draw-step',
+      description: {
+        en: "Skip step 5, 'Reveal Threat cards,' this turn.",
+        ko: "이번 차례의 5번 '위협 카드 공개' 단계를 건너뜁니다."
+      }
+    }
   }
 ];

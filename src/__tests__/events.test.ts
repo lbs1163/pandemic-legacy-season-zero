@@ -5,6 +5,7 @@ import { recordInitialThreatSetup } from '../domain/threatDeck';
 import { threatCards } from '../data/cards/threats';
 
 const eventCardId = 'event-counterintelligence-team';
+const quietNightEventCardId = 'event-one-quiet-night';
 const targetThreatCardId = threatCards[0].id;
 const now = '2026-05-09T00:00:00.000Z';
 
@@ -23,6 +24,32 @@ function createCampaignWithCounterintelligenceInHand() {
         ...campaign.playerDeck.cardStates,
         [eventCardId]: {
           cardId: eventCardId,
+          zone: 'player-hand' as const,
+          ownerPlayerId: 'p1',
+          updatedAt: now
+        }
+      }
+    },
+    threatDeck: recordInitialThreatSetup(campaign.threatDeck, threatCards.slice(0, 9).map((card) => card.id))
+  };
+}
+
+function createCampaignWithQuietNightInHand() {
+  const campaign = createInitialCampaign({
+    campaignName: 'Quiet night',
+    language: 'ko',
+    players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+  });
+
+  return {
+    ...campaign,
+    turnFlow: { step: 'threat-draw' as const, turnNumber: 3 },
+    playerDeck: {
+      ...campaign.playerDeck,
+      cardStates: {
+        ...campaign.playerDeck.cardStates,
+        [quietNightEventCardId]: {
+          cardId: quietNightEventCardId,
           zone: 'player-hand' as const,
           ownerPlayerId: 'p1',
           updatedAt: now
@@ -67,5 +94,36 @@ describe('event effects domain', () => {
       targetCardId: threatCards[1].id,
       now: '2026-05-09T01:00:00.000Z'
     })).toThrow(/in hand/);
+  });
+
+  it('uses One Quiet Night to skip the current Threat draw step', () => {
+    const campaign = createCampaignWithQuietNightInHand();
+
+    const next = applySupportedEventEffect(campaign, {
+      eventCardId: quietNightEventCardId,
+      now
+    });
+
+    expect(next.turnFlow).toEqual({ step: 'player-draw', turnNumber: 4 });
+    expect(next.threatDeck).toEqual(campaign.threatDeck);
+    expect(next.playerDeck.cardStates[quietNightEventCardId]).toMatchObject({
+      cardId: quietNightEventCardId,
+      zone: 'player-discard',
+      updatedAt: now
+    });
+    expect(next.playerDeck.cardStates[quietNightEventCardId].ownerPlayerId).toBeUndefined();
+    expect(next.updatedAt).toBe(now);
+  });
+
+  it('rejects One Quiet Night outside the Threat draw step', () => {
+    const campaign = {
+      ...createCampaignWithQuietNightInHand(),
+      turnFlow: { step: 'player-draw' as const, turnNumber: 3 }
+    };
+
+    expect(() => applySupportedEventEffect(campaign, {
+      eventCardId: quietNightEventCardId,
+      now
+    })).toThrow(/Threat draw step/);
   });
 });
