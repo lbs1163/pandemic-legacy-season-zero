@@ -17,6 +17,7 @@ interface Props {
   threatCards: ThreatCard[];
   onCompletePlayerDraw: (selections: PlayerDrawSelection[]) => void;
   onCompleteThreatDraw: (cardIds: string[]) => void;
+  onRecordIncidentBottomThreatDraw: (cardId: string) => void;
   onApplyEventEffect: (eventCardId: string, targetCardId?: string) => void;
 }
 
@@ -30,13 +31,14 @@ const emptyPlayerDrawSlots = (): PlayerDrawSlotState[] => [
   { cardId: '', bottomThreatCardId: '' }
 ];
 
-export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threatCards, onCompletePlayerDraw, onCompleteThreatDraw, onApplyEventEffect }: Props) {
+export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threatCards, onCompletePlayerDraw, onCompleteThreatDraw, onRecordIncidentBottomThreatDraw, onApplyEventEffect }: Props) {
   const step = campaign.turnFlow?.step ?? 'player-draw';
   const turnNumber = campaign.turnFlow?.turnNumber ?? 1;
   const [playerSlots, setPlayerSlots] = useState<PlayerDrawSlotState[]>(emptyPlayerDrawSlots);
   const [targetByEvent, setTargetByEvent] = useState<Record<string, string>>({});
   const threatLevel = getThreatLevel(campaign.threatDeck);
   const [threatSlots, setThreatSlots] = useState<string[]>(Array.from({ length: threatLevel }, () => ''));
+  const [incidentBottomThreatCardId, setIncidentBottomThreatCardId] = useState('');
 
   useEffect(() => {
     if (step === 'threat-draw') {
@@ -122,6 +124,12 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
     setThreatSlots(Array.from({ length: threatLevel }, () => ''));
   }
 
+  function submitIncidentBottomThreatDraw() {
+    if (!incidentBottomThreatCardId) return;
+    onRecordIncidentBottomThreatDraw(incidentBottomThreatCardId);
+    setIncidentBottomThreatCardId('');
+  }
+
   const title = language === 'ko' ? `턴 ${turnNumber} 진행` : `Turn ${turnNumber} flow`;
   const eventHandSection = (
     <section className="space-y-3 rounded-lg border p-3">
@@ -193,6 +201,22 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{language === 'ko' ? `현재 위협 수준 ${threatLevel}에 따라 위협 카드 ${threatLevel}장을 공개하세요. 알려진 상단 묶음이 있으면 해당 셔플 묶음 안에서 실제 공개된 카드를 선택하세요.` : `Reveal ${threatLevel} Threat cards for the current Threat level. If there is a known top stack, choose the card actually revealed from that shuffled stack.`}</p>
+            <section className="space-y-3 rounded-lg border p-3">
+              <div>
+                <h3 className="font-semibold">{language === 'ko' ? '사건 발생' : 'Incident'}</h3>
+                <p className="text-sm text-muted-foreground">{language === 'ko' ? '사건이 발생하면 위협 덱 맨 아래 카드 1장을 공개하고 게임 종료 구획으로 옮깁니다.' : 'When an Incident occurs, reveal 1 card from the bottom of the Threat deck and move it to the Game End area.'}</p>
+              </div>
+              <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                <SearchableSelect
+                  value={incidentBottomThreatCardId}
+                  placeholder={language === 'ko' ? '맨 아래 위협 카드 선택' : 'Select bottom Threat card'}
+                  searchPlaceholder={language === 'ko' ? '위협 카드 검색...' : 'Search Threat cards...'}
+                  options={unknownThreatOptions}
+                  onChange={setIncidentBottomThreatCardId}
+                />
+                <Button type="button" variant="outline" disabled={!incidentBottomThreatCardId} onClick={submitIncidentBottomThreatDraw}>{language === 'ko' ? '게임 종료 구획으로 이동' : 'Move to Game End area'}</Button>
+              </div>
+            </section>
             {threatSlots.map((cardId, index) => {
               const currentKnownStackOptions = getCurrentKnownStackOptions(index);
               const options = currentKnownStackOptions.length > 0

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isCampaignMonthSetupComplete } from '../domain/campaignProgress';
 import { createInitialPlayerDeckState } from '../domain/playerDeck';
 import { createInitialThreatDeckState, getThreatLevel, recordInitialThreatSetup } from '../domain/threatDeck';
-import { completePlayerDrawStep, completeThreatDrawStep } from '../domain/turnFlow';
+import { completePlayerDrawStep, completeThreatDrawStep, recordIncidentBottomThreatDraw } from '../domain/turnFlow';
 import type { CampaignState } from '../types/campaign';
 
 function createCampaign(): CampaignState {
@@ -128,6 +128,20 @@ describe('turn flow domain', () => {
 
     expect(next.threatDeck.discardCardIds.slice(-2)).toEqual(['threat-10', 'threat-11']);
     expect(next.turnFlow).toEqual({ step: 'player-draw', turnNumber: 2 });
+  });
+
+  it('records an incident bottom Threat draw to the Game End area during threat draw without advancing the turn', () => {
+    const afterPlayerDraw = completePlayerDrawStep(createCampaign(), [
+      { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' },
+      { kind: 'player-card', cardId: 'card-2', destination: 'player-hand' }
+    ]);
+
+    const next = recordIncidentBottomThreatDraw(afterPlayerDraw, 'threat-10');
+
+    expect(next.threatDeck.cardStates['threat-10'].zone).toBe('threat-game-end-area');
+    expect(next.threatDeck.gameEndAreaCardIds).toEqual(['threat-10']);
+    expect(next.threatDeck.discardCardIds).not.toContain('threat-10');
+    expect(next.turnFlow).toEqual({ step: 'threat-draw', turnNumber: 1 });
   });
 
   it('allows threat reveal selections from a known top shuffled stack in any order', () => {

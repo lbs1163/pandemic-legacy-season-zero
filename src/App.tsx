@@ -15,7 +15,7 @@ import { applyGameResult, clampFundingLevel, createGameDecksForMonth } from './d
 import { applySupportedEventEffect } from './domain/events';
 import { configureStartingHands } from './domain/playerDeck';
 import { setRuleEnabled } from './domain/ruleToggles';
-import { completePlayerDrawStep, completeThreatDrawStep } from './domain/turnFlow';
+import { completePlayerDrawStep, completeThreatDrawStep, recordIncidentBottomThreatDraw } from './domain/turnFlow';
 import { uiText, type UiText } from './i18n/uiText';
 import { findOrCreateStateGist, pullStateFromGist, pushStateToGist } from './services/gistStorage';
 import { createEmptyEnvelope, loadLocalCache, saveLocalCache } from './services/localCache';
@@ -336,6 +336,7 @@ export function App() {
             text={text}
             onCompletePlayerDraw={(selections) => updateActiveCampaign((campaign) => updateCampaignTimestamp(completePlayerDrawStep(campaign, selections)))}
             onCompleteThreatDraw={(cardIds) => updateActiveCampaign((campaign) => updateCampaignTimestamp(completeThreatDrawStep(campaign, cardIds)))}
+            onRecordIncidentBottomThreatDraw={(cardId) => updateActiveCampaign((campaign) => updateCampaignTimestamp(recordIncidentBottomThreatDraw(campaign, cardId)))}
             onOpenMonthSetup={() => setMonthSetupOpen(true)}
             onOpenGameResult={() => setGameResultOpen(true)}
             onApplyEventEffect={(eventCardId, targetCardId) => updateActiveCampaign((campaign) => applySupportedEventEffect(campaign, { eventCardId, targetCardId }))}

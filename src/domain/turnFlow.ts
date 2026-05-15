@@ -1,5 +1,5 @@
 import { resolveEscalationDraw, recordPlayerCardDraw } from './playerDeck';
-import { getThreatLevel, recordThreatDraw, resolveEscalationThreatEffects } from './threatDeck';
+import { getThreatLevel, recordThreatBottomDrawToGameEndArea, recordThreatDraw, resolveEscalationThreatEffects } from './threatDeck';
 import type { CampaignState } from '../types/campaign';
 import type { PlayerCardDestination } from '../types/deck';
 
@@ -63,5 +63,12 @@ export function completeThreatDrawStep(campaign: CampaignState, threatCardIds: s
     ...campaign,
     threatDeck,
     turnFlow: { step: 'player-draw', turnNumber: (campaign.turnFlow?.turnNumber ?? 1) + 1 }
+  };
+}
+
+export function recordIncidentBottomThreatDraw(campaign: CampaignState, bottomThreatCardId: string): CampaignState {
+  return {
+    ...campaign,
+    threatDeck: recordThreatBottomDrawToGameEndArea(campaign.threatDeck, bottomThreatCardId)
   };
 }

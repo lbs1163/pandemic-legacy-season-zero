@@ -20,6 +20,7 @@ interface Props {
   text: UiText;
   onCompletePlayerDraw: (selections: PlayerDrawSelection[]) => void;
   onCompleteThreatDraw: (cardIds: string[]) => void;
+  onRecordIncidentBottomThreatDraw: (cardId: string) => void;
   onOpenMonthSetup: () => void;
   onOpenGameResult: () => void;
   onApplyEventEffect: (eventCardId: string, targetCardId?: string) => void;
@@ -56,7 +57,7 @@ export function DeckCounterDashboard(props: Props) {
           </section>
         ) : (
           <>
-        <TurnFlowPanel campaign={props.campaign} language={props.language} cityCards={cityCards} eventCards={eventCards} threatCards={threatCards} onCompletePlayerDraw={props.onCompletePlayerDraw} onCompleteThreatDraw={props.onCompleteThreatDraw} onApplyEventEffect={props.onApplyEventEffect} />
+        <TurnFlowPanel campaign={props.campaign} language={props.language} cityCards={cityCards} eventCards={eventCards} threatCards={threatCards} onCompletePlayerDraw={props.onCompletePlayerDraw} onCompleteThreatDraw={props.onCompleteThreatDraw} onRecordIncidentBottomThreatDraw={props.onRecordIncidentBottomThreatDraw} onApplyEventEffect={props.onApplyEventEffect} />
         <PlayerDeckPanel state={props.campaign.playerDeck} text={props.text} language={props.language} cityCards={cityCards} eventCards={eventCards} />
         <ThreatDeckPanel
           state={props.campaign.threatDeck}
