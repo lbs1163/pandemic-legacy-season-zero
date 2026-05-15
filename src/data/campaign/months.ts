@@ -45,6 +45,14 @@ const hiddenRegionSetup = (value: 'north-america' | 'south-america' | 'europe' |
   warningWhenChanged: defaultSetupWarning
 });
 
+const revealedRegionSetup = (value: 'north-america' | 'south-america' | 'europe' | 'africa' | 'asia' | 'pacific', revealedRemovedCount: number) => ({
+  enabled: true,
+  filter: { type: 'region' as const, value },
+  hiddenRemovedCount: 0,
+  revealedRemovedCount,
+  warningWhenChanged: defaultSetupWarning
+});
+
 const mission = (month: CampaignMonthId, index: number, en: string, ko: string) => ({
   id: `${month}-mission-${index}`,
   month,
@@ -104,7 +112,7 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
       mission('february', 1, 'Stop the first Soviet test', '소련 1차 시험 저지'),
       mission('february', 2, 'Investigate Soviet scientist', '소련 과학자 조사')
     ],
-    unidentifiedTargetCities: [hiddenRegionSetup('africa', 3), hiddenRegionSetup('north-america', 1)],
+    unidentifiedTargetCities: [revealedRegionSetup('africa', 3), hiddenRegionSetup('north-america', 1)],
     eventCardIdsAvailable: [
       'event-counterintelligence-team',
       'event-government-grant-placeholder',

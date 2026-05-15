@@ -98,7 +98,7 @@ function isEscalationCardId(state: PlayerDeckState, cardId: string): boolean {
 
 function getConfiguredUnidentifiedTargetCities(state: PlayerDeckState): UnidentifiedTargetCitySetup[] {
   const setups = state.unidentifiedTargetCities ?? (state.unidentifiedTargetCity ? [state.unidentifiedTargetCity] : []);
-  return setups.filter((setup) => setup.configured && setup.filter && (setup.hiddenRemovedCount ?? 0) > 0);
+  return setups.filter((setup) => setup.configured && setup.filter && ((setup.hiddenRemovedCount ?? 0) > 0 || (setup.revealedRemovedCardIds?.length ?? 0) > 0));
 }
 
 function getTotalHiddenRemovedCount(state: PlayerDeckState): number {
@@ -134,16 +134,23 @@ export function configureStartingHands(
     const existing = state.cardStates[assignment.cardId];
     if (!existing) throw new Error(`Unknown player card: ${assignment.cardId}`);
     if (isEscalationCardId(state, assignment.cardId)) throw new Error('Escalation cards cannot be in starting hands.');
+    if (existing.zone === 'player-removed') throw new Error(`Removed player cards cannot be in starting hands: ${assignment.cardId}`);
   }
 
   const now = nowIso();
   const escalationCardIds = getEscalationCardIds(state);
   const assignmentMap = new Map(assignments.map((assignment) => [assignment.cardId, assignment.playerId]));
   const unidentifiedTargetCities = getConfiguredUnidentifiedTargetCities(state);
+  const revealedRemovedCardIds = new Set(unidentifiedTargetCities.flatMap((setup) => setup.revealedRemovedCardIds ?? []));
+  for (const cardId of assignmentMap.keys()) {
+    if (revealedRemovedCardIds.has(cardId)) {
+      throw new Error(`Starting hands cannot include revealed removed city card: ${cardId}`);
+    }
+  }
   for (const setup of unidentifiedTargetCities) {
     const hiddenRemovedCount = setup.hiddenRemovedCount ?? 0;
     const hiddenRemovedCandidatesRemaining = setup.candidateCardIds
-      .filter((cardId) => !assignmentMap.has(cardId)).length;
+      .filter((cardId) => !assignmentMap.has(cardId) && !revealedRemovedCardIds.has(cardId)).length;
     if (hiddenRemovedCandidatesRemaining < hiddenRemovedCount) {
       throw new Error(`Starting hands must leave at least ${hiddenRemovedCount} unidentified target city candidate card(s) hidden for secret removal.`);
     }
@@ -154,10 +161,13 @@ export function configureStartingHands(
     if (ownerPlayerId) {
       return [cardId, { cardId, zone: 'player-hand' as const, ownerPlayerId, updatedAt: now }];
     }
+    if (cardState.zone === 'player-removed') {
+      return [cardId, cardState];
+    }
     return [cardId, { ...cardState, zone: 'player-deck-unknown' as const, ownerPlayerId: undefined, updatedAt: now }];
   }));
   const nonEscalationDeckCount = Object.keys(state.cardStates).filter(
-    (cardId) => !escalationCardIds.includes(cardId) && !assignmentMap.has(cardId)
+    (cardId) => !escalationCardIds.includes(cardId) && !assignmentMap.has(cardId) && state.cardStates[cardId].zone !== 'player-removed'
   ).length;
 
   return {
@@ -185,28 +195,49 @@ export function prepareUnidentifiedTargetCities(
   const setups = selections.map((selection) => {
     const candidates = getUnidentifiedTargetCityCandidates(state, cities, selection.filter);
     const hiddenRemovedCount = selection.hiddenRemovedCount ?? 1;
-    if (!Number.isInteger(hiddenRemovedCount) || hiddenRemovedCount < 1) {
-      throw new Error('Unidentified target city setup requires at least one hidden removed card.');
+    const revealedRemovedCardIds = selection.revealedRemovedCardIds ?? [];
+    if (!Number.isInteger(hiddenRemovedCount) || hiddenRemovedCount < 0) {
+      throw new Error('Unidentified target city setup requires a non-negative hidden removed card count.');
+    }
+    if (hiddenRemovedCount < 1 && revealedRemovedCardIds.length < 1) {
+      throw new Error('Unidentified target city setup requires at least one removed card.');
     }
     if (candidates.length < hiddenRemovedCount) {
       throw new Error(`Unidentified target city setup requires at least ${hiddenRemovedCount} candidate card(s).`);
+    }
+    if (revealedRemovedCardIds.length !== new Set(revealedRemovedCardIds).size) {
+      throw new Error('Duplicate revealed removed city cards are not allowed.');
+    }
+    for (const cardId of revealedRemovedCardIds) {
+      if (!candidates.includes(cardId)) throw new Error(`Revealed removed city card does not match setup candidates: ${cardId}`);
+      if (state.cardStates[cardId]?.zone !== 'player-deck-unknown') throw new Error(`Revealed removed city card is not in the unknown deck: ${cardId}`);
     }
     return {
       configured: true,
       filter: selection.filter,
       candidateCardIds: candidates,
-      hiddenRemovedCount
+      hiddenRemovedCount,
+      revealedRemovedCardIds
     };
   });
   const totalHiddenRemovedCount = setups.reduce((sum, setup) => sum + setup.hiddenRemovedCount, 0);
-  const uniqueCandidateCount = new Set(setups.flatMap((setup) => setup.candidateCardIds)).size;
-  if (uniqueCandidateCount < totalHiddenRemovedCount) {
-    throw new Error(`Unidentified target city setup requires at least ${totalHiddenRemovedCount} unique candidate card(s).`);
+  const revealedRemovedCardIds = setups.flatMap((setup) => setup.revealedRemovedCardIds ?? []);
+  if (revealedRemovedCardIds.length !== new Set(revealedRemovedCardIds).size) {
+    throw new Error('Duplicate revealed removed city cards are not allowed across setups.');
   }
+  const uniqueCandidateCount = new Set(setups.flatMap((setup) => setup.candidateCardIds)).size;
+  if (uniqueCandidateCount < totalHiddenRemovedCount + revealedRemovedCardIds.length) {
+    throw new Error(`Unidentified target city setup requires at least ${totalHiddenRemovedCount + revealedRemovedCardIds.length} unique candidate card(s).`);
+  }
+  const now = nowIso();
 
   return {
     ...state,
-    piles: rebuildPilesForHiddenRemovedCards(state, totalHiddenRemovedCount),
+    piles: rebuildPilesForHiddenRemovedCards(state, totalHiddenRemovedCount + revealedRemovedCardIds.length),
+    cardStates: Object.fromEntries(Object.entries(state.cardStates).map(([cardId, cardState]) => [
+      cardId,
+      revealedRemovedCardIds.includes(cardId) ? { cardId, zone: 'player-removed' as const, updatedAt: now } : cardState
+    ])),
     currentPileIndex: 0,
     unidentifiedTargetCities: setups,
     unidentifiedTargetCity: setups[0] ?? { configured: false, candidateCardIds: [] }

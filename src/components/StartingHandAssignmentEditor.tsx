@@ -10,6 +10,7 @@ interface Props {
   selectedAssignments: StartingHandAssignment[];
   cityCards: CityCard[];
   eventCards: EventCard[];
+  excludedCardIds?: string[];
   language: LanguageCode;
   onChange: (assignments: StartingHandAssignment[]) => void;
 }
@@ -20,16 +21,18 @@ export function StartingHandAssignmentEditor({
   selectedAssignments,
   cityCards,
   eventCards,
+  excludedCardIds = [],
   language,
   onChange
 }: Props) {
   const selectableCards = useMemo(() => [...cityCards, ...eventCards], [cityCards, eventCards]);
+  const excludedCardIdSet = useMemo(() => new Set(excludedCardIds), [excludedCardIds]);
   const options = useMemo(() => selectableCards.map((card) => ({
     value: card.id,
     label: card.name[language],
     description: card.kind === 'city' ? (language === 'ko' ? '도시' : 'City') : (language === 'ko' ? '이벤트' : 'Event'),
-    disabled: selectedAssignments.some((assignment) => assignment.cardId === card.id)
-  })), [language, selectableCards, selectedAssignments]);
+    disabled: excludedCardIdSet.has(card.id) || selectedAssignments.some((assignment) => assignment.cardId === card.id)
+  })), [excludedCardIdSet, language, selectableCards, selectedAssignments]);
   const slots = useMemo(
     () => players.flatMap((player) => Array.from({ length: requiredPerPlayer }, (_, index) => ({ player, index }))),
     [players, requiredPerPlayer]

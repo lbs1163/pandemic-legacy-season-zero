@@ -8,6 +8,7 @@ import type { CampaignState, CharacterProfile, PlayerProfile } from '../types/ca
 import type { StartingHandAssignment, UnidentifiedTargetCityFilter, UnidentifiedTargetCitySelection } from '../types/deck';
 import { InitialThreatSetupEditor } from './InitialThreatSetupEditor';
 import { StartingHandAssignmentEditor } from './StartingHandAssignmentEditor';
+import { SearchableSelect } from './SearchableSelect';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
@@ -27,6 +28,8 @@ interface EditableUnidentifiedSetup {
   region: Region;
   affiliation: Affiliation;
   hiddenRemovedCount: number;
+  revealedRemovedCount: number;
+  revealedRemovedCardIds: string[];
 }
 
 const regions: Region[] = ['north-america', 'south-america', 'europe', 'africa', 'asia', 'pacific'];
@@ -64,14 +67,17 @@ function editableSetupFromSelection(selection?: { enabled: boolean; filter: Unid
     filterType: selection?.filter.type ?? 'region',
     region: selection?.filter.type === 'region' ? selection.filter.value : 'asia',
     affiliation: selection?.filter.type === 'affiliation' ? selection.filter.value : 'neutral',
-    hiddenRemovedCount: selection?.hiddenRemovedCount ?? 1
+    hiddenRemovedCount: selection?.hiddenRemovedCount ?? 1,
+    revealedRemovedCount: 'revealedRemovedCount' in (selection ?? {}) ? (selection as { revealedRemovedCount?: number }).revealedRemovedCount ?? 0 : 0,
+    revealedRemovedCardIds: []
   };
 }
 
 function selectionFromEditable(setup: EditableUnidentifiedSetup): UnidentifiedTargetCitySelection {
   return {
     filter: setup.filterType === 'region' ? { type: 'region', value: setup.region } : { type: 'affiliation', value: setup.affiliation },
-    hiddenRemovedCount: setup.hiddenRemovedCount
+    hiddenRemovedCount: setup.hiddenRemovedCount,
+    revealedRemovedCardIds: setup.revealedRemovedCardIds
   };
 }
 
@@ -108,15 +114,24 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     [availableEventCards, selectedEventCardIds]
   );
   const activeSelections = unidentifiedSetups.filter((setup) => setup.enabled).map(selectionFromEditable);
+  const revealedRemovedCardIds = unidentifiedSetups.flatMap((setup) => setup.enabled ? setup.revealedRemovedCardIds : []);
   const changedDefault = defaultSetups.length !== unidentifiedSetups.length || unidentifiedSetups.some((setup, index) => {
     const defaultSetup = defaultSetups[index];
     const selection = selectionFromEditable(setup);
-    return !defaultSetup || setup.enabled !== defaultSetup.enabled || JSON.stringify(selection.filter) !== JSON.stringify(defaultSetup.filter) || setup.hiddenRemovedCount !== defaultSetup.hiddenRemovedCount;
+    return !defaultSetup || setup.enabled !== defaultSetup.enabled || JSON.stringify(selection.filter) !== JSON.stringify(defaultSetup.filter) || setup.hiddenRemovedCount !== defaultSetup.hiddenRemovedCount || setup.revealedRemovedCount !== (defaultSetup.revealedRemovedCount ?? 0);
   });
-  const validUnidentifiedSetups = activeSelections.every((selection) => {
+  const validUnidentifiedSetups = unidentifiedSetups.filter((setup) => setup.enabled).every((setup) => {
+    const selection = selectionFromEditable(setup);
     const candidates = candidatesFor(selection.filter);
-    return selection.hiddenRemovedCount !== undefined && selection.hiddenRemovedCount > 0 && candidates.length >= selection.hiddenRemovedCount;
-  });
+    const revealedIds = selection.revealedRemovedCardIds ?? [];
+    return selection.hiddenRemovedCount !== undefined
+      && selection.hiddenRemovedCount >= 0
+      && setup.revealedRemovedCount >= 0
+      && selection.hiddenRemovedCount + setup.revealedRemovedCount > 0
+      && candidates.length >= selection.hiddenRemovedCount + setup.revealedRemovedCount
+      && revealedIds.length === setup.revealedRemovedCount
+      && revealedIds.every((cardId) => candidates.some((candidate) => candidate.id === cardId));
+  }) && revealedRemovedCardIds.length === new Set(revealedRemovedCardIds).size;
   const validPlayers = players.length >= 2 && players.length <= 4 && players.every((player) => player.name.trim().length > 0);
   const selectedPrologueIdentities = players.map((player) => characterNames[player.id]).filter(Boolean);
   const validCharacters = !isPrologue || (selectedPrologueIdentities.length === players.length && new Set(selectedPrologueIdentities).size === selectedPrologueIdentities.length);
@@ -166,6 +181,15 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
 
   const updateSetup = (index: number, updater: (setup: EditableUnidentifiedSetup) => EditableUnidentifiedSetup) => {
     setUnidentifiedSetups((current) => current.map((setup, setupIndex) => setupIndex === index ? updater(setup) : setup));
+  };
+
+  const updateRevealedRemovedCard = (setupIndex: number, slotIndex: number, cardId: string) => {
+    updateSetup(setupIndex, (current) => {
+      const nextIds = current.revealedRemovedCardIds.filter((_, index) => index !== slotIndex);
+      if (cardId) nextIds.splice(slotIndex, 0, cardId);
+      return { ...current, revealedRemovedCardIds: nextIds };
+    });
+    setStartingHands([]);
   };
 
   const toggleEventCardSelection = (cardId: string) => {
@@ -265,19 +289,33 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
         {step === 2 ? <section className="space-y-4">
           <div>
             <h3 className="font-semibold">{language === 'ko' ? '미식별/시험 대상 도시 준비' : 'Unidentified/test target city setup'}</h3>
-            <p className="text-sm text-muted-foreground">{language === 'ko' ? '표적 확보와 시험 저지는 모두 게임 시작 전에 후보 도시 중 지정 수를 비공개 제외하는 방식으로 처리합니다.' : 'Both target acquisition and test prevention remove the configured number of matching city candidates before the game starts.'}</p>
+            <p className="text-sm text-muted-foreground">{language === 'ko' ? '표적 확보와 시험 저지는 게임 시작 전에 후보 도시를 제외하는 방식으로 처리합니다. 공개된 카드는 직접 선택하고, 미공개 카드는 수량만 입력하세요.' : 'Target acquisition and test prevention remove matching city candidates before the game starts. Select revealed cards directly and enter only the count for hidden cards.'}</p>
           </div>
           <div className="space-y-3">
             {unidentifiedSetups.map((setup, index) => {
               const selection = selectionFromEditable(setup);
               const candidates = candidatesFor(selection.filter);
+              const revealedSlots = Array.from({ length: setup.revealedRemovedCount }, (_, slotIndex) => slotIndex);
+              const revealedOptions = candidates.map((city) => ({
+                value: city.id,
+                label: city.name[language],
+                description: city.country?.[language] ?? affiliationLabels[language][city.affiliation],
+                disabled: setup.revealedRemovedCardIds.includes(city.id)
+              }));
               return <div key={index} className="space-y-3 rounded-lg border p-3">
                 <label className="flex gap-3 text-sm"><input type="checkbox" checked={setup.enabled} onChange={(event) => updateSetup(index, (current) => ({ ...current, enabled: event.target.checked }))} /><span>{language === 'ko' ? `도시 준비 #${index + 1} 사용` : `Use city setup #${index + 1}`}</span></label>
                 {setup.enabled ? <div className="grid gap-3 md:grid-cols-4">
                   <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '구분' : 'Type'}</span><NativeSelect value={setup.filterType} onChange={(event) => updateSetup(index, (current) => ({ ...current, filterType: event.target.value as UnidentifiedTargetCityFilter['type'] }))}><option value="region">{language === 'ko' ? '대륙' : 'Region'}</option><option value="affiliation">{language === 'ko' ? '세력' : 'Affiliation'}</option></NativeSelect></label>
                   <label className="space-y-1"><span className="text-xs text-muted-foreground">{setup.filterType === 'region' ? (language === 'ko' ? '대륙' : 'Region') : (language === 'ko' ? '세력' : 'Affiliation')}</span>{setup.filterType === 'region' ? <NativeSelect value={setup.region} onChange={(event) => updateSetup(index, (current) => ({ ...current, region: event.target.value as Region }))}>{regions.map((item) => <option key={item} value={item}>{regionLabels[language][item]}</option>)}</NativeSelect> : <NativeSelect value={setup.affiliation} onChange={(event) => updateSetup(index, (current) => ({ ...current, affiliation: event.target.value as Affiliation }))}>{affiliations.map((item) => <option key={item} value={item}>{affiliationLabels[language][item]}</option>)}</NativeSelect>}</label>
-                  <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '비공개 제외 수' : 'Hidden removed count'}</span><Input type="number" min={1} value={setup.hiddenRemovedCount} onChange={(event) => updateSetup(index, (current) => ({ ...current, hiddenRemovedCount: Number(event.target.value) }))} /></label>
-                  <div className="self-end rounded-lg bg-muted p-2 text-sm">{language === 'ko' ? `후보 ${candidates.length}장` : `${candidates.length} candidates`}</div>
+                  <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '비공개 제외 수' : 'Hidden removed count'}</span><Input type="number" min={0} value={setup.hiddenRemovedCount} onChange={(event) => updateSetup(index, (current) => ({ ...current, hiddenRemovedCount: Number(event.target.value) }))} /></label>
+                  <label className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? '공개 제외 수' : 'Revealed removed count'}</span><Input type="number" min={0} value={setup.revealedRemovedCount} onChange={(event) => updateSetup(index, (current) => ({ ...current, revealedRemovedCount: Number(event.target.value), revealedRemovedCardIds: current.revealedRemovedCardIds.slice(0, Math.max(0, Number(event.target.value))) }))} /></label>
+                  <div className="self-end rounded-lg bg-muted p-2 text-sm md:col-span-4">{language === 'ko' ? `후보 ${candidates.length}장 · 공개 제외 ${setup.revealedRemovedCardIds.length}/${setup.revealedRemovedCount}장` : `${candidates.length} candidates · ${setup.revealedRemovedCardIds.length}/${setup.revealedRemovedCount} revealed removed`}</div>
+                  {revealedSlots.length ? <div className="grid gap-3 md:col-span-4 md:grid-cols-3">
+                    {revealedSlots.map((slotIndex) => {
+                      const value = setup.revealedRemovedCardIds[slotIndex] ?? '';
+                      return <label key={slotIndex} className="space-y-1"><span className="text-xs text-muted-foreground">{language === 'ko' ? `공개 제외 카드 #${slotIndex + 1}` : `Revealed removed card #${slotIndex + 1}`}</span><SearchableSelect value={value} placeholder={language === 'ko' ? '도시 선택' : 'Select city'} searchPlaceholder={language === 'ko' ? '도시 검색...' : 'Search cities...'} emptyText={language === 'ko' ? '도시가 없습니다.' : 'No cities found.'} options={revealedOptions.map((option) => ({ ...option, disabled: option.disabled && option.value !== value }))} onChange={(cardId) => updateRevealedRemovedCard(index, slotIndex, cardId)} /></label>;
+                    })}
+                  </div> : null}
                 </div> : null}
               </div>;
             })}
@@ -289,7 +327,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
           {changedDefault ? <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">{defaultSetups[0]?.warningWhenChanged[language]}</p> : null}
         </section> : null}
         {step === 3 ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{initialThreatCardIds.length}/9</p><InitialThreatSetupEditor selectedCardIds={initialThreatCardIds} cityCards={cityCards} threatCards={threatCards} language={language} onChange={setInitialThreatCardIds} /></section> : null}
-        {step === 4 ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p><StartingHandAssignmentEditor players={players} requiredPerPlayer={requiredPerPlayer} selectedAssignments={startingHands} cityCards={cityCards} eventCards={selectedEventCards} language={language} onChange={setStartingHands} /></section> : null}
+        {step === 4 ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p><StartingHandAssignmentEditor players={players} requiredPerPlayer={requiredPerPlayer} selectedAssignments={startingHands} cityCards={cityCards} eventCards={selectedEventCards} excludedCardIds={revealedRemovedCardIds} language={language} onChange={setStartingHands} /></section> : null}
         <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => step === 0 ? onOpenChange(false) : setStep((current) => current - 1)}>{step === 0 ? (language === 'ko' ? '취소' : 'Cancel') : (language === 'ko' ? '이전' : 'Back')}</Button><Button disabled={!canContinue} onClick={() => step === totalSteps - 1 ? finish() : setStep((current) => current + 1)}>{step === totalSteps - 1 ? (language === 'ko' ? '적용' : 'Apply setup') : (language === 'ko' ? '다음' : 'Next')}</Button></div>
       </DialogContent>
     </Dialog>

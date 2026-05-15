@@ -275,9 +275,46 @@ describe('campaign progress domain', () => {
       { enabled: true, filter: { type: 'region', value: 'asia' }, hiddenRemovedCount: 1 }
     ]);
     expect(getMonthSetupDefaults('february').unidentifiedTargetCities).toMatchObject([
-      { enabled: true, filter: { type: 'region', value: 'africa' }, hiddenRemovedCount: 3 },
+      { enabled: true, filter: { type: 'region', value: 'africa' }, hiddenRemovedCount: 0, revealedRemovedCount: 3 },
       { enabled: true, filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 1 }
     ]);
+  });
+
+  it('creates February decks with revealed Soviet test cards removed from the player deck', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'February revealed setup',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const februaryCampaign = {
+      ...campaign,
+      progress: { ...campaign.progress, currentMonth: 'february' as const, fundingLevel: 4 },
+      currentMonth: 'february' as const,
+      fundingLevel: 4
+    };
+    const selectedEventCardIds = eventCards.filter((card) => card.availability?.fromMonth !== 'march').slice(0, 4).map((card) => card.id);
+    const startingHands = [
+      ...cityCards.filter((card) => !['khartoum', 'lagos', 'cairo'].includes(card.id)).slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign: februaryCampaign,
+      players: februaryCampaign.players,
+      startingHands,
+      selectedEventCardIds,
+      fundingLevel: 4,
+      unidentifiedTargetCitySelections: [
+        { filter: { type: 'region', value: 'africa' }, hiddenRemovedCount: 0, revealedRemovedCardIds: ['khartoum', 'lagos', 'cairo'] },
+        { filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 1 }
+      ],
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    expect(decks.playerDeck.cardStates.khartoum.zone).toBe('player-removed');
+    expect(decks.playerDeck.cardStates.lagos.zone).toBe('player-removed');
+    expect(decks.playerDeck.cardStates.cairo.zone).toBe('player-removed');
+    expect(decks.playerDeck.unidentifiedTargetCities?.[0].revealedRemovedCardIds).toEqual(['khartoum', 'lagos', 'cairo']);
   });
 
   it('creates current-month decks with initial threats, starting hands, and turn flow', () => {

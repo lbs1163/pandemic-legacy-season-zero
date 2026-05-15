@@ -29,6 +29,7 @@ const unidentifiedTargetCitySetupSchema = z.object({
   ]).optional(),
   candidateCardIds: z.array(z.string()),
   hiddenRemovedCount: z.number().int().nonnegative().optional(),
+  revealedRemovedCardIds: z.array(z.string()).optional(),
   removedCardId: z.string().optional()
 });
 

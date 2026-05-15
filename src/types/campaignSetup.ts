@@ -6,6 +6,7 @@ export interface UnidentifiedTargetCityDefault {
   enabled: boolean;
   filter: UnidentifiedTargetCityFilter;
   hiddenRemovedCount: number;
+  revealedRemovedCount?: number;
   warningWhenChanged: LocalizedText;
 }
 
