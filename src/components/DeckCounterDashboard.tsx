@@ -4,7 +4,7 @@ import type { LanguageCode } from '../types/cards';
 import { monthLabels } from '../data/campaign/months';
 import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
-import { threatCards } from '../data/cards/threats';
+import { getThreatCardsForCampaign } from '../data/cards/threats';
 import { isCampaignMonthSetupComplete } from '../domain/campaignProgress';
 import type { PlayerDrawSelection } from '../domain/turnFlow';
 import type { RuleToggle } from '../types/rules';
@@ -29,6 +29,7 @@ interface Props {
 export function DeckCounterDashboard(props: Props) {
   const monthSetupComplete = isCampaignMonthSetupComplete(props.campaign);
   const currentMonthLabel = monthLabels[props.campaign.progress.currentMonth][props.language];
+  const threatCards = getThreatCardsForCampaign(props.campaign.progress.infectionCardIds ?? []);
   const monthSetupButtonLabel = monthSetupComplete
     ? (props.language === 'ko' ? '현재 월 다시 시작' : 'Restart month')
     : (props.language === 'ko' ? '현재 월 준비' : 'Set up month');

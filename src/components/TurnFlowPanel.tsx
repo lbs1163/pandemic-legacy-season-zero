@@ -225,6 +225,7 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
                   .filter((option) => !threatCardIdsSelectedByOtherSlots(index).has(option.value))
                   .map((option) => ({ ...option, description: language === 'ko' ? '위협 카드' : 'Threat card' }));
               const selectedThreat = threatMap.get(cardId);
+              const selectedCity = selectedThreat ? cityMap.get(selectedThreat.cityCardId) : undefined;
               return (
                 <div key={index} className="grid gap-2 rounded-lg border p-3 md:grid-cols-[1fr_1fr]">
                   <SearchableSelect
@@ -234,7 +235,11 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
                     options={options}
                     onChange={(nextCardId) => setThreatSlots((current) => current.map((value, slotIndex) => slotIndex === index ? nextCardId : value))}
                   />
-                  <span className="text-sm text-muted-foreground">{selectedThreat?.incidentEffect?.[language] ?? (language === 'ko' ? '사건 효과를 확인하세요.' : 'Check incident effect.')}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedThreat?.threatCardType === 'infection'
+                      ? (language === 'ko' ? `${selectedCity?.name.ko ?? selectedThreat.id}에 질병 큐브 1개를 놓으세요.` : `Place 1 disease cube in ${selectedCity?.name.en ?? selectedThreat.id}.`)
+                      : selectedThreat?.incidentEffect?.[language] ?? (language === 'ko' ? '사건 효과를 확인하세요.' : 'Check incident effect.')}
+                  </span>
                 </div>
               );
             })}

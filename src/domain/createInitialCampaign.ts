@@ -36,6 +36,7 @@ export function createInitialCampaign(input: CreateInitialCampaignInput): Campai
       currentAttempt: 1,
       fundingLevel,
       gameRecords: [],
+      infectionCardIds: [],
       openedLegacyCardIds: [],
       nonSpoilerWarnings: []
     },

@@ -34,6 +34,12 @@ export interface CharacterProfile {
 export interface MissionResult {
   missionId: string;
   succeeded: boolean;
+  cityResults?: MissionCityResult[];
+}
+
+export interface MissionCityResult {
+  cityCardId: string;
+  succeeded: boolean;
 }
 
 export interface CampaignGameRecord {
@@ -55,6 +61,7 @@ export interface CampaignProgressState {
   currentAttempt: number;
   fundingLevel: number;
   gameRecords: CampaignGameRecord[];
+  infectionCardIds: string[];
   openedLegacyCardIds: string[];
   nonSpoilerWarnings: string[];
 }

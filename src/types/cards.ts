@@ -47,9 +47,12 @@ export interface EscalationCard extends BaseCard {
   escalationNumber: number;
 }
 
+export type ThreatCardType = 'threat' | 'infection';
+
 export interface ThreatCard extends BaseCard {
   kind: 'threat';
   cityCardId: string;
+  threatCardType?: ThreatCardType;
   incidentEffect?: LocalizedText;
 }
 

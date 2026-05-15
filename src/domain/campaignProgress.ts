@@ -1,6 +1,6 @@
 import { eventCards } from '../data/cards/events';
 import { escalationCards } from '../data/cards/escalations';
-import { threatCards } from '../data/cards/threats';
+import { getInfectionCardIdForCity, threatCards } from '../data/cards/threats';
 import { cityCards } from '../data/cards/cities';
 import { campaignMonths, monthSetupDefaults } from '../data/campaign/months';
 import type { EventCard } from '../types/cards';
@@ -15,7 +15,7 @@ import type {
 import type { StartingHandAssignment, UnidentifiedTargetCitySelection } from '../types/deck';
 import type { MonthSetupDefaults } from '../types/campaignSetup';
 import { createInitialPlayerDeckState, configureStartingHands, prepareUnidentifiedTargetCities } from './playerDeck';
-import { createInitialThreatDeckState, recordInitialThreatSetup } from './threatDeck';
+import { addThreatCardsToDiscard, createInitialThreatDeckState, recordInitialThreatSetup } from './threatDeck';
 
 const secretFile14Warning = 'Funding would exceed 10. Secret File 14 may be required, but this app does not reveal or implement it yet.';
 
@@ -149,9 +149,15 @@ export function createGameDecksForMonth(input: {
     ? prepareUnidentifiedTargetCities(initialPlayerDeck, cityCards, selections)
     : initialPlayerDeck;
 
+  const initialThreatDeck = recordInitialThreatSetup(createInitialThreatDeckState(threatCards.map((card) => card.id), now), input.initialThreatCardIds);
+  const infectionCardIds = input.campaign.progress.infectionCardIds ?? [];
+  const threatDeck = infectionCardIds.length > 0
+    ? addThreatCardsToDiscard(initialThreatDeck, infectionCardIds, now)
+    : initialThreatDeck;
+
   return {
     playerDeck: configureStartingHands(withUnidentifiedTarget, input.startingHands),
-    threatDeck: recordInitialThreatSetup(createInitialThreatDeckState(threatCards.map((card) => card.id), now), input.initialThreatCardIds),
+    threatDeck,
     turnFlow: { step: 'player-draw', turnNumber: 1 }
   };
 }
@@ -205,6 +211,7 @@ export function applyGameResult(campaign: CampaignState, input: {
   const nonSpoilerWarnings = nextFunding.secretFile14Required && !progress.nonSpoilerWarnings.includes(secretFile14Warning)
     ? [...progress.nonSpoilerWarnings, secretFile14Warning]
     : progress.nonSpoilerWarnings;
+  const infectionCardIds = applyFebruaryTestInfectionCards(progress.infectionCardIds ?? [], progress.currentMonth, input.missionResults);
   const resetDecks = createUnconfiguredDecksForMonth({
     month: nextMonth,
     players: campaign.players,
@@ -223,8 +230,25 @@ export function applyGameResult(campaign: CampaignState, input: {
       currentAttempt: nextAttempt,
       fundingLevel: nextFunding.fundingLevel,
       gameRecords: [...progress.gameRecords, record],
+      infectionCardIds,
       nonSpoilerWarnings
     },
     updatedAt: now
   };
+}
+
+function applyFebruaryTestInfectionCards(
+  currentInfectionCardIds: string[],
+  currentMonth: CampaignMonthId,
+  missionResults: MissionResult[]
+): string[] {
+  if (currentMonth !== 'february') return currentInfectionCardIds;
+  const firstMissionResult = missionResults.find((result) => result.missionId === 'february-mission-1');
+  if (!firstMissionResult?.cityResults?.length) return currentInfectionCardIds;
+
+  const nextInfectionCardIds = new Set(currentInfectionCardIds);
+  for (const cityResult of firstMissionResult.cityResults) {
+    if (!cityResult.succeeded) nextInfectionCardIds.add(getInfectionCardIdForCity(cityResult.cityCardId));
+  }
+  return [...nextInfectionCardIds];
 }

@@ -31,6 +31,7 @@ function createCampaign(): CampaignState {
       currentAttempt: 1,
       fundingLevel: 4,
       gameRecords: [],
+      infectionCardIds: [],
       openedLegacyCardIds: [],
       nonSpoilerWarnings: []
     },
@@ -164,6 +165,33 @@ describe('turn flow domain', () => {
       'threat-10'
     ]);
     expect(next.turnFlow).toEqual({ step: 'player-draw', turnNumber: 2 });
+  });
+
+  it('draws infection cards from an intensified known top stack like threat cards', () => {
+    const campaign = createCampaign();
+    const withInfectionDiscard = {
+      ...campaign,
+      progress: { ...campaign.progress, infectionCardIds: ['infection-lagos'] },
+      threatDeck: {
+        ...campaign.threatDeck,
+        discardCardIds: [...campaign.threatDeck.discardCardIds, 'infection-lagos'],
+        cardStates: {
+          ...campaign.threatDeck.cardStates,
+          'infection-lagos': { cardId: 'infection-lagos', zone: 'threat-discard' as const, updatedAt: '2026-01-01T00:00:00.000Z' }
+        }
+      }
+    };
+    const afterPlayerDraw = completePlayerDrawStep(withInfectionDiscard, [
+      { kind: 'player-card', cardId: 'card-1', destination: 'player-hand' },
+      { kind: 'escalation', cardId: 'e1', bottomThreatCardId: 'threat-10' }
+    ]);
+
+    expect(afterPlayerDraw.threatDeck.knownTopStackCardIds).toContain('infection-lagos');
+
+    const next = completeThreatDrawStep(afterPlayerDraw, ['infection-lagos', 'threat-1']);
+
+    expect(next.threatDeck.discardCardIds).toEqual(['infection-lagos', 'threat-1']);
+    expect(next.threatDeck.cardStates['infection-lagos'].zone).toBe('threat-discard');
   });
 
   it('rejects duplicate threat card selections', () => {

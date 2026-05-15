@@ -27,6 +27,24 @@ describe('campaign persistence validation', () => {
     expect(validatePersistedEnvelope(envelope).campaigns[0].schemaVersion).toBe(2);
   });
 
+  it('hydrates missing infection card progress as an empty array', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Legacy infections',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const { infectionCardIds: _infectionCardIds, ...progressWithoutInfections } = campaign.progress;
+    const envelope = {
+      appId: 'pandemic-legacy-season-zero-deck-counter' as const,
+      schemaVersion: 5 as const,
+      settings: { language: 'ko' as const },
+      activeCampaignId: campaign.campaignId,
+      campaigns: [{ ...campaign, progress: progressWithoutInfections }]
+    };
+
+    expect(validatePersistedEnvelope(envelope).campaigns[0].progress.infectionCardIds).toEqual([]);
+  });
+
   it('hydrates legacy single known top stack arrays into grouped known top stacks', () => {
     const campaign = createInitialCampaign({
       campaignName: 'Known stacks',

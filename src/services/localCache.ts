@@ -111,7 +111,12 @@ const characterProfileSchema = z.object({
   roleName: z.string().optional(),
   notes: z.string().optional()
 });
-const missionResultSchema = z.object({ missionId: z.string(), succeeded: z.boolean() });
+const missionCityResultSchema = z.object({ cityCardId: z.string(), succeeded: z.boolean() });
+const missionResultSchema = z.object({
+  missionId: z.string(),
+  succeeded: z.boolean(),
+  cityResults: z.array(missionCityResultSchema).optional()
+});
 const performanceRatingSchema = z.union([z.literal('success'), z.literal('adequate'), z.literal('failure')]);
 const campaignGameRecordSchema = z.object({
   id: z.string(),
@@ -131,6 +136,7 @@ const campaignProgressSchema = z.object({
   currentAttempt: z.number().int().positive(),
   fundingLevel: fundingLevelSchema,
   gameRecords: z.array(campaignGameRecordSchema),
+  infectionCardIds: z.array(z.string()).default([]),
   openedLegacyCardIds: z.array(z.string()),
   nonSpoilerWarnings: z.array(z.string())
 });
@@ -226,6 +232,7 @@ function migrateCampaignToV3(value: unknown): CampaignState {
       currentAttempt: 1,
       fundingLevel,
       gameRecords: [],
+      infectionCardIds: [],
       openedLegacyCardIds: [],
       nonSpoilerWarnings: []
     },

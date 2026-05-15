@@ -141,9 +141,11 @@ export function ThreatDeckPanel({ state, text, language, cityCards, threatCards 
                         <div key={card.id} className="rounded-lg border bg-background p-3">
                           <strong className="block">{city?.name[language] ?? card.id}</strong>
                           <span className="text-sm text-muted-foreground">
-                            {section.id.startsWith('known-top-stack')
-                              ? (language === 'ko' ? '알려진 상단 셔플 묶음' : 'Known shuffled top stack')
-                              : (language === 'ko' ? '위협 카드' : 'Threat card')}
+                            {card.threatCardType === 'infection'
+                              ? (language === 'ko' ? '감염 카드' : 'Infection card')
+                              : section.id.startsWith('known-top-stack')
+                                ? (language === 'ko' ? '알려진 상단 셔플 묶음' : 'Known shuffled top stack')
+                                : (language === 'ko' ? '위협 카드' : 'Threat card')}
                           </span>
                         </div>
                       );

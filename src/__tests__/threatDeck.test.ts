@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addThreatCardsToDiscard,
   clearThreatGameEndArea,
   createInitialThreatDeckState,
   intensifyThreatDiscard,
@@ -21,6 +22,16 @@ describe('threat deck domain', () => {
     expect(next.discardCardIds).toEqual(setupThreats);
     expect(Object.values(next.cardStates).filter((card) => card.zone === 'threat-discard')).toHaveLength(9);
     expect(Object.values(next.cardStates).filter((card) => card.zone === 'threat-deck-unknown')).toHaveLength(3);
+  });
+
+  it('adds new infection cards directly to the threat discard area', () => {
+    const state = createInitialThreatDeckState(['threat-1', 'threat-2']);
+    const next = addThreatCardsToDiscard(state, ['infection-lagos', 'infection-cairo'], '2026-01-01T00:00:00.000Z');
+
+    expect(next.discardCardIds).toEqual(['infection-lagos', 'infection-cairo']);
+    expect(next.cardStates['infection-lagos']).toMatchObject({ cardId: 'infection-lagos', zone: 'threat-discard' });
+    expect(next.cardStates['infection-cairo']).toMatchObject({ cardId: 'infection-cairo', zone: 'threat-discard' });
+    expect(Object.values(next.cardStates).filter((card) => card.zone === 'threat-deck-unknown')).toHaveLength(2);
   });
 
   it('rejects invalid initial threat setup card counts and duplicates', () => {

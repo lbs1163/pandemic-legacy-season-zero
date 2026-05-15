@@ -13,7 +13,7 @@ import {
 } from '../domain/campaignProgress';
 import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
-import { threatCards } from '../data/cards/threats';
+import { getInfectionCardIdForCity, threatCards } from '../data/cards/threats';
 import type { MissionResult, PerformanceRating } from '../types/campaign';
 
 describe('campaign progress domain', () => {
@@ -315,6 +315,77 @@ describe('campaign progress domain', () => {
     expect(decks.playerDeck.cardStates.lagos.zone).toBe('player-removed');
     expect(decks.playerDeck.cardStates.cairo.zone).toBe('player-removed');
     expect(decks.playerDeck.unidentifiedTargetCities?.[0].revealedRemovedCardIds).toEqual(['khartoum', 'lagos', 'cairo']);
+  });
+
+  it('adds infection cards for failed February first-test cities and starts them in threat discard next setup', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'February infections',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const februaryCampaign = {
+      ...campaign,
+      currentMonth: 'february' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'february' as const,
+        fundingLevel: 4
+      },
+      playerDeck: {
+        ...campaign.playerDeck,
+        unidentifiedTargetCities: [{
+          configured: true,
+          filter: { type: 'region' as const, value: 'africa' as const },
+          candidateCardIds: ['khartoum', 'lagos', 'cairo'],
+          hiddenRemovedCount: 0,
+          revealedRemovedCardIds: ['khartoum', 'lagos', 'cairo']
+        }]
+      }
+    };
+
+    const next = applyGameResult(februaryCampaign, {
+      characters: [],
+      missionResults: [
+        {
+          missionId: 'february-mission-1',
+          succeeded: false,
+          cityResults: [
+            { cityCardId: 'khartoum', succeeded: true },
+            { cityCardId: 'lagos', succeeded: false },
+            { cityCardId: 'cairo', succeeded: false }
+          ]
+        },
+        { missionId: 'february-mission-2', succeeded: true }
+      ],
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(next.progress.infectionCardIds).toEqual([
+      getInfectionCardIdForCity('lagos'),
+      getInfectionCardIdForCity('cairo')
+    ]);
+
+    const selectedEventCardIds = eventCards.filter((card) => card.availability?.fromMonth !== 'march').slice(0, 5).map((card) => card.id);
+    const decks = createGameDecksForMonth({
+      campaign: next,
+      players: next.players,
+      startingHands: [
+        ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+        ...selectedEventCardIds.slice(0, 4).map((cardId) => ({ cardId, playerId: 'p2' }))
+      ],
+      selectedEventCardIds,
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id),
+      now: '2026-05-10T00:00:00.000Z'
+    });
+
+    expect(decks.threatDeck.discardCardIds).toEqual([
+      ...threatCards.slice(0, 9).map((card) => card.id),
+      'infection-lagos',
+      'infection-cairo'
+    ]);
+    expect(decks.threatDeck.cardStates['infection-lagos'].zone).toBe('threat-discard');
+    expect(decks.threatDeck.cardStates['infection-cairo'].zone).toBe('threat-discard');
   });
 
   it('creates current-month decks with initial threats, starting hands, and turn flow', () => {
