@@ -7,6 +7,7 @@ import {
   calculatePerformanceRating,
   clampFundingLevel,
   createGameDecksForMonth,
+  getCampaignMonthSetupDefaults,
   getAvailableEventCardsForMonth,
   getMonthSetupDefaults,
   isCampaignMonthSetupComplete
@@ -470,6 +471,84 @@ describe('campaign progress domain', () => {
       hiddenRemovedCount: 1,
       revealedRemovedCardIds: []
     });
+  });
+
+  it('records the hidden South America control center city after a failed first May attempt', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'May retry control center',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const mayCampaign = {
+      ...campaign,
+      currentMonth: 'may' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'may' as const,
+        currentAttempt: 1,
+        fundingLevel: 4
+      }
+    };
+
+    const retry = applyGameResult(mayCampaign, {
+      characters: [],
+      missionResults: [
+        { missionId: 'may-mission-1', succeeded: false },
+        { missionId: 'may-mission-2', succeeded: false },
+        { missionId: 'may-mission-3', succeeded: false }
+      ],
+      maySouthAmericaControlCenterCityId: 'bogota',
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(retry.progress.currentMonth).toBe('may');
+    expect(retry.progress.currentAttempt).toBe(2);
+    expect(retry.progress.maySouthAmericaControlCenterCityId).toBe('bogota');
+    expect(getCampaignMonthSetupDefaults(retry).missions.map((mission) => mission.id)).toEqual([
+      'may-mission-1',
+      'may-mission-2',
+      'may-mission-3a'
+    ]);
+    expect(getCampaignMonthSetupDefaults(retry).missions[2]).toMatchObject({
+      name: { ko: '완공된 남아메리카 관제소 도청' },
+      description: { ko: '남아메리카 관제소가 있는 도시에서 표적 확보 행동을 수행합니다.' }
+    });
+  });
+
+  it('requires a South America control center city after a failed first May attempt', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'May retry validation',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const mayCampaign = {
+      ...campaign,
+      currentMonth: 'may' as const,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'may' as const,
+        currentAttempt: 1
+      }
+    };
+    const failedMissions = [
+      { missionId: 'may-mission-1', succeeded: false },
+      { missionId: 'may-mission-2', succeeded: false },
+      { missionId: 'may-mission-3', succeeded: false }
+    ];
+
+    expect(() => applyGameResult(mayCampaign, {
+      characters: [],
+      missionResults: failedMissions,
+      now: '2026-05-09T00:00:00.000Z'
+    })).toThrow(/requires the South America control center city/);
+
+    expect(() => applyGameResult(mayCampaign, {
+      characters: [],
+      missionResults: failedMissions,
+      maySouthAmericaControlCenterCityId: 'istanbul',
+      now: '2026-05-09T00:00:00.000Z'
+    })).toThrow(/must be a South America city/);
   });
 
   it('adds infection cards for failed February first-test cities and starts them in threat discard next setup', () => {

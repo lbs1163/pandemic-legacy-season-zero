@@ -60,6 +60,20 @@ const mission = (month: CampaignMonthId, index: number, en: string, ko: string) 
   defaultResult: false
 });
 
+export const maySecondAttemptMission3A = {
+  id: 'may-mission-3a',
+  month: 'may' as const,
+  name: {
+    en: 'Wiretap the completed South America control center',
+    ko: '완공된 남아메리카 관제소 도청'
+  },
+  description: {
+    en: 'Perform the Acquire Target action in the city containing the South America control center.',
+    ko: '남아메리카 관제소가 있는 도시에서 표적 확보 행동을 수행합니다.'
+  },
+  defaultResult: false
+};
+
 const placeholderDefaults = (month: CampaignMonthId): MonthSetupDefaults => ({
   month,
   name: monthLabels[month],

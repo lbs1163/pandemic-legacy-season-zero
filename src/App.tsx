@@ -215,7 +215,7 @@ export function App() {
     });
   }
 
-  function recordGameResult(input: { playedAt?: string; missionResults: MissionResult[] }) {
+  function recordGameResult(input: { playedAt?: string; missionResults: MissionResult[]; maySouthAmericaControlCenterCityId?: string }) {
     updateActiveCampaign((campaign) => applyGameResult(campaign, { ...input, characters: campaign.characters ?? [] }));
   }
 

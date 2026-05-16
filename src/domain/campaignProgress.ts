@@ -2,7 +2,7 @@ import { eventCards } from '../data/cards/events';
 import { escalationCards } from '../data/cards/escalations';
 import { getInfectionCardIdForCity, threatCards } from '../data/cards/threats';
 import { cityCards } from '../data/cards/cities';
-import { campaignMonths, monthSetupDefaults } from '../data/campaign/months';
+import { campaignMonths, maySecondAttemptMission3A, monthSetupDefaults } from '../data/campaign/months';
 import type { EventCard } from '../types/cards';
 import type {
   CampaignMonthId,
@@ -69,6 +69,24 @@ export function getNextCampaignMonth(month: CampaignMonthId): CampaignMonthId | 
 
 export function getMonthSetupDefaults(month: CampaignMonthId): MonthSetupDefaults {
   return monthSetupDefaults[month];
+}
+
+export function getCampaignMonthSetupDefaults(campaign: CampaignState): MonthSetupDefaults {
+  const defaults = getMonthSetupDefaults(campaign.progress.currentMonth);
+  if (
+    campaign.progress.currentMonth !== 'may'
+    || campaign.progress.currentAttempt !== 2
+    || !campaign.progress.maySouthAmericaControlCenterCityId
+  ) {
+    return defaults;
+  }
+
+  return {
+    ...defaults,
+    missions: defaults.missions.map((missionDefinition) => missionDefinition.id === 'may-mission-3'
+      ? maySecondAttemptMission3A
+      : missionDefinition)
+  };
 }
 
 export function getAvailableEventCardsForMonth(cards: EventCard[], month: CampaignMonthId): EventCard[] {
@@ -186,6 +204,7 @@ export function applyGameResult(campaign: CampaignState, input: {
   playedAt?: string;
   characters: CharacterProfile[];
   missionResults: MissionResult[];
+  maySouthAmericaControlCenterCityId?: string;
   now?: string;
 }): CampaignState {
   const now = input.now ?? new Date().toISOString();
@@ -212,6 +231,7 @@ export function applyGameResult(campaign: CampaignState, input: {
     ? [...progress.nonSpoilerWarnings, secretFile14Warning]
     : progress.nonSpoilerWarnings;
   const infectionCardIds = applySovietTestInfectionCards(progress.infectionCardIds ?? [], progress.currentMonth, input.missionResults);
+  const maySouthAmericaControlCenterCityId = getNextMaySouthAmericaControlCenterCityId(campaign, input, rating);
   const resetDecks = createUnconfiguredDecksForMonth({
     month: nextMonth,
     players: campaign.players,
@@ -231,10 +251,32 @@ export function applyGameResult(campaign: CampaignState, input: {
       fundingLevel: nextFunding.fundingLevel,
       gameRecords: [...progress.gameRecords, record],
       infectionCardIds,
+      maySouthAmericaControlCenterCityId,
       nonSpoilerWarnings
     },
     updatedAt: now
   };
+}
+
+function getNextMaySouthAmericaControlCenterCityId(
+  campaign: CampaignState,
+  input: { maySouthAmericaControlCenterCityId?: string },
+  rating: PerformanceRating
+): string | undefined {
+  const existingCityId = campaign.progress.maySouthAmericaControlCenterCityId;
+  if (campaign.progress.currentMonth !== 'may' || campaign.progress.currentAttempt !== 1 || rating !== 'failure') {
+    return existingCityId;
+  }
+
+  const cityId = input.maySouthAmericaControlCenterCityId;
+  if (!cityId) {
+    throw new Error('May first failure requires the South America control center city.');
+  }
+  const city = cityCards.find((card) => card.id === cityId);
+  if (!city || city.region !== 'south-america') {
+    throw new Error('May South America control center city must be a South America city.');
+  }
+  return cityId;
 }
 
 const sovietTestMissionIdsByMonth: Partial<Record<CampaignMonthId, string>> = {

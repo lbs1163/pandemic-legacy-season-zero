@@ -138,6 +138,7 @@ const campaignProgressSchema = z.object({
   fundingLevel: fundingLevelSchema,
   gameRecords: z.array(campaignGameRecordSchema),
   infectionCardIds: z.array(z.string()).default([]),
+  maySouthAmericaControlCenterCityId: z.string().optional(),
   openedLegacyCardIds: z.array(z.string()),
   nonSpoilerWarnings: z.array(z.string())
 });

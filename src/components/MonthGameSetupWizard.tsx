@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { cityCards } from '../data/cards/cities';
 import { threatCards } from '../data/cards/threats';
 import { monthLabels } from '../data/campaign/months';
-import { clampFundingLevel, getDefaultAvailableEventCardsForMonth, getMonthSetupDefaults, getRequiredEventCardCountForFunding, isCampaignMonthSetupComplete } from '../domain/campaignProgress';
+import { clampFundingLevel, getCampaignMonthSetupDefaults, getDefaultAvailableEventCardsForMonth, getRequiredEventCardCountForFunding, isCampaignMonthSetupComplete } from '../domain/campaignProgress';
 import type { Affiliation, LanguageCode, Region } from '../types/cards';
 import type { CampaignState, CharacterProfile, PlayerProfile } from '../types/campaign';
 import type { StartingHandAssignment, UnidentifiedTargetCityFilter, UnidentifiedTargetCitySelection } from '../types/deck';
@@ -93,7 +93,7 @@ function candidatesFor(filter: UnidentifiedTargetCityFilter) {
 const totalSteps = 5;
 
 export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, onSetup }: Props) {
-  const defaults = getMonthSetupDefaults(campaign.progress.currentMonth);
+  const defaults = getCampaignMonthSetupDefaults(campaign);
   const isPrologue = campaign.progress.currentMonth === 'prologue';
   const monthSetupComplete = isCampaignMonthSetupComplete(campaign);
   const title = monthSetupComplete
