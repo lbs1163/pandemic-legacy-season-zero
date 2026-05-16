@@ -367,6 +367,29 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   },
   november: {
     ...placeholderDefaults('november'),
+    missions: [
+      {
+        ...mission('november', 1, 'Destroy MEDUSA manufacturing facility', '메두사 제조 설비 파괴'),
+        description: {
+          en: 'This mission does not affect the deck counter.',
+          ko: '이 임무는 덱 카운터와 무관합니다.'
+        }
+      },
+      {
+        ...mission('november', 2, 'Determine the MEDUSA dispersal plan', '메두사 살포 계획 파악'),
+        description: {
+          en: 'This mission does not affect the deck counter.',
+          ko: '이 임무는 덱 카운터와 무관합니다.'
+        }
+      },
+      {
+        ...mission('november', 3, 'Acquire C0dA sample', 'C0dA 샘플 입수'),
+        description: {
+          en: 'This mission does not affect the deck counter.',
+          ko: '이 임무는 덱 카운터와 무관합니다.'
+        }
+      }
+    ],
     eventCardIdsAvailable: septemberEventCardIds,
     surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
