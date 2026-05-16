@@ -26,6 +26,7 @@ function getSovietTestMissionId(month: CampaignState['progress']['currentMonth']
   if (month === 'february') return 'february-mission-1';
   if (month === 'april') return 'april-mission-1';
   if (month === 'june') return 'june-mission-1';
+  if (month === 'august') return 'august-mission-1';
   return undefined;
 }
 

@@ -268,7 +268,32 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   august: {
-    ...placeholderDefaults('august'),
+    month: 'august',
+    name: monthLabels.august,
+    missions: [
+      {
+        ...mission('august', 1, 'Stop the fourth Soviet test', '소련 4차 시험 저지'),
+        description: {
+          en: 'Prevent tests in 1 to 4 test target cities in Asia at the same time.',
+          ko: '아시아 내 시험 대상 도시 1~4곳에서 동시에 시험을 저지합니다.'
+        }
+      },
+      {
+        ...mission('august', 2, "Infiltrate Sabik's headquarters", '사빅의 작전본부 잠입'),
+        description: {
+          en: 'This mission does not affect the deck counter.',
+          ko: '이 임무는 덱 카운터와 무관합니다.'
+        }
+      },
+      {
+        ...mission('august', 3, 'Wiretap the control center', '관제소 도청'),
+        description: {
+          en: 'Acquire a target in 1 unidentified city in North America.',
+          ko: '북아메리카 내 미식별 도시 1곳에서 표적을 확보합니다.'
+        }
+      }
+    ],
+    unidentifiedTargetCities: [revealedRegionSetup('asia', 4), hiddenRegionSetup('north-america', 1)],
     eventCardIdsAvailable: julyEventCardIds,
     surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']

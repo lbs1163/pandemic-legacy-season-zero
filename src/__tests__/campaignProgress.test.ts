@@ -442,6 +442,24 @@ describe('campaign progress domain', () => {
     ]));
     expect(getMonthSetupDefaults('july').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
     expect(getMonthSetupDefaults('july').legacyCardIdsApplied).toContain('legacy-surveillance-satellite-cards');
+    expect(getMonthSetupDefaults('august').missions.map((mission) => mission.id)).toEqual(['august-mission-1', 'august-mission-2', 'august-mission-3']);
+    expect(getMonthSetupDefaults('august').missions[0]).toMatchObject({
+      name: { ko: '소련 4차 시험 저지' },
+      description: { ko: '아시아 내 시험 대상 도시 1~4곳에서 동시에 시험을 저지합니다.' }
+    });
+    expect(getMonthSetupDefaults('august').missions[1]).toMatchObject({
+      name: { ko: '사빅의 작전본부 잠입' },
+      description: { ko: '이 임무는 덱 카운터와 무관합니다.' }
+    });
+    expect(getMonthSetupDefaults('august').missions[2]).toMatchObject({
+      name: { ko: '관제소 도청' },
+      description: { ko: '북아메리카 내 미식별 도시 1곳에서 표적을 확보합니다.' }
+    });
+    expect(getMonthSetupDefaults('august').unidentifiedTargetCities).toMatchObject([
+      { enabled: true, filter: { type: 'region', value: 'asia' }, hiddenRemovedCount: 0, revealedRemovedCount: 4 },
+      { enabled: true, filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 1 }
+    ]);
+    expect(getMonthSetupDefaults('august').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
     expect(getMonthSetupDefaults('december').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-test-vaccine',
       'event-spectrum-interference'
@@ -751,6 +769,58 @@ describe('campaign progress domain', () => {
       },
       {
         filter: { type: 'region', value: 'africa' },
+        hiddenRemovedCount: 1,
+        revealedRemovedCardIds: []
+      }
+    ]);
+  });
+
+  it('creates August decks with revealed Asian fourth-test cards and hidden North America target removed from the player deck', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'August target setup',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const augustCampaign = {
+      ...campaign,
+      progress: { ...campaign.progress, currentMonth: 'august' as const, currentAttempt: 1, fundingLevel: 4 },
+      currentMonth: 'august' as const,
+      fundingLevel: 4
+    };
+    const revealedAsiaCityIds = ['calcutta', 'delhi', 'hanoi', 'karachi'];
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(augustCampaign).slice(0, 4).map((card) => card.id);
+    const startingHands = [
+      ...cityCards
+        .filter((card) => !revealedAsiaCityIds.includes(card.id) && card.region !== 'north-america')
+        .slice(0, 4)
+        .map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign: augustCampaign,
+      players: augustCampaign.players,
+      startingHands,
+      selectedEventCardIds,
+      fundingLevel: 4,
+      unidentifiedTargetCitySelections: [
+        { filter: { type: 'region', value: 'asia' }, hiddenRemovedCount: 0, revealedRemovedCardIds: revealedAsiaCityIds },
+        { filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 1 }
+      ],
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    for (const cityId of revealedAsiaCityIds) {
+      expect(decks.playerDeck.cardStates[cityId].zone).toBe('player-removed');
+    }
+    expect(decks.playerDeck.unidentifiedTargetCities).toMatchObject([
+      {
+        filter: { type: 'region', value: 'asia' },
+        hiddenRemovedCount: 0,
+        revealedRemovedCardIds: revealedAsiaCityIds
+      },
+      {
+        filter: { type: 'region', value: 'north-america' },
         hiddenRemovedCount: 1,
         revealedRemovedCardIds: []
       }
@@ -1165,6 +1235,59 @@ describe('campaign progress domain', () => {
     expect(next.progress.infectionCardIds).toEqual([
       getInfectionCardIdForCity('madrid'),
       getInfectionCardIdForCity('rome')
+    ]);
+  });
+
+  it('adds infection cards for failed August fourth-test cities', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'August infections',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const augustCampaign = {
+      ...campaign,
+      currentMonth: 'august' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'august' as const,
+        fundingLevel: 4
+      },
+      playerDeck: {
+        ...campaign.playerDeck,
+        unidentifiedTargetCities: [{
+          configured: true,
+          filter: { type: 'region' as const, value: 'asia' as const },
+          candidateCardIds: ['calcutta', 'delhi', 'hanoi', 'karachi'],
+          hiddenRemovedCount: 0,
+          revealedRemovedCardIds: ['calcutta', 'delhi', 'hanoi', 'karachi']
+        }]
+      }
+    };
+
+    const next = applyGameResult(augustCampaign, {
+      characters: [],
+      missionResults: [
+        {
+          missionId: 'august-mission-1',
+          succeeded: true,
+          cityResults: [
+            { cityCardId: 'calcutta', succeeded: true },
+            { cityCardId: 'delhi', succeeded: false },
+            { cityCardId: 'hanoi', succeeded: true },
+            { cityCardId: 'karachi', succeeded: false }
+          ]
+        },
+        { missionId: 'august-mission-2', succeeded: true },
+        { missionId: 'august-mission-3', succeeded: true }
+      ],
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(next.progress.currentMonth).toBe('september');
+    expect(next.progress.infectionCardIds).toEqual([
+      getInfectionCardIdForCity('delhi'),
+      getInfectionCardIdForCity('karachi')
     ]);
   });
 
