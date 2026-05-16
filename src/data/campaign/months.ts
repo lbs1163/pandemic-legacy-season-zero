@@ -114,6 +114,8 @@ const mayEventCardIds = [
   'event-unauthorized-action'
 ];
 
+const juneEventCardIds = mayEventCardIds;
+
 export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   prologue: {
     month: 'prologue',
@@ -184,7 +186,24 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
     eventCardIdsAvailable: mayEventCardIds,
     legacyCardIdsApplied: []
   },
-  june: placeholderDefaults('june'),
+  june: {
+    month: 'june',
+    name: monthLabels.june,
+    missions: [
+      mission('june', 1, 'Stop the third Soviet test', '소련 3차 시험 저지'),
+      {
+        ...mission('june', 2, "Infiltrate Sabik's safehouse", '사빅의 안전가옥 잠입'),
+        description: {
+          en: "In Mexico City, spend 1 action in the basement of Sabik's safehouse to discard 3 neutral City cards. Record only whether the mission succeeded.",
+          ko: '멕시코시티에 있는 사빅의 안전가옥 내 지하실에서, 행동 기회 1회를 소모하여 중립 도시 카드 3장을 버립니다. 임무 성공 여부만 기록합니다.'
+        }
+      },
+      mission('june', 3, 'Wiretap the control center', '관제소 도청')
+    ],
+    unidentifiedTargetCities: [revealedRegionSetup('europe', 4), hiddenRegionSetup('asia', 1)],
+    eventCardIdsAvailable: juneEventCardIds,
+    legacyCardIdsApplied: []
+  },
   july: placeholderDefaults('july'),
   august: placeholderDefaults('august'),
   september: placeholderDefaults('september'),

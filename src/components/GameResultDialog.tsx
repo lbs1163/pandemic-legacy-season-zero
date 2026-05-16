@@ -25,7 +25,17 @@ function formatCharacter(character: CharacterProfile) {
 function getSovietTestMissionId(month: CampaignState['progress']['currentMonth']) {
   if (month === 'february') return 'february-mission-1';
   if (month === 'april') return 'april-mission-1';
+  if (month === 'june') return 'june-mission-1';
   return undefined;
+}
+
+function getSovietTestCityIds(campaign: CampaignState): string[] {
+  const sovietTestMissionId = getSovietTestMissionId(campaign.progress.currentMonth);
+  if (!sovietTestMissionId) return [];
+
+  return campaign.playerDeck.unidentifiedTargetCities
+    ?.find((setup) => (setup.revealedRemovedCardIds?.length ?? 0) > 0)
+    ?.revealedRemovedCardIds ?? [];
 }
 
 export function GameResultDialog({ open, campaign, language, onOpenChange, onSubmit }: Props) {
@@ -34,9 +44,7 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
   const [missionResults, setMissionResults] = useState<MissionResult[]>([]);
   const [maySouthAmericaControlCenterCityId, setMaySouthAmericaControlCenterCityId] = useState('');
   const sovietTestMissionId = getSovietTestMissionId(campaign.progress.currentMonth);
-  const sovietTestCityIds = sovietTestMissionId
-    ? campaign.playerDeck.unidentifiedTargetCities?.[0]?.revealedRemovedCardIds ?? []
-    : [];
+  const sovietTestCityIds = getSovietTestCityIds(campaign);
   const southAmericaCities = cityCards.filter((city) => city.region === 'south-america');
   const resultRating = calculatePerformanceRating(missionResults);
   const requiresMaySouthAmericaControlCenterCity = campaign.progress.currentMonth === 'may'

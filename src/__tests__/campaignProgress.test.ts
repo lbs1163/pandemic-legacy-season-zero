@@ -323,7 +323,7 @@ describe('campaign progress domain', () => {
     }
   });
 
-  it('stores hidden and revealed city setup defaults through april', () => {
+  it('stores hidden and revealed city setup defaults through June', () => {
     expect(getMonthSetupDefaults('prologue').defaultFundingLevel).toBe(5);
     expect(getMonthSetupDefaults('january').defaultFundingLevel).toBe(5);
     expect(getMonthSetupDefaults('prologue').unidentifiedTargetCities).toMatchObject([
@@ -346,6 +346,19 @@ describe('campaign progress domain', () => {
       { enabled: true, filter: { type: 'region', value: 'south-america' }, hiddenRemovedCount: 1 }
     ]);
     expect(getMonthSetupDefaults('may').eventCardIdsAvailable).toEqual(expect.arrayContaining([
+      'event-time-extension',
+      'event-unauthorized-action'
+    ]));
+    expect(getMonthSetupDefaults('june').missions.map((mission) => mission.id)).toEqual(['june-mission-1', 'june-mission-2', 'june-mission-3']);
+    expect(getMonthSetupDefaults('june').missions[1]).toMatchObject({
+      name: { ko: '사빅의 안전가옥 잠입' },
+      description: { ko: expect.stringContaining('멕시코시티') }
+    });
+    expect(getMonthSetupDefaults('june').unidentifiedTargetCities).toMatchObject([
+      { enabled: true, filter: { type: 'region', value: 'europe' }, hiddenRemovedCount: 0, revealedRemovedCount: 4 },
+      { enabled: true, filter: { type: 'region', value: 'asia' }, hiddenRemovedCount: 1 }
+    ]);
+    expect(getMonthSetupDefaults('june').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-time-extension',
       'event-unauthorized-action'
     ]));
@@ -468,6 +481,52 @@ describe('campaign progress domain', () => {
     expect(decks.playerDeck.unidentifiedTargetCities).toHaveLength(1);
     expect(decks.playerDeck.unidentifiedTargetCities?.[0]).toMatchObject({
       filter: { type: 'region', value: 'south-america' },
+      hiddenRemovedCount: 1,
+      revealedRemovedCardIds: []
+    });
+  });
+
+  it('creates June decks with revealed European third-test cards and hidden Asian target removed from the player deck', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'June revealed setup',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const juneCampaign = {
+      ...campaign,
+      progress: { ...campaign.progress, currentMonth: 'june' as const, fundingLevel: 4 },
+      currentMonth: 'june' as const,
+      fundingLevel: 4
+    };
+    const revealedEuropeCityIds = ['london', 'madrid', 'paris', 'rome'];
+    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'june').slice(0, 4).map((card) => card.id);
+    const startingHands = [
+      ...cityCards
+        .filter((card) => !revealedEuropeCityIds.includes(card.id) && card.region !== 'asia')
+        .slice(0, 4)
+        .map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign: juneCampaign,
+      players: juneCampaign.players,
+      startingHands,
+      selectedEventCardIds,
+      fundingLevel: 4,
+      unidentifiedTargetCitySelections: [
+        { filter: { type: 'region', value: 'europe' }, hiddenRemovedCount: 0, revealedRemovedCardIds: revealedEuropeCityIds },
+        { filter: { type: 'region', value: 'asia' }, hiddenRemovedCount: 1 }
+      ],
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    for (const cityId of revealedEuropeCityIds) {
+      expect(decks.playerDeck.cardStates[cityId].zone).toBe('player-removed');
+    }
+    expect(decks.playerDeck.unidentifiedTargetCities?.[0].revealedRemovedCardIds).toEqual(revealedEuropeCityIds);
+    expect(decks.playerDeck.unidentifiedTargetCities?.[1]).toMatchObject({
+      filter: { type: 'region', value: 'asia' },
       hiddenRemovedCount: 1,
       revealedRemovedCardIds: []
     });
@@ -693,6 +752,59 @@ describe('campaign progress domain', () => {
     ]);
     expect(decks.threatDeck.cardStates['infection-santiago'].zone).toBe('threat-discard');
     expect(decks.threatDeck.cardStates['infection-sao-paulo'].zone).toBe('threat-discard');
+  });
+
+  it('adds infection cards for failed June third-test cities', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'June infections',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const juneCampaign = {
+      ...campaign,
+      currentMonth: 'june' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'june' as const,
+        fundingLevel: 4
+      },
+      playerDeck: {
+        ...campaign.playerDeck,
+        unidentifiedTargetCities: [{
+          configured: true,
+          filter: { type: 'region' as const, value: 'europe' as const },
+          candidateCardIds: ['london', 'madrid', 'paris', 'rome'],
+          hiddenRemovedCount: 0,
+          revealedRemovedCardIds: ['london', 'madrid', 'paris', 'rome']
+        }]
+      }
+    };
+
+    const next = applyGameResult(juneCampaign, {
+      characters: [],
+      missionResults: [
+        {
+          missionId: 'june-mission-1',
+          succeeded: true,
+          cityResults: [
+            { cityCardId: 'london', succeeded: true },
+            { cityCardId: 'madrid', succeeded: false },
+            { cityCardId: 'paris', succeeded: true },
+            { cityCardId: 'rome', succeeded: false }
+          ]
+        },
+        { missionId: 'june-mission-2', succeeded: true },
+        { missionId: 'june-mission-3', succeeded: true }
+      ],
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(next.progress.currentMonth).toBe('july');
+    expect(next.progress.infectionCardIds).toEqual([
+      getInfectionCardIdForCity('madrid'),
+      getInfectionCardIdForCity('rome')
+    ]);
   });
 
   it('creates current-month decks with initial threats, starting hands, and turn flow', () => {

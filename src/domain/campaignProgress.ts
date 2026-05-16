@@ -281,7 +281,8 @@ function getNextMaySouthAmericaControlCenterCityId(
 
 const sovietTestMissionIdsByMonth: Partial<Record<CampaignMonthId, string>> = {
   february: 'february-mission-1',
-  april: 'april-mission-1'
+  april: 'april-mission-1',
+  june: 'june-mission-1'
 };
 
 function applySovietTestInfectionCards(
