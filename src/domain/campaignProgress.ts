@@ -3,7 +3,7 @@ import { escalationCards } from '../data/cards/escalations';
 import { getSurveillanceSatelliteCardIdForRegion } from '../data/cards/surveillanceSatellites';
 import { getInfectionCardIdForCity, threatCards } from '../data/cards/threats';
 import { cityCards } from '../data/cards/cities';
-import { campaignMonths, maySecondAttemptMission3A, monthSetupDefaults } from '../data/campaign/months';
+import { campaignMonths, julySecondAttemptMission3A, maySecondAttemptMission3A, monthSetupDefaults } from '../data/campaign/months';
 import type { EventCard } from '../types/cards';
 import type {
   CampaignMonthId,
@@ -74,20 +74,49 @@ export function getMonthSetupDefaults(month: CampaignMonthId): MonthSetupDefault
 
 export function getCampaignMonthSetupDefaults(campaign: CampaignState): MonthSetupDefaults {
   const defaults = getMonthSetupDefaults(campaign.progress.currentMonth);
+  const campaignAwareDefaults = {
+    ...defaults,
+    eventCardIdsAvailable: getDefaultAvailableEventCardsForCampaign(campaign).map((card) => card.id)
+  };
   if (
     campaign.progress.currentMonth !== 'may'
     || campaign.progress.currentAttempt !== 2
     || !campaign.progress.maySouthAmericaControlCenterCityId
   ) {
-    return defaults;
+    if (
+      campaign.progress.currentMonth !== 'july'
+      || campaign.progress.currentAttempt !== 2
+      || !campaign.progress.julyAfricaControlCenterCityId
+    ) {
+      return campaignAwareDefaults;
+    }
+
+    return {
+      ...campaignAwareDefaults,
+      missions: campaignAwareDefaults.missions.map((missionDefinition) => missionDefinition.id === 'july-mission-3'
+        ? julySecondAttemptMission3A
+        : missionDefinition)
+    };
   }
 
   return {
-    ...defaults,
-    missions: defaults.missions.map((missionDefinition) => missionDefinition.id === 'may-mission-3'
+    ...campaignAwareDefaults,
+    missions: campaignAwareDefaults.missions.map((missionDefinition) => missionDefinition.id === 'may-mission-3'
       ? maySecondAttemptMission3A
       : missionDefinition)
   };
+}
+
+function getCampaignMonthIndex(month: CampaignMonthId): number {
+  return campaignMonths.indexOf(month);
+}
+
+export function hasCampaignPlayedMonth(campaign: CampaignState, month: CampaignMonthId): boolean {
+  if (campaign.progress.gameRecords.some((record) => record.month === month)) return true;
+  const currentMonthIndex = getCampaignMonthIndex(campaign.progress.currentMonth);
+  const targetMonthIndex = getCampaignMonthIndex(month);
+  if (currentMonthIndex > targetMonthIndex) return true;
+  return currentMonthIndex === targetMonthIndex && campaign.progress.currentAttempt > 1;
 }
 
 export function getAvailableEventCardsForMonth(cards: EventCard[], month: CampaignMonthId): EventCard[] {
@@ -101,6 +130,20 @@ export function getAvailableEventCardsForMonth(cards: EventCard[], month: Campai
 
 export function getDefaultAvailableEventCardsForMonth(month: CampaignMonthId): EventCard[] {
   return getAvailableEventCardsForMonth(eventCards, month);
+}
+
+export function getAvailableEventCardsForCampaign(cards: EventCard[], campaign: CampaignState): EventCard[] {
+  const monthIndex = getCampaignMonthIndex(campaign.progress.currentMonth);
+  return cards.filter((card) => {
+    const fromMonth = card.availability?.fromMonth ?? (card.initialSet ? 'prologue' : undefined);
+    if (fromMonth && getCampaignMonthIndex(fromMonth) <= monthIndex) return true;
+    const afterMonthPlayed = card.availability?.afterMonthPlayed;
+    return afterMonthPlayed ? hasCampaignPlayedMonth(campaign, afterMonthPlayed) : false;
+  });
+}
+
+export function getDefaultAvailableEventCardsForCampaign(campaign: CampaignState): EventCard[] {
+  return getAvailableEventCardsForCampaign(eventCards, campaign);
 }
 
 export function getRequiredEventCardCountForFunding(fundingLevel: number, availableEventCount: number): number {
@@ -128,6 +171,31 @@ export function selectEventCardsForMonth(
   return selectedEventCardIds.map((cardId) => {
     const card = availableById.get(cardId);
     if (!card) throw new Error(`Event card ${cardId} is not available for ${month}.`);
+    return card;
+  });
+}
+
+function selectEventCardsForCampaign(
+  cards: EventCard[],
+  campaign: CampaignState,
+  selectedEventCardIds: string[] | undefined,
+  fundingLevel: number
+): EventCard[] {
+  const availableEvents = getAvailableEventCardsForCampaign(cards, campaign);
+  if (selectedEventCardIds === undefined) return availableEvents;
+
+  const requiredCount = getRequiredEventCardCountForFunding(fundingLevel, availableEvents.length);
+  if (selectedEventCardIds.length !== new Set(selectedEventCardIds).size) {
+    throw new Error('Duplicate selected event cards are not allowed.');
+  }
+  if (selectedEventCardIds.length !== requiredCount) {
+    throw new Error(`Expected ${requiredCount} event card(s) for funding level ${clampFundingLevel(fundingLevel)}, but received ${selectedEventCardIds.length}.`);
+  }
+
+  const availableById = new Map(availableEvents.map((card) => [card.id, card]));
+  return selectedEventCardIds.map((cardId) => {
+    const card = availableById.get(cardId);
+    if (!card) throw new Error(`Event card ${cardId} is not available for ${campaign.progress.currentMonth}.`);
     return card;
   });
 }
@@ -166,7 +234,7 @@ export function createGameDecksForMonth(input: {
   const month = input.campaign.progress.currentMonth;
   const now = input.now ?? new Date().toISOString();
   const fundingLevel = clampFundingLevel(input.fundingLevel ?? input.campaign.progress.fundingLevel);
-  const selectedEvents = selectEventCardsForMonth(eventCards, month, input.selectedEventCardIds, fundingLevel);
+  const selectedEvents = selectEventCardsForCampaign(eventCards, input.campaign, input.selectedEventCardIds, fundingLevel);
   const surveillanceSatelliteSelection = input.surveillanceSatelliteSelection ?? getDefaultSurveillanceSatelliteSelectionForMonth(month);
   const initialPlayerDeck = createInitialPlayerDeckState({
     playerCardIds: [
@@ -200,12 +268,12 @@ export function createGameDecksForMonth(input: {
 }
 
 function createUnconfiguredDecksForMonth(input: {
-  month: CampaignMonthId;
+  campaign: CampaignState;
   players: PlayerProfile[];
   now: string;
 }): Pick<CampaignState, 'playerDeck' | 'threatDeck' | 'turnFlow'> {
-  const availableEvents = getDefaultAvailableEventCardsForMonth(input.month);
-  const surveillanceSatelliteSelection = getDefaultSurveillanceSatelliteSelectionForMonth(input.month);
+  const availableEvents = getDefaultAvailableEventCardsForCampaign(input.campaign);
+  const surveillanceSatelliteSelection = getDefaultSurveillanceSatelliteSelectionForMonth(input.campaign.progress.currentMonth);
   const playerCount = Math.min(4, Math.max(2, input.players.length || 2));
 
   return {
@@ -229,6 +297,7 @@ export function applyGameResult(campaign: CampaignState, input: {
   characters: CharacterProfile[];
   missionResults: MissionResult[];
   maySouthAmericaControlCenterCityId?: string;
+  julyAfricaControlCenterCityId?: string;
   now?: string;
 }): CampaignState {
   const now = input.now ?? new Date().toISOString();
@@ -256,8 +325,26 @@ export function applyGameResult(campaign: CampaignState, input: {
     : progress.nonSpoilerWarnings;
   const infectionCardIds = applySovietTestInfectionCards(progress.infectionCardIds ?? [], progress.currentMonth, input.missionResults);
   const maySouthAmericaControlCenterCityId = getNextMaySouthAmericaControlCenterCityId(campaign, input, rating);
+  const julyAfricaControlCenterCityId = getNextJulyAfricaControlCenterCityId(campaign, input, rating);
+  const nextProgress = {
+    ...progress,
+    currentMonth: nextMonth,
+    currentAttempt: nextAttempt,
+    fundingLevel: nextFunding.fundingLevel,
+    gameRecords: [...progress.gameRecords, record],
+    infectionCardIds,
+    maySouthAmericaControlCenterCityId,
+    julyAfricaControlCenterCityId,
+    nonSpoilerWarnings
+  };
+  const campaignForReset = {
+    ...campaign,
+    currentMonth: nextMonth,
+    fundingLevel: nextFunding.fundingLevel,
+    progress: nextProgress
+  };
   const resetDecks = createUnconfiguredDecksForMonth({
-    month: nextMonth,
+    campaign: campaignForReset,
     players: campaign.players,
     now
   });
@@ -268,16 +355,7 @@ export function applyGameResult(campaign: CampaignState, input: {
     characters: input.characters,
     currentMonth: nextMonth,
     fundingLevel: nextFunding.fundingLevel,
-    progress: {
-      ...progress,
-      currentMonth: nextMonth,
-      currentAttempt: nextAttempt,
-      fundingLevel: nextFunding.fundingLevel,
-      gameRecords: [...progress.gameRecords, record],
-      infectionCardIds,
-      maySouthAmericaControlCenterCityId,
-      nonSpoilerWarnings
-    },
+    progress: nextProgress,
     updatedAt: now
   };
 }
@@ -299,6 +377,27 @@ function getNextMaySouthAmericaControlCenterCityId(
   const city = cityCards.find((card) => card.id === cityId);
   if (!city || city.region !== 'south-america') {
     throw new Error('May South America control center city must be a South America city.');
+  }
+  return cityId;
+}
+
+function getNextJulyAfricaControlCenterCityId(
+  campaign: CampaignState,
+  input: { julyAfricaControlCenterCityId?: string },
+  rating: PerformanceRating
+): string | undefined {
+  const existingCityId = campaign.progress.julyAfricaControlCenterCityId;
+  if (campaign.progress.currentMonth !== 'july' || campaign.progress.currentAttempt !== 1 || rating !== 'failure') {
+    return existingCityId;
+  }
+
+  const cityId = input.julyAfricaControlCenterCityId;
+  if (!cityId) {
+    throw new Error('July first failure requires the Africa control center city.');
+  }
+  const city = cityCards.find((card) => card.id === cityId);
+  if (!city || city.region !== 'africa') {
+    throw new Error('July Africa control center city must be an Africa city.');
   }
   return cityId;
 }

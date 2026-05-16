@@ -9,6 +9,7 @@ import {
   createGameDecksForMonth,
   getCampaignMonthSetupDefaults,
   getAvailableEventCardsForMonth,
+  getDefaultAvailableEventCardsForCampaign,
   getDefaultSurveillanceSatelliteSelectionForMonth,
   getMonthSetupDefaults,
   isCampaignMonthSetupComplete
@@ -226,20 +227,66 @@ describe('campaign progress domain', () => {
     });
   });
 
-  it('filters event card availability by month', () => {
+  it('filters initial event card availability by static month only', () => {
     expect(getAvailableEventCardsForMonth(eventCards, 'prologue')).toHaveLength(5);
-    expect(getAvailableEventCardsForMonth(eventCards, 'february')).toHaveLength(9);
-    expect(getAvailableEventCardsForMonth(eventCards, 'march').map((card) => card.id)).toContain('event-diversion');
+    expect(getAvailableEventCardsForMonth(eventCards, 'february')).toHaveLength(5);
+    expect(getAvailableEventCardsForMonth(eventCards, 'march').map((card) => card.id)).not.toContain('event-diversion');
     expect(getAvailableEventCardsForMonth(eventCards, 'march').map((card) => card.id)).not.toContain('event-one-quiet-night');
-    expect(getAvailableEventCardsForMonth(eventCards, 'april').map((card) => card.id)).toContain('event-one-quiet-night');
+    expect(getAvailableEventCardsForMonth(eventCards, 'april').map((card) => card.id)).not.toContain('event-one-quiet-night');
     expect(getAvailableEventCardsForMonth(eventCards, 'april').map((card) => card.id)).not.toContain('event-time-extension');
     expect(getAvailableEventCardsForMonth(eventCards, 'april').map((card) => card.id)).not.toContain('event-unauthorized-action');
-    expect(getAvailableEventCardsForMonth(eventCards, 'may').map((card) => card.id)).toEqual(expect.arrayContaining([
-      'event-time-extension',
-      'event-unauthorized-action'
-    ]));
+    expect(getAvailableEventCardsForMonth(eventCards, 'may').map((card) => card.id)).not.toContain('event-time-extension');
+    expect(getAvailableEventCardsForMonth(eventCards, 'may').map((card) => card.id)).not.toContain('event-unauthorized-action');
     expect(getAvailableEventCardsForMonth(eventCards, 'june').map((card) => card.id)).not.toContain('event-test-vaccine');
-    expect(getAvailableEventCardsForMonth(eventCards, 'july').map((card) => card.id)).toContain('event-test-vaccine');
+    expect(getAvailableEventCardsForMonth(eventCards, 'july').map((card) => card.id)).not.toContain('event-test-vaccine');
+  });
+
+  it('unlocks additional event cards only after their month has been played', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'Event unlocks',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const februaryFirstAttempt = {
+      ...campaign,
+      currentMonth: 'february' as const,
+      progress: { ...campaign.progress, currentMonth: 'february' as const, fundingLevel: 4 }
+    };
+    const februaryRetry = {
+      ...februaryFirstAttempt,
+      progress: { ...februaryFirstAttempt.progress, currentAttempt: 2 }
+    };
+    const marchCampaign = {
+      ...februaryFirstAttempt,
+      currentMonth: 'march' as const,
+      progress: {
+        ...februaryFirstAttempt.progress,
+        currentMonth: 'march' as const,
+        currentAttempt: 1,
+        gameRecords: [{
+          id: 'february-record',
+          month: 'february' as const,
+          attempt: 1,
+          fundingLevel: 4,
+          players: februaryFirstAttempt.players,
+          characters: [],
+          missionResults: [],
+          performanceRating: 'success' as const,
+          createdAt: '2026-05-09T00:00:00.000Z',
+          updatedAt: '2026-05-09T00:00:00.000Z'
+        }]
+      }
+    };
+
+    expect(getDefaultAvailableEventCardsForCampaign(februaryFirstAttempt).map((card) => card.id)).not.toContain('event-dispatch-teams');
+    expect(getDefaultAvailableEventCardsForCampaign(februaryRetry).map((card) => card.id)).toEqual(expect.arrayContaining([
+      'event-dispatch-teams',
+      'event-weekend-rendezvous',
+      'event-coded-message',
+      'event-bureaucratic-trap'
+    ]));
+    expect(getDefaultAvailableEventCardsForCampaign(marchCampaign).map((card) => card.id)).toContain('event-dispatch-teams');
+    expect(getDefaultAvailableEventCardsForCampaign(marchCampaign).map((card) => card.id)).not.toContain('event-diversion');
   });
 
   it('defines post-February, post-March, and post-April event card effect descriptions', () => {
@@ -248,9 +295,10 @@ describe('campaign progress domain', () => {
     const timeExtension = eventCards.find((eventCard) => eventCard.id === 'event-time-extension');
     const unauthorizedAction = eventCards.find((eventCard) => eventCard.id === 'event-unauthorized-action');
     const testVaccine = eventCards.find((eventCard) => eventCard.id === 'event-test-vaccine');
+    const spectrumInterference = eventCards.find((eventCard) => eventCard.id === 'event-spectrum-interference');
 
     expect(diversion).toMatchObject({
-      availability: { fromMonth: 'march' },
+      availability: { afterMonthPlayed: 'march' },
       effect: {
         kind: 'informational',
         description: {
@@ -260,7 +308,7 @@ describe('campaign progress domain', () => {
       }
     });
     expect(quietNight).toMatchObject({
-      availability: { fromMonth: 'april' },
+      availability: { afterMonthPlayed: 'april' },
       effect: {
         kind: 'skip-current-threat-draw-step',
         description: {
@@ -270,7 +318,7 @@ describe('campaign progress domain', () => {
       }
     });
     expect(timeExtension).toMatchObject({
-      availability: { fromMonth: 'may' },
+      availability: { afterMonthPlayed: 'may' },
       effect: {
         kind: 'informational',
         description: {
@@ -280,7 +328,7 @@ describe('campaign progress domain', () => {
       }
     });
     expect(unauthorizedAction).toMatchObject({
-      availability: { fromMonth: 'may' },
+      availability: { afterMonthPlayed: 'may' },
       effect: {
         kind: 'informational',
         description: {
@@ -290,12 +338,22 @@ describe('campaign progress domain', () => {
       }
     });
     expect(testVaccine).toMatchObject({
-      availability: { fromMonth: 'july' },
+      availability: { afterMonthPlayed: 'july' },
       effect: {
         kind: 'informational',
         description: {
           ko: '게임판에서 질병 큐브 2개를 제거합니다.',
           en: 'Remove 2 disease cubes from the board.'
+        }
+      }
+    });
+    expect(spectrumInterference).toMatchObject({
+      availability: { afterMonthPlayed: 'july' },
+      effect: {
+        kind: 'informational',
+        description: {
+          ko: '현재 게임판 위에 놓인 감시위성 토큰 최대 2개를 창고에 되돌려 놓습니다.',
+          en: 'Return up to 2 surveillance satellite tokens currently on the board to the depot.'
         }
       }
     });
@@ -329,7 +387,7 @@ describe('campaign progress domain', () => {
       const card = eventCards.find((eventCard) => eventCard.id === expectation.id);
 
       expect(card).toBeDefined();
-      expect(card?.availability).toEqual({ fromMonth: 'february' });
+      expect(card?.availability).toEqual({ afterMonthPlayed: 'february' });
       expect(card?.effect?.kind).toBe('informational');
       expect(card?.effect?.description.ko).toBe(expectation.ko);
       expect(card?.effect?.description.en).toBe(expectation.en);
@@ -379,12 +437,14 @@ describe('campaign progress domain', () => {
     ]));
     expect(getMonthSetupDefaults('june').eventCardIdsAvailable).not.toContain('event-test-vaccine');
     expect(getMonthSetupDefaults('july').eventCardIdsAvailable).toEqual(expect.arrayContaining([
-      'event-test-vaccine'
+      'event-test-vaccine',
+      'event-spectrum-interference'
     ]));
     expect(getMonthSetupDefaults('july').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
     expect(getMonthSetupDefaults('july').legacyCardIdsApplied).toContain('legacy-surveillance-satellite-cards');
     expect(getMonthSetupDefaults('december').eventCardIdsAvailable).toEqual(expect.arrayContaining([
-      'event-test-vaccine'
+      'event-test-vaccine',
+      'event-spectrum-interference'
     ]));
     expect(getMonthSetupDefaults('december').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
   });
@@ -402,10 +462,11 @@ describe('campaign progress domain', () => {
       progress: {
         ...campaign.progress,
         currentMonth: 'july' as const,
+        currentAttempt: 2,
         fundingLevel: 4
       }
     };
-    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'july').slice(0, 4).map((card) => card.id);
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(julyCampaign).slice(0, 4).map((card) => card.id);
     const startingHands = [
       ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
       ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
@@ -454,7 +515,7 @@ describe('campaign progress domain', () => {
       currentMonth: 'february' as const,
       fundingLevel: 4
     };
-    const selectedEventCardIds = eventCards.filter((card) => card.availability?.fromMonth !== 'march').slice(0, 4).map((card) => card.id);
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(februaryCampaign).slice(0, 4).map((card) => card.id);
     const startingHands = [
       ...cityCards.filter((card) => !['khartoum', 'lagos', 'cairo'].includes(card.id)).slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
       ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
@@ -487,12 +548,12 @@ describe('campaign progress domain', () => {
     });
     const aprilCampaign = {
       ...campaign,
-      progress: { ...campaign.progress, currentMonth: 'april' as const, fundingLevel: 4 },
+      progress: { ...campaign.progress, currentMonth: 'april' as const, currentAttempt: 2, fundingLevel: 4 },
       currentMonth: 'april' as const,
       fundingLevel: 4
     };
     const revealedSouthAmericaCityIds = ['lima', 'santiago', 'sao-paulo'];
-    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'april').slice(0, 4).map((card) => card.id);
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(aprilCampaign).slice(0, 4).map((card) => card.id);
     const startingHands = [
       ...cityCards.filter((card) => !revealedSouthAmericaCityIds.includes(card.id) && card.region !== 'europe').slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
       ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
@@ -529,11 +590,11 @@ describe('campaign progress domain', () => {
     });
     const mayCampaign = {
       ...campaign,
-      progress: { ...campaign.progress, currentMonth: 'may' as const, fundingLevel: 4 },
+      progress: { ...campaign.progress, currentMonth: 'may' as const, currentAttempt: 2, fundingLevel: 4 },
       currentMonth: 'may' as const,
       fundingLevel: 4
     };
-    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'may').slice(0, 4).map((card) => card.id);
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(mayCampaign).slice(0, 4).map((card) => card.id);
     const startingHands = [
       ...cityCards
         .filter((card) => card.region !== 'south-america' && !['istanbul', 'beijing'].includes(card.id))
@@ -572,12 +633,12 @@ describe('campaign progress domain', () => {
     });
     const juneCampaign = {
       ...campaign,
-      progress: { ...campaign.progress, currentMonth: 'june' as const, fundingLevel: 4 },
+      progress: { ...campaign.progress, currentMonth: 'june' as const, currentAttempt: 2, fundingLevel: 4 },
       currentMonth: 'june' as const,
       fundingLevel: 4
     };
     const revealedEuropeCityIds = ['london', 'madrid', 'paris', 'rome'];
-    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'june').slice(0, 4).map((card) => card.id);
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(juneCampaign).slice(0, 4).map((card) => card.id);
     const startingHands = [
       ...cityCards
         .filter((card) => !revealedEuropeCityIds.includes(card.id) && card.region !== 'asia')
@@ -654,11 +715,11 @@ describe('campaign progress domain', () => {
     });
     const julyCampaign = {
       ...campaign,
-      progress: { ...campaign.progress, currentMonth: 'july' as const, fundingLevel: 4 },
+      progress: { ...campaign.progress, currentMonth: 'july' as const, currentAttempt: 2, fundingLevel: 4 },
       currentMonth: 'july' as const,
       fundingLevel: 4
     };
-    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'july').slice(0, 4).map((card) => card.id);
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(julyCampaign).slice(0, 4).map((card) => card.id);
     const startingHands = [
       ...cityCards
         .filter((card) => !['warsaw', 'madrid'].includes(card.id) && card.region !== 'africa')
@@ -694,6 +755,142 @@ describe('campaign progress domain', () => {
         revealedRemovedCardIds: []
       }
     ]);
+  });
+
+  it('unlocks July event cards after a failed first July attempt and keeps them in August', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'July event unlocks',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const julyCampaign = {
+      ...campaign,
+      currentMonth: 'july' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'july' as const,
+        currentAttempt: 1,
+        fundingLevel: 4
+      }
+    };
+
+    expect(getDefaultAvailableEventCardsForCampaign(julyCampaign).map((card) => card.id)).not.toContain('event-test-vaccine');
+    expect(getDefaultAvailableEventCardsForCampaign(julyCampaign).map((card) => card.id)).not.toContain('event-spectrum-interference');
+
+    const retry = applyGameResult(julyCampaign, {
+      characters: [],
+      missionResults: [
+        { missionId: 'july-mission-1', succeeded: false },
+        { missionId: 'july-mission-2', succeeded: false },
+        { missionId: 'july-mission-3', succeeded: false }
+      ],
+      julyAfricaControlCenterCityId: 'cairo',
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(retry.progress.currentMonth).toBe('july');
+    expect(retry.progress.currentAttempt).toBe(2);
+    expect(getDefaultAvailableEventCardsForCampaign(retry).map((card) => card.id)).toEqual(expect.arrayContaining([
+      'event-test-vaccine',
+      'event-spectrum-interference'
+    ]));
+    expect(retry.playerDeck.cardStates['event-test-vaccine']).toBeDefined();
+    expect(retry.playerDeck.cardStates['event-spectrum-interference']).toBeDefined();
+
+    const august = applyGameResult(retry, {
+      characters: [],
+      missionResults: [
+        { missionId: 'july-mission-1', succeeded: true },
+        { missionId: 'july-mission-2', succeeded: true },
+        { missionId: 'july-mission-3a', succeeded: true }
+      ],
+      now: '2026-05-10T00:00:00.000Z'
+    });
+
+    expect(august.progress.currentMonth).toBe('august');
+    expect(getDefaultAvailableEventCardsForCampaign(august).map((card) => card.id)).toEqual(expect.arrayContaining([
+      'event-test-vaccine',
+      'event-spectrum-interference'
+    ]));
+  });
+
+  it('records the hidden Africa control center city after a failed first July attempt', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'July retry control center',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const julyCampaign = {
+      ...campaign,
+      currentMonth: 'july' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'july' as const,
+        currentAttempt: 1,
+        fundingLevel: 4
+      }
+    };
+
+    const retry = applyGameResult(julyCampaign, {
+      characters: [],
+      missionResults: [
+        { missionId: 'july-mission-1', succeeded: false },
+        { missionId: 'july-mission-2', succeeded: false },
+        { missionId: 'july-mission-3', succeeded: false }
+      ],
+      julyAfricaControlCenterCityId: 'cairo',
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(retry.progress.currentMonth).toBe('july');
+    expect(retry.progress.currentAttempt).toBe(2);
+    expect(retry.progress.julyAfricaControlCenterCityId).toBe('cairo');
+    expect(getCampaignMonthSetupDefaults(retry).missions.map((mission) => mission.id)).toEqual([
+      'july-mission-1',
+      'july-mission-2',
+      'july-mission-3a'
+    ]);
+    expect(getCampaignMonthSetupDefaults(retry).missions[2]).toMatchObject({
+      name: { ko: '완공된 아프리카 관제소 도청' },
+      description: { ko: '아프리카 내 관제소가 있는 도시에서 표적 확보' }
+    });
+  });
+
+  it('requires an Africa control center city after a failed first July attempt', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'July retry validation',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const julyCampaign = {
+      ...campaign,
+      currentMonth: 'july' as const,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'july' as const,
+        currentAttempt: 1
+      }
+    };
+    const failedMissions = [
+      { missionId: 'july-mission-1', succeeded: false },
+      { missionId: 'july-mission-2', succeeded: false },
+      { missionId: 'july-mission-3', succeeded: false }
+    ];
+
+    expect(() => applyGameResult(julyCampaign, {
+      characters: [],
+      missionResults: failedMissions,
+      now: '2026-05-09T00:00:00.000Z'
+    })).toThrow(/requires the Africa control center city/);
+
+    expect(() => applyGameResult(julyCampaign, {
+      characters: [],
+      missionResults: failedMissions,
+      julyAfricaControlCenterCityId: 'istanbul',
+      now: '2026-05-09T00:00:00.000Z'
+    })).toThrow(/must be an Africa city/);
   });
 
   it('records the hidden South America control center city after a failed first May attempt', () => {
@@ -823,7 +1020,7 @@ describe('campaign progress domain', () => {
       getInfectionCardIdForCity('cairo')
     ]);
 
-    const selectedEventCardIds = eventCards.filter((card) => card.availability?.fromMonth !== 'march').slice(0, 5).map((card) => card.id);
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(next).slice(0, 5).map((card) => card.id);
     const decks = createGameDecksForMonth({
       campaign: next,
       players: next.players,
@@ -895,7 +1092,7 @@ describe('campaign progress domain', () => {
       getInfectionCardIdForCity('sao-paulo')
     ]);
 
-    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'may').slice(0, 3).map((card) => card.id);
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(next).slice(0, 3).map((card) => card.id);
     const decks = createGameDecksForMonth({
       campaign: next,
       players: next.players,

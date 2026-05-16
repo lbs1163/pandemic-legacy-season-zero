@@ -25,7 +25,8 @@ export interface CityCard extends BaseCard {
 }
 
 export interface EventAvailability {
-  fromMonth: CampaignMonthId;
+  fromMonth?: CampaignMonthId;
+  afterMonthPlayed?: CampaignMonthId;
 }
 
 export type EventEffectKind = 'move-threat-discard-to-game-end' | 'skip-current-threat-draw-step' | 'informational' | 'unknown';

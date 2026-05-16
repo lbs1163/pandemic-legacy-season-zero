@@ -75,7 +75,7 @@ export const eventCards: EventCard[] = [
     id: 'event-dispatch-teams',
     kind: 'event',
     initialSet: false,
-    availability: { fromMonth: 'february' },
+    availability: { afterMonthPlayed: 'february' },
     name: { en: 'Dispatch Teams', ko: '작전팀 급파' },
     effect: {
       kind: 'informational',
@@ -89,7 +89,7 @@ export const eventCards: EventCard[] = [
     id: 'event-weekend-rendezvous',
     kind: 'event',
     initialSet: false,
-    availability: { fromMonth: 'february' },
+    availability: { afterMonthPlayed: 'february' },
     name: { en: 'Weekend Rendezvous', ko: '주말 접선' },
     effect: {
       kind: 'informational',
@@ -103,7 +103,7 @@ export const eventCards: EventCard[] = [
     id: 'event-coded-message',
     kind: 'event',
     initialSet: false,
-    availability: { fromMonth: 'february' },
+    availability: { afterMonthPlayed: 'february' },
     name: { en: 'Coded Message', ko: '암호 메세지' },
     effect: {
       kind: 'informational',
@@ -117,7 +117,7 @@ export const eventCards: EventCard[] = [
     id: 'event-bureaucratic-trap',
     kind: 'event',
     initialSet: false,
-    availability: { fromMonth: 'february' },
+    availability: { afterMonthPlayed: 'february' },
     name: { en: 'Bureaucratic Trap', ko: '관료주의의 덫' },
     effect: {
       kind: 'informational',
@@ -131,7 +131,7 @@ export const eventCards: EventCard[] = [
     id: 'event-diversion',
     kind: 'event',
     initialSet: false,
-    availability: { fromMonth: 'march' },
+    availability: { afterMonthPlayed: 'march' },
     name: { en: 'Diversion', ko: '주의 전환' },
     effect: {
       kind: 'informational',
@@ -145,7 +145,7 @@ export const eventCards: EventCard[] = [
     id: 'event-one-quiet-night',
     kind: 'event',
     initialSet: false,
-    availability: { fromMonth: 'april' },
+    availability: { afterMonthPlayed: 'april' },
     name: { en: 'One Quiet Night', ko: '평온한 하룻밤' },
     effect: {
       kind: 'skip-current-threat-draw-step',
@@ -159,7 +159,7 @@ export const eventCards: EventCard[] = [
     id: 'event-time-extension',
     kind: 'event',
     initialSet: false,
-    availability: { fromMonth: 'may' },
+    availability: { afterMonthPlayed: 'may' },
     name: { en: 'Time Extension', ko: '시간 연장' },
     effect: {
       kind: 'informational',
@@ -173,7 +173,7 @@ export const eventCards: EventCard[] = [
     id: 'event-unauthorized-action',
     kind: 'event',
     initialSet: false,
-    availability: { fromMonth: 'may' },
+    availability: { afterMonthPlayed: 'may' },
     name: { en: 'Unauthorized Action', ko: '무단 행동' },
     effect: {
       kind: 'informational',
@@ -187,13 +187,27 @@ export const eventCards: EventCard[] = [
     id: 'event-test-vaccine',
     kind: 'event',
     initialSet: false,
-    availability: { fromMonth: 'july' },
+    availability: { afterMonthPlayed: 'july' },
     name: { en: 'Test Vaccine', ko: '시험 백신' },
     effect: {
       kind: 'informational',
       description: {
         en: 'Remove 2 disease cubes from the board.',
         ko: '게임판에서 질병 큐브 2개를 제거합니다.'
+      }
+    }
+  },
+  {
+    id: 'event-spectrum-interference',
+    kind: 'event',
+    initialSet: false,
+    availability: { afterMonthPlayed: 'july' },
+    name: { en: 'Spectrum Interference', ko: '스펙트럼 간섭' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'Return up to 2 surveillance satellite tokens currently on the board to the depot.',
+        ko: '현재 게임판 위에 놓인 감시위성 토큰 최대 2개를 창고에 되돌려 놓습니다.'
       }
     }
   }

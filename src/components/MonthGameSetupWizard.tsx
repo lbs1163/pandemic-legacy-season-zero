@@ -3,7 +3,7 @@ import { cityCards } from '../data/cards/cities';
 import { getSurveillanceSatelliteCardIdForRegion, surveillanceSatelliteCards, surveillanceSatelliteRegionNames } from '../data/cards/surveillanceSatellites';
 import { threatCards } from '../data/cards/threats';
 import { monthLabels } from '../data/campaign/months';
-import { clampFundingLevel, getCampaignMonthSetupDefaults, getDefaultAvailableEventCardsForMonth, getRequiredEventCardCountForFunding, isCampaignMonthSetupComplete } from '../domain/campaignProgress';
+import { clampFundingLevel, getCampaignMonthSetupDefaults, getDefaultAvailableEventCardsForCampaign, getRequiredEventCardCountForFunding, isCampaignMonthSetupComplete } from '../domain/campaignProgress';
 import type { Affiliation, LanguageCode, Region } from '../types/cards';
 import type { CampaignState, CharacterProfile, PlayerProfile } from '../types/campaign';
 import type { StartingHandAssignment, SurveillanceSatelliteSelection, UnidentifiedTargetCityFilter, UnidentifiedTargetCitySelection } from '../types/deck';
@@ -115,7 +115,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
   const requiredTotal = requiredPerPlayer * players.length;
   const defaultFundingLevel = campaign.progress.fundingLevel;
   const fundingLevelChanged = fundingLevel !== defaultFundingLevel;
-  const availableEventCards = useMemo(() => getDefaultAvailableEventCardsForMonth(campaign.progress.currentMonth), [campaign.progress.currentMonth]);
+  const availableEventCards = useMemo(() => getDefaultAvailableEventCardsForCampaign(campaign), [campaign]);
   const requiredEventCount = getRequiredEventCardCountForFunding(fundingLevel, availableEventCards.length);
   const selectedEventCards = useMemo(
     () => availableEventCards.filter((card) => selectedEventCardIds.includes(card.id)),

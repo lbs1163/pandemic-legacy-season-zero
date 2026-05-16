@@ -75,6 +75,20 @@ export const maySecondAttemptMission3A = {
   defaultResult: false
 };
 
+export const julySecondAttemptMission3A = {
+  id: 'july-mission-3a',
+  month: 'july' as const,
+  name: {
+    en: 'Wiretap the completed Africa control center',
+    ko: '완공된 아프리카 관제소 도청'
+  },
+  description: {
+    en: 'Perform the Acquire Target action in the city containing the Africa control center.',
+    ko: '아프리카 내 관제소가 있는 도시에서 표적 확보'
+  },
+  defaultResult: false
+};
+
 const placeholderDefaults = (month: CampaignMonthId): MonthSetupDefaults => ({
   month,
   name: monthLabels[month],
@@ -119,7 +133,8 @@ const juneEventCardIds = mayEventCardIds;
 
 const julyEventCardIds = [
   ...juneEventCardIds,
-  'event-test-vaccine'
+  'event-test-vaccine',
+  'event-spectrum-interference'
 ];
 
 export const defaultSurveillanceSatelliteRegions: Region[] = ['europe', 'south-america', 'asia'];

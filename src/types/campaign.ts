@@ -63,6 +63,7 @@ export interface CampaignProgressState {
   gameRecords: CampaignGameRecord[];
   infectionCardIds: string[];
   maySouthAmericaControlCenterCityId?: string;
+  julyAfricaControlCenterCityId?: string;
   openedLegacyCardIds: string[];
   nonSpoilerWarnings: string[];
 }

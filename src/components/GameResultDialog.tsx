@@ -15,7 +15,7 @@ interface Props {
   campaign: CampaignState;
   language: LanguageCode;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (input: { playedAt?: string; missionResults: MissionResult[]; maySouthAmericaControlCenterCityId?: string }) => void;
+  onSubmit: (input: { playedAt?: string; missionResults: MissionResult[]; maySouthAmericaControlCenterCityId?: string; julyAfricaControlCenterCityId?: string }) => void;
 }
 
 function formatCharacter(character: CharacterProfile) {
@@ -43,11 +43,16 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
   const [playedAt, setPlayedAt] = useState('');
   const [missionResults, setMissionResults] = useState<MissionResult[]>([]);
   const [maySouthAmericaControlCenterCityId, setMaySouthAmericaControlCenterCityId] = useState('');
+  const [julyAfricaControlCenterCityId, setJulyAfricaControlCenterCityId] = useState('');
   const sovietTestMissionId = getSovietTestMissionId(campaign.progress.currentMonth);
   const sovietTestCityIds = getSovietTestCityIds(campaign);
   const southAmericaCities = cityCards.filter((city) => city.region === 'south-america');
+  const africaCities = cityCards.filter((city) => city.region === 'africa');
   const resultRating = calculatePerformanceRating(missionResults);
   const requiresMaySouthAmericaControlCenterCity = campaign.progress.currentMonth === 'may'
+    && campaign.progress.currentAttempt === 1
+    && resultRating === 'failure';
+  const requiresJulyAfricaControlCenterCity = campaign.progress.currentMonth === 'july'
     && campaign.progress.currentAttempt === 1
     && resultRating === 'failure';
 
@@ -55,6 +60,7 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
     if (!open) return;
     setPlayedAt(formatLocalDateInputValue());
     setMaySouthAmericaControlCenterCityId('');
+    setJulyAfricaControlCenterCityId('');
     setMissionResults(defaults.missions.map((mission) => ({
       missionId: mission.id,
       succeeded: mission.id === sovietTestMissionId && sovietTestCityIds.length ? false : mission.defaultResult ?? false,
@@ -68,7 +74,8 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
     onSubmit({
       playedAt: playedAt || undefined,
       missionResults,
-      maySouthAmericaControlCenterCityId: requiresMaySouthAmericaControlCenterCity ? maySouthAmericaControlCenterCityId : undefined
+      maySouthAmericaControlCenterCityId: requiresMaySouthAmericaControlCenterCity ? maySouthAmericaControlCenterCityId : undefined,
+      julyAfricaControlCenterCityId: requiresJulyAfricaControlCenterCity ? julyAfricaControlCenterCityId : undefined
     });
     onOpenChange(false);
   };
@@ -120,8 +127,22 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
                 : 'After failing the first May attempt, enter the hidden South America city removed during setup. Mission #3 changes to #3A on the second attempt.'}
             </p>
           </div> : null}
+          {requiresJulyAfricaControlCenterCity ? <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-amber-950">{language === 'ko' ? '아프리카 관제소 도시' : 'Africa control center city'}</span>
+              <NativeSelect value={julyAfricaControlCenterCityId} onChange={(event) => setJulyAfricaControlCenterCityId(event.target.value)}>
+                <option value="">{language === 'ko' ? '도시 선택' : 'Select a city'}</option>
+                {africaCities.map((city) => <option key={city.id} value={city.id}>{city.name[language]}</option>)}
+              </NativeSelect>
+            </label>
+            <p className="text-xs text-amber-900">
+              {language === 'ko'
+                ? '7월 1차 시도 실패 시, 이번 준비에서 비공개로 제외했던 아프리카 도시를 입력하세요. 2차 시도에서 임무 #3이 #3A로 바뀝니다.'
+                : 'After failing the first July attempt, enter the hidden Africa city removed during setup. Mission #3 changes to #3A on the second attempt.'}
+            </p>
+          </div> : null}
         </div>
-        <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => onOpenChange(false)}>{language === 'ko' ? '취소' : 'Cancel'}</Button><Button disabled={requiresMaySouthAmericaControlCenterCity && !maySouthAmericaControlCenterCityId} onClick={submit}>{language === 'ko' ? '저장' : 'Save result'}</Button></div>
+        <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => onOpenChange(false)}>{language === 'ko' ? '취소' : 'Cancel'}</Button><Button disabled={(requiresMaySouthAmericaControlCenterCity && !maySouthAmericaControlCenterCityId) || (requiresJulyAfricaControlCenterCity && !julyAfricaControlCenterCityId)} onClick={submit}>{language === 'ko' ? '저장' : 'Save result'}</Button></div>
       </DialogContent>
     </Dialog>
   );
