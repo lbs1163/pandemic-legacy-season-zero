@@ -34,6 +34,13 @@ const unidentifiedTargetCitySetupSchema = z.object({
   removedCardId: z.string().optional()
 });
 
+const surveillanceSatelliteSetupSchema = z.object({
+  configured: z.boolean(),
+  candidateCardIds: z.array(z.string()),
+  includedCardIds: z.array(z.string()),
+  hiddenRemovedCount: z.number().int().nonnegative()
+});
+
 const playerDeckSchema = z.object({
   totalInitialCount: z.number().int().nonnegative(),
   drawCountPerTurn: z.literal(2),
@@ -51,12 +58,19 @@ const playerDeckSchema = z.object({
     requiredTotal: z.number().int().nonnegative(),
     configured: z.boolean()
   }),
+  surveillanceSatelliteSetup: surveillanceSatelliteSetupSchema.optional(),
   unidentifiedTargetCities: z.array(unidentifiedTargetCitySetupSchema).optional(),
   unidentifiedTargetCity: unidentifiedTargetCitySetupSchema.optional()
 }).transform((state) => {
   const unidentifiedTargetCities = state.unidentifiedTargetCities ?? (state.unidentifiedTargetCity ? [state.unidentifiedTargetCity] : []);
   return {
     ...state,
+    surveillanceSatelliteSetup: state.surveillanceSatelliteSetup ?? {
+      configured: false,
+      candidateCardIds: [],
+      includedCardIds: [],
+      hiddenRemovedCount: 0
+    },
     unidentifiedTargetCities,
     unidentifiedTargetCity: unidentifiedTargetCities[0] ?? state.unidentifiedTargetCity
   };

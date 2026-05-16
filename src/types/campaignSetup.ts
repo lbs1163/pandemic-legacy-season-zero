@@ -1,4 +1,4 @@
-import type { LocalizedText } from './cards';
+import type { LocalizedText, Region } from './cards';
 import type { CampaignMonthId } from './campaign';
 import type { UnidentifiedTargetCityFilter } from './deck';
 
@@ -27,5 +27,6 @@ export interface MonthSetupDefaults {
   /** @deprecated Use unidentifiedTargetCities instead. */
   unidentifiedTargetCity?: UnidentifiedTargetCityDefault;
   eventCardIdsAvailable?: string[];
+  surveillanceSatelliteRegions?: Region[];
   legacyCardIdsApplied?: string[];
 }

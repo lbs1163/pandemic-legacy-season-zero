@@ -4,6 +4,7 @@ import type { LanguageCode } from '../types/cards';
 import { monthLabels } from '../data/campaign/months';
 import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
+import { surveillanceSatelliteCards } from '../data/cards/surveillanceSatellites';
 import { getThreatCardsForCampaign } from '../data/cards/threats';
 import { isCampaignMonthSetupComplete } from '../domain/campaignProgress';
 import type { PlayerDrawSelection } from '../domain/turnFlow';
@@ -58,8 +59,8 @@ export function DeckCounterDashboard(props: Props) {
           </section>
         ) : (
           <>
-        <TurnFlowPanel campaign={props.campaign} language={props.language} cityCards={cityCards} eventCards={eventCards} threatCards={threatCards} onCompletePlayerDraw={props.onCompletePlayerDraw} onCompleteThreatDraw={props.onCompleteThreatDraw} onRecordIncidentBottomThreatDraw={props.onRecordIncidentBottomThreatDraw} onApplyEventEffect={props.onApplyEventEffect} />
-        <PlayerDeckPanel state={props.campaign.playerDeck} text={props.text} language={props.language} cityCards={cityCards} eventCards={eventCards} />
+        <TurnFlowPanel campaign={props.campaign} language={props.language} cityCards={cityCards} eventCards={eventCards} surveillanceSatelliteCards={surveillanceSatelliteCards} threatCards={threatCards} onCompletePlayerDraw={props.onCompletePlayerDraw} onCompleteThreatDraw={props.onCompleteThreatDraw} onRecordIncidentBottomThreatDraw={props.onRecordIncidentBottomThreatDraw} onApplyEventEffect={props.onApplyEventEffect} />
+        <PlayerDeckPanel state={props.campaign.playerDeck} text={props.text} language={props.language} cityCards={cityCards} eventCards={eventCards} surveillanceSatelliteCards={surveillanceSatelliteCards} />
         <ThreatDeckPanel
           state={props.campaign.threatDeck}
           text={props.text}

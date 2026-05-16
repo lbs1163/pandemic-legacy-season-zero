@@ -17,5 +17,22 @@ export const legacyRules: RuleToggle[] = [
       { language: 'en', markdownPath: 'docs/en/legacy-rules.md', anchor: 'infection-cards' }
     ],
     affects: ['threat-deck', 'ui']
+  },
+  {
+    id: 'legacy-surveillance-satellite-cards',
+    label: { en: 'Surveillance Satellite cards', ko: '감시위성 카드' },
+    description: {
+      en: 'Starting in July, add Surveillance Satellite cards for continents with control centers during the setup step that adds Escalation cards. Shuffle them into player deck piles from the rightmost pile first.',
+      ko: '7월부터 게임 준비 중 악화 카드를 추가하는 단계에서 관제소가 존재하는 대륙의 감시위성 카드를 추가합니다. 맨 오른쪽 플레이어 카드 더미부터 1장씩 넣어 섞습니다.'
+    },
+    category: 'legacy',
+    defaultEnabled: true,
+    enabled: true,
+    introducedBy: 'End of June legacy rule D',
+    references: [
+      { language: 'ko', markdownPath: 'docs/ko/legacy-rules.md', anchor: 'surveillance-satellite-cards' },
+      { language: 'en', markdownPath: 'docs/en/legacy-rules.md', anchor: 'surveillance-satellite-cards' }
+    ],
+    affects: ['player-deck', 'ui']
   }
 ];

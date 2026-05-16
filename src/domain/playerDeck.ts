@@ -6,6 +6,7 @@ import type {
   PlayerCardZone,
   PlayerDeckPile,
   PlayerDeckState,
+  SurveillanceSatelliteSelection,
   StartingHandAssignment
 } from '../types/deck';
 import type { CityCard } from '../types/cards';
@@ -42,6 +43,12 @@ export function createInitialPlayerDeckState(config: PlayerDeckSetupConfig): Pla
       requiredTotal: requiredPerPlayer * config.playerCount,
       configured: false
     },
+    surveillanceSatelliteSetup: {
+      configured: false,
+      candidateCardIds: [],
+      includedCardIds: [],
+      hiddenRemovedCount: 0
+    },
     unidentifiedTargetCities: [],
     unidentifiedTargetCity: {
       configured: false,
@@ -57,19 +64,43 @@ function startingHandSizeForPlayers(playerCount: number): number {
 }
 
 function buildPiles(deckCardCountAfterHands: number, escalationCardIds: string[]): PlayerDeckPile[] {
+  return buildPilesWithAdditions(deckCardCountAfterHands, escalationCardIds, 0);
+}
+
+function buildPilesWithAdditions(deckCardCountAfterHands: number, escalationCardIds: string[], rightToLeftAddedCount: number): PlayerDeckPile[] {
   const pileCount = escalationCardIds.length;
   const basePileSize = Math.floor(deckCardCountAfterHands / pileCount);
   const remainder = deckCardCountAfterHands % pileCount;
   return escalationCardIds.map((escalationCardId, index) => {
     const cityEventCount = basePileSize + (index < remainder ? 1 : 0);
+    const addedCount = index >= pileCount - rightToLeftAddedCount ? 1 : 0;
     return {
       id: `pile-${index + 1}`,
-      initialUnknownCount: cityEventCount + 1,
-      remainingUnknownCount: cityEventCount + 1,
+      initialUnknownCount: cityEventCount + addedCount + 1,
+      remainingUnknownCount: cityEventCount + addedCount + 1,
       escalationCardId,
       escalationResolved: false
     };
   });
+}
+
+function getConfiguredSurveillanceSatelliteSetup(state: PlayerDeckState) {
+  const setup = state.surveillanceSatelliteSetup;
+  return setup?.configured ? setup : undefined;
+}
+
+function rebuildPilesPreservingSurveillanceSatellites(state: PlayerDeckState, hiddenRemovedCount = getTotalHiddenRemovedCount(state)): PlayerDeckPile[] {
+  const escalationCardIds = getEscalationCardIds(state);
+  const satelliteSetup = getConfiguredSurveillanceSatelliteSetup(state);
+  const candidateSatelliteCardIds = new Set(satelliteSetup?.candidateCardIds ?? []);
+  const nonEscalationDeckCount = Object.values(state.cardStates).filter(
+    (cardState) => cardState.zone === 'player-deck-unknown' && !escalationCardIds.includes(cardState.cardId) && !candidateSatelliteCardIds.has(cardState.cardId)
+  ).length;
+  return buildPilesWithAdditions(
+    Math.max(0, nonEscalationDeckCount - hiddenRemovedCount),
+    escalationCardIds,
+    satelliteSetup?.includedCardIds.length ?? 0
+  );
 }
 
 function getEscalationCardIds(state: PlayerDeckState): string[] {
@@ -77,19 +108,11 @@ function getEscalationCardIds(state: PlayerDeckState): string[] {
 }
 
 function rebuildPilesForCurrentDeck(state: PlayerDeckState): PlayerDeckPile[] {
-  const escalationCardIds = getEscalationCardIds(state);
-  const nonEscalationDeckCount = Object.values(state.cardStates).filter(
-    (cardState) => cardState.zone === 'player-deck-unknown' && !escalationCardIds.includes(cardState.cardId)
-  ).length;
-  return buildPiles(nonEscalationDeckCount, escalationCardIds);
+  return rebuildPilesPreservingSurveillanceSatellites(state, 0);
 }
 
 function rebuildPilesForHiddenRemovedCards(state: PlayerDeckState, hiddenRemovedCount: number): PlayerDeckPile[] {
-  const escalationCardIds = getEscalationCardIds(state);
-  const nonEscalationDeckCount = Object.values(state.cardStates).filter(
-    (cardState) => cardState.zone === 'player-deck-unknown' && !escalationCardIds.includes(cardState.cardId)
-  ).length;
-  return buildPiles(Math.max(0, nonEscalationDeckCount - hiddenRemovedCount), escalationCardIds);
+  return rebuildPilesPreservingSurveillanceSatellites(state, hiddenRemovedCount);
 }
 
 function isEscalationCardId(state: PlayerDeckState, cardId: string): boolean {
@@ -136,6 +159,7 @@ export function configureStartingHands(
     const existing = state.cardStates[assignment.cardId];
     if (!existing) throw new Error(`Unknown player card: ${assignment.cardId}`);
     if (isEscalationCardId(state, assignment.cardId)) throw new Error('Escalation cards cannot be in starting hands.');
+    if (getConfiguredSurveillanceSatelliteSetup(state)?.candidateCardIds.includes(assignment.cardId)) throw new Error('Surveillance Satellite cards cannot be in starting hands.');
     if (existing.zone === 'player-removed') throw new Error(`Removed player cards cannot be in starting hands: ${assignment.cardId}`);
   }
 
@@ -158,6 +182,8 @@ export function configureStartingHands(
     }
   }
   const hiddenRemovedCount = getTotalHiddenRemovedCount(state);
+  const satelliteSetup = getConfiguredSurveillanceSatelliteSetup(state);
+  const candidateSatelliteCardIds = new Set(satelliteSetup?.candidateCardIds ?? []);
   const cardStates = Object.fromEntries(Object.entries(state.cardStates).map(([cardId, cardState]) => {
     const ownerPlayerId = assignmentMap.get(cardId);
     if (ownerPlayerId) {
@@ -169,15 +195,49 @@ export function configureStartingHands(
     return [cardId, { ...cardState, zone: 'player-deck-unknown' as const, ownerPlayerId: undefined, updatedAt: now }];
   }));
   const nonEscalationDeckCount = Object.keys(state.cardStates).filter(
-    (cardId) => !escalationCardIds.includes(cardId) && !assignmentMap.has(cardId) && state.cardStates[cardId].zone !== 'player-removed'
+    (cardId) => !escalationCardIds.includes(cardId) && !candidateSatelliteCardIds.has(cardId) && !assignmentMap.has(cardId) && state.cardStates[cardId].zone !== 'player-removed'
   ).length;
 
   return {
     ...state,
-    piles: buildPiles(Math.max(0, nonEscalationDeckCount - hiddenRemovedCount), escalationCardIds),
+    piles: buildPilesWithAdditions(Math.max(0, nonEscalationDeckCount - hiddenRemovedCount), escalationCardIds, satelliteSetup?.includedCardIds.length ?? 0),
     cardStates,
     currentPileIndex: 0,
     startingHand: { ...state.startingHand, configured: true }
+  };
+}
+
+export function prepareSurveillanceSatellites(
+  state: PlayerDeckState,
+  selection: SurveillanceSatelliteSelection
+): PlayerDeckState {
+  const candidateCardIds = selection.candidateCardIds;
+  const hiddenRemovedCount = selection.hiddenRemovedCount ?? (candidateCardIds.length === 6 ? 1 : 0);
+  if (candidateCardIds.length !== new Set(candidateCardIds).size) throw new Error('Duplicate Surveillance Satellite cards are not allowed.');
+  if (!Number.isInteger(hiddenRemovedCount) || hiddenRemovedCount < 0) throw new Error('Surveillance Satellite setup requires a non-negative hidden removed card count.');
+  if (candidateCardIds.length < hiddenRemovedCount) throw new Error('Surveillance Satellite hidden removed count cannot exceed candidates.');
+  const includedCardIds = candidateCardIds.slice(0, candidateCardIds.length - hiddenRemovedCount);
+  for (const cardId of candidateCardIds) {
+    const existing = state.cardStates[cardId];
+    if (!existing) throw new Error(`Unknown Surveillance Satellite card: ${cardId}`);
+    if (existing.zone !== 'player-deck-unknown') throw new Error(`Surveillance Satellite card is not in the unknown deck: ${cardId}`);
+  }
+  const cardStates = Object.fromEntries(Object.entries(state.cardStates).map(([cardId, cardState]) => [cardId, cardState]));
+  const nextState = {
+    ...state,
+    totalInitialCount: Math.max(0, state.totalInitialCount - hiddenRemovedCount),
+    cardStates,
+    surveillanceSatelliteSetup: {
+      configured: true,
+      candidateCardIds,
+      includedCardIds,
+      hiddenRemovedCount
+    }
+  };
+
+  return {
+    ...nextState,
+    piles: rebuildPilesPreservingSurveillanceSatellites(nextState)
   };
 }
 

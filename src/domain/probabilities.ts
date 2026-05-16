@@ -19,6 +19,7 @@ export interface CityProbability {
 export interface PlayerDeckComposition {
   remainingCities: number;
   remainingEvents: number;
+  remainingSurveillanceSatellites: number;
   remainingEventCardIds: string[];
   remainingByRegion: Record<Region, number>;
   remainingByAffiliation: Record<Affiliation, number>;
@@ -137,6 +138,7 @@ export function calculatePlayerDeckComposition(
   const remainingEventCardIds: string[] = [];
   let remainingCities = 0;
   let remainingEvents = 0;
+  let remainingSurveillanceSatellites = 0;
   let discardCount = 0;
   let removedCount = 0;
 
@@ -150,6 +152,8 @@ export function calculatePlayerDeckComposition(
       } else if (eventIds.has(cardState.cardId)) {
         remainingEvents += 1;
         remainingEventCardIds.push(cardState.cardId);
+      } else if (state.surveillanceSatelliteSetup?.candidateCardIds.includes(cardState.cardId)) {
+        remainingSurveillanceSatellites += 1;
       }
     }
     if (cardState.zone === 'player-hand' && cardState.ownerPlayerId) {
@@ -158,6 +162,8 @@ export function calculatePlayerDeckComposition(
     if (cardState.zone === 'player-discard') discardCount += 1;
     if (cardState.zone === 'player-removed') removedCount += 1;
   });
+
+  remainingSurveillanceSatellites = Math.max(0, remainingSurveillanceSatellites - (state.surveillanceSatelliteSetup?.hiddenRemovedCount ?? 0));
 
   const unidentifiedTargetCities = state.unidentifiedTargetCities ?? (state.unidentifiedTargetCity ? [state.unidentifiedTargetCity] : []);
   for (const unidentifiedTargetCity of unidentifiedTargetCities) {
@@ -172,5 +178,5 @@ export function calculatePlayerDeckComposition(
     }
   }
 
-  return { remainingCities, remainingEvents, remainingEventCardIds, remainingByRegion, remainingByAffiliation, handByPlayer, discardCount, removedCount };
+  return { remainingCities, remainingEvents, remainingSurveillanceSatellites, remainingEventCardIds, remainingByRegion, remainingByAffiliation, handByPlayer, discardCount, removedCount };
 }

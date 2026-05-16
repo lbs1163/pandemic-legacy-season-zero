@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cityCards } from '../data/cards/cities';
+import { getSurveillanceSatelliteCardIdForRegion, surveillanceSatelliteCards, surveillanceSatelliteRegionNames } from '../data/cards/surveillanceSatellites';
 import { threatCards } from '../data/cards/threats';
 import { monthLabels } from '../data/campaign/months';
 import { clampFundingLevel, getCampaignMonthSetupDefaults, getDefaultAvailableEventCardsForMonth, getRequiredEventCardCountForFunding, isCampaignMonthSetupComplete } from '../domain/campaignProgress';
 import type { Affiliation, LanguageCode, Region } from '../types/cards';
 import type { CampaignState, CharacterProfile, PlayerProfile } from '../types/campaign';
-import type { StartingHandAssignment, UnidentifiedTargetCityFilter, UnidentifiedTargetCitySelection } from '../types/deck';
+import type { StartingHandAssignment, SurveillanceSatelliteSelection, UnidentifiedTargetCityFilter, UnidentifiedTargetCitySelection } from '../types/deck';
 import { InitialThreatSetupEditor } from './InitialThreatSetupEditor';
 import { StartingHandAssignmentEditor } from './StartingHandAssignmentEditor';
 import { SearchableSelect } from './SearchableSelect';
@@ -19,7 +20,7 @@ interface Props {
   campaign: CampaignState;
   language: LanguageCode;
   onOpenChange: (open: boolean) => void;
-  onSetup: (input: { players: PlayerProfile[]; characters: CharacterProfile[]; startingHands: StartingHandAssignment[]; selectedEventCardIds: string[]; fundingLevel: number; unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[]; initialThreatCardIds: string[] }) => void;
+  onSetup: (input: { players: PlayerProfile[]; characters: CharacterProfile[]; startingHands: StartingHandAssignment[]; selectedEventCardIds: string[]; fundingLevel: number; unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[]; surveillanceSatelliteSelection?: SurveillanceSatelliteSelection; initialThreatCardIds: string[] }) => void;
 }
 
 interface EditableUnidentifiedSetup {
@@ -90,8 +91,6 @@ function candidatesFor(filter: UnidentifiedTargetCityFilter) {
   return cityCards.filter((city) => filter.value.includes(city.id));
 }
 
-const totalSteps = 5;
-
 export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, onSetup }: Props) {
   const defaults = getCampaignMonthSetupDefaults(campaign);
   const isPrologue = campaign.progress.currentMonth === 'prologue';
@@ -100,8 +99,12 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     ? (language === 'ko' ? '현재 월 다시 시작' : 'Restart current month')
     : (language === 'ko' ? '현재 월 게임 준비' : 'Set up current month game');
   const defaultSetups = defaults.unidentifiedTargetCities ?? (defaults.unidentifiedTargetCity ? [defaults.unidentifiedTargetCity] : []);
+  const defaultSurveillanceSatelliteCardIds = (defaults.surveillanceSatelliteRegions ?? []).map(getSurveillanceSatelliteCardIdForRegion);
+  const hasSurveillanceSatelliteSetup = defaultSurveillanceSatelliteCardIds.length > 0;
+  const totalSteps = hasSurveillanceSatelliteSetup ? 6 : 5;
   const [step, setStep] = useState(0);
   const [unidentifiedSetups, setUnidentifiedSetups] = useState<EditableUnidentifiedSetup[]>([]);
+  const [selectedSurveillanceSatelliteCardIds, setSelectedSurveillanceSatelliteCardIds] = useState<string[]>([]);
   const [initialThreatCardIds, setInitialThreatCardIds] = useState<string[]>([]);
   const [startingHands, setStartingHands] = useState<StartingHandAssignment[]>([]);
   const [selectedEventCardIds, setSelectedEventCardIds] = useState<string[]>([]);
@@ -141,13 +144,23 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
   const selectedPrologueIdentities = players.map((player) => characterNames[player.id]).filter(Boolean);
   const validCharacters = !isPrologue || (selectedPrologueIdentities.length === players.length && new Set(selectedPrologueIdentities).size === selectedPrologueIdentities.length);
   const validEventSelection = selectedEventCardIds.length === requiredEventCount;
+  const validSurveillanceSatelliteSelection = !hasSurveillanceSatelliteSetup || (
+    selectedSurveillanceSatelliteCardIds.length > 0
+    && selectedSurveillanceSatelliteCardIds.length <= surveillanceSatelliteCards.length
+    && selectedSurveillanceSatelliteCardIds.length === new Set(selectedSurveillanceSatelliteCardIds).size
+  );
+  const surveillanceSatelliteStep = hasSurveillanceSatelliteSetup ? 3 : -1;
+  const initialThreatStep = hasSurveillanceSatelliteSetup ? 4 : 3;
+  const startingHandStep = hasSurveillanceSatelliteSetup ? 5 : 4;
   const canContinue = step === 0
     ? validPlayers && validCharacters
     : step === 1
       ? validEventSelection
       : step === 2
         ? validUnidentifiedSetups
-        : step === 3
+        : step === surveillanceSatelliteStep
+          ? validSurveillanceSatelliteSelection
+          : step === initialThreatStep
           ? initialThreatCardIds.length === 9
           : startingHands.length === requiredTotal;
 
@@ -162,6 +175,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
       return [player.id, isPrologue ? character?.roleName ?? prologueTemporaryIdentities[index] ?? prologueTemporaryIdentities[0] : character?.name ?? ''];
     })));
     setUnidentifiedSetups(defaultSetups.length ? defaultSetups.map(editableSetupFromSelection) : [editableSetupFromSelection()]);
+    setSelectedSurveillanceSatelliteCardIds(defaultSurveillanceSatelliteCardIds);
     setInitialThreatCardIds([]);
     setStartingHands([]);
     setFundingLevel(campaign.progress.fundingLevel);
@@ -219,8 +233,22 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
     });
   };
 
+  const toggleSurveillanceSatelliteSelection = (cardId: string) => {
+    setSelectedSurveillanceSatelliteCardIds((current) => {
+      const next = current.includes(cardId)
+        ? current.filter((selectedId) => selectedId !== cardId)
+        : [...current, cardId];
+      setStartingHands([]);
+      return next;
+    });
+  };
+
   const finish = () => {
     const trimmedPlayers = players.map((player, index) => ({ ...player, id: `p${index + 1}`, name: player.name.trim() || defaultPlayerName(language, index) }));
+    const surveillanceSatelliteSelection = hasSurveillanceSatelliteSetup ? {
+      candidateCardIds: selectedSurveillanceSatelliteCardIds,
+      hiddenRemovedCount: selectedSurveillanceSatelliteCardIds.length === 6 ? 1 : 0
+    } : undefined;
     onSetup({
       players: trimmedPlayers,
       characters: makeCharacters(trimmedPlayers, characterNames, isPrologue),
@@ -228,6 +256,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
       selectedEventCardIds,
       fundingLevel,
       unidentifiedTargetCitySelections: activeSelections.length ? activeSelections : undefined,
+      surveillanceSatelliteSelection,
       initialThreatCardIds
     });
     onOpenChange(false);
@@ -356,8 +385,35 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
           </div>
           {changedDefault ? <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">{defaultSetups[0]?.warningWhenChanged[language]}</p> : null}
         </section> : null}
-        {step === 3 ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{initialThreatCardIds.length}/9</p><InitialThreatSetupEditor selectedCardIds={initialThreatCardIds} cityCards={cityCards} threatCards={threatCards} language={language} onChange={setInitialThreatCardIds} /></section> : null}
-        {step === 4 ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p><StartingHandAssignmentEditor players={players} requiredPerPlayer={requiredPerPlayer} selectedAssignments={startingHands} cityCards={cityCards} eventCards={selectedEventCards} excludedCardIds={revealedRemovedCardIds} language={language} onChange={setStartingHands} /></section> : null}
+        {step === surveillanceSatelliteStep ? <section className="space-y-4">
+          <div>
+            <h3 className="font-semibold">{language === 'ko' ? '감시위성 카드 준비' : 'Surveillance Satellite setup'}</h3>
+            <p className="text-sm text-muted-foreground">
+              {language === 'ko'
+                ? '관제소가 존재하는 대륙의 감시위성 카드를 가져옵니다. 기본값은 6월까지 생성된 유럽, 남아메리카, 아시아 관제소입니다. 선택한 카드는 맨 오른쪽 더미부터 1장씩 섞입니다.'
+                : 'Take the Surveillance Satellite cards for continents with control centers. The default is Europe, South America, and Asia from the control centers created through June. Selected cards are shuffled into piles from the rightmost pile first.'}
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {surveillanceSatelliteCards.map((card) => {
+              const selected = selectedSurveillanceSatelliteCardIds.includes(card.id);
+              return <label key={card.id} className="flex gap-3 rounded-lg border p-3 text-sm">
+                <input type="checkbox" checked={selected} onChange={() => toggleSurveillanceSatelliteSelection(card.id)} />
+                <span className="space-y-1">
+                  <span className="block font-semibold">{card.name[language]}</span>
+                  <span className="block text-muted-foreground">{surveillanceSatelliteRegionNames[card.region][language]}</span>
+                </span>
+              </label>;
+            })}
+          </div>
+          <p className={`text-sm ${validSurveillanceSatelliteSelection ? 'text-muted-foreground' : 'text-destructive'}`}>
+            {language === 'ko'
+              ? `${selectedSurveillanceSatelliteCardIds.length}장 선택됨${selectedSurveillanceSatelliteCardIds.length === 6 ? ' · 1장은 앞면을 보지 않고 창고로 되돌립니다.' : ''}`
+              : `${selectedSurveillanceSatelliteCardIds.length} selected${selectedSurveillanceSatelliteCardIds.length === 6 ? ' · 1 is returned to the depot face down.' : ''}`}
+          </p>
+        </section> : null}
+        {step === initialThreatStep ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{initialThreatCardIds.length}/9</p><InitialThreatSetupEditor selectedCardIds={initialThreatCardIds} cityCards={cityCards} threatCards={threatCards} language={language} onChange={setInitialThreatCardIds} /></section> : null}
+        {step === startingHandStep ? <section className="space-y-3"><p className="text-sm text-muted-foreground">{startingHands.length}/{requiredTotal}</p><StartingHandAssignmentEditor players={players} requiredPerPlayer={requiredPerPlayer} selectedAssignments={startingHands} cityCards={cityCards} eventCards={selectedEventCards} excludedCardIds={revealedRemovedCardIds} language={language} onChange={setStartingHands} /></section> : null}
         <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => step === 0 ? onOpenChange(false) : setStep((current) => current - 1)}>{step === 0 ? (language === 'ko' ? '취소' : 'Cancel') : (language === 'ko' ? '이전' : 'Back')}</Button><Button disabled={!canContinue} onClick={() => step === totalSteps - 1 ? finish() : setStep((current) => current + 1)}>{step === totalSteps - 1 ? (language === 'ko' ? '적용' : 'Apply setup') : (language === 'ko' ? '다음' : 'Next')}</Button></div>
       </DialogContent>
     </Dialog>

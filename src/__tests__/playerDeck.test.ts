@@ -6,6 +6,7 @@ import {
   getPlayerDeckRemaining,
   getUnidentifiedTargetCityCandidates,
   prepareUnidentifiedTargetCities,
+  prepareSurveillanceSatellites,
   prepareUnidentifiedTargetCity,
   recordPlayerCardDraw,
   resolveEscalationDraw
@@ -329,6 +330,79 @@ describe('player deck domain', () => {
     expect(next.unidentifiedTargetCities?.[0].candidateCardIds).toHaveLength(6);
     expect(next.unidentifiedTargetCities?.[1].candidateCardIds).toHaveLength(4);
     expect(getPlayerDeckRemaining(next)).toBe(beforeRemaining - 4);
+  });
+
+  it('adds surveillance satellites to piles from the rightmost pile first', () => {
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [
+        ...Array.from({ length: 20 }, (_, index) => `card-${index + 1}`),
+        'surveillance-satellite-europe',
+        'surveillance-satellite-south-america',
+        'surveillance-satellite-asia'
+      ],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+
+    const next = prepareSurveillanceSatellites(state, {
+      candidateCardIds: [
+        'surveillance-satellite-europe',
+        'surveillance-satellite-south-america',
+        'surveillance-satellite-asia'
+      ]
+    });
+
+    expect(next.surveillanceSatelliteSetup).toMatchObject({
+      configured: true,
+      includedCardIds: [
+        'surveillance-satellite-europe',
+        'surveillance-satellite-south-america',
+        'surveillance-satellite-asia'
+      ],
+      hiddenRemovedCount: 0
+    });
+    expect(next.piles.map((pile) => pile.initialUnknownCount)).toEqual([5, 5, 6, 6, 6]);
+  });
+
+  it('tracks one hidden returned surveillance satellite when all six are candidates', () => {
+    const satelliteIds = [
+      'surveillance-satellite-asia',
+      'surveillance-satellite-south-america',
+      'surveillance-satellite-pacific',
+      'surveillance-satellite-africa',
+      'surveillance-satellite-north-america',
+      'surveillance-satellite-europe'
+    ];
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [...Array.from({ length: 20 }, (_, index) => `six-card-${index + 1}`), ...satelliteIds],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+
+    const next = prepareSurveillanceSatellites(state, { candidateCardIds: satelliteIds });
+
+    expect(next.surveillanceSatelliteSetup?.hiddenRemovedCount).toBe(1);
+    expect(next.surveillanceSatelliteSetup?.includedCardIds).toHaveLength(5);
+    expect(next.piles.map((pile) => pile.initialUnknownCount)).toEqual([5, 6, 6, 6, 6]);
+  });
+
+  it('rejects surveillance satellites in starting hands', () => {
+    const state = createInitialPlayerDeckState({
+      playerCardIds: [
+        ...Array.from({ length: 20 }, (_, index) => `satellite-hand-${index + 1}`),
+        'surveillance-satellite-europe'
+      ],
+      playerCount: 2,
+      escalationCardIds: ['e1', 'e2', 'e3', 'e4', 'e5']
+    });
+    const prepared = prepareSurveillanceSatellites(state, {
+      candidateCardIds: ['surveillance-satellite-europe']
+    });
+
+    expect(() => configureStartingHands(prepared, [
+      { cardId: 'surveillance-satellite-europe', playerId: 'p1' },
+      ...Array.from({ length: 7 }, (_, index) => ({ cardId: `satellite-hand-${index + 1}`, playerId: index < 3 ? 'p1' : 'p2' }))
+    ])).toThrow(/Surveillance Satellite cards cannot be in starting hands/);
   });
 
   it('rejects unidentified target city hidden removal counts above available candidates', () => {

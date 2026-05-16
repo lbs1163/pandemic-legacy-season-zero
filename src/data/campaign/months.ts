@@ -1,5 +1,6 @@
 import type { CampaignMonthId } from '../../types/campaign';
 import type { MonthSetupDefaults } from '../../types/campaignSetup';
+import type { Region } from '../../types/cards';
 
 export const campaignMonths: CampaignMonthId[] = [
   'prologue',
@@ -121,6 +122,8 @@ const julyEventCardIds = [
   'event-test-vaccine'
 ];
 
+export const defaultSurveillanceSatelliteRegions: Region[] = ['europe', 'south-america', 'asia'];
+
 export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   prologue: {
     month: 'prologue',
@@ -211,26 +214,38 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   },
   july: {
     ...placeholderDefaults('july'),
-    eventCardIdsAvailable: julyEventCardIds
+    eventCardIdsAvailable: julyEventCardIds,
+    surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
+    legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   august: {
     ...placeholderDefaults('august'),
-    eventCardIdsAvailable: julyEventCardIds
+    eventCardIdsAvailable: julyEventCardIds,
+    surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
+    legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   september: {
     ...placeholderDefaults('september'),
-    eventCardIdsAvailable: julyEventCardIds
+    eventCardIdsAvailable: julyEventCardIds,
+    surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
+    legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   october: {
     ...placeholderDefaults('october'),
-    eventCardIdsAvailable: julyEventCardIds
+    eventCardIdsAvailable: julyEventCardIds,
+    surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
+    legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   november: {
     ...placeholderDefaults('november'),
-    eventCardIdsAvailable: julyEventCardIds
+    eventCardIdsAvailable: julyEventCardIds,
+    surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
+    legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   december: {
     ...placeholderDefaults('december'),
-    eventCardIdsAvailable: julyEventCardIds
+    eventCardIdsAvailable: julyEventCardIds,
+    surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
+    legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   }
 };

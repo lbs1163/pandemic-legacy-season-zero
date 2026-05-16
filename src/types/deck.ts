@@ -36,6 +36,13 @@ export interface StartingHandState {
   configured: boolean;
 }
 
+export interface SurveillanceSatelliteSetup {
+  configured: boolean;
+  candidateCardIds: string[];
+  includedCardIds: string[];
+  hiddenRemovedCount: number;
+}
+
 export type UnidentifiedTargetCityFilter =
   | { type: 'region'; value: Region }
   | { type: 'affiliation'; value: Affiliation }
@@ -57,6 +64,7 @@ export interface PlayerDeckState {
   cardStates: Record<string, CardInstanceState>;
   currentPileIndex: number;
   startingHand: StartingHandState;
+  surveillanceSatelliteSetup?: SurveillanceSatelliteSetup;
   unidentifiedTargetCities?: UnidentifiedTargetCitySetup[];
   /** @deprecated Use unidentifiedTargetCities instead. Kept for persisted state compatibility. */
   unidentifiedTargetCity?: UnidentifiedTargetCitySetup;
@@ -92,5 +100,10 @@ export interface UnidentifiedTargetCitySelection {
 }
 
 export type UnidentifiedTargetCitySelections = UnidentifiedTargetCitySelection[];
+
+export interface SurveillanceSatelliteSelection {
+  candidateCardIds: string[];
+  hiddenRemovedCount?: number;
+}
 
 export type PlayerCardDestination = 'player-hand' | 'player-discard' | 'player-removed';

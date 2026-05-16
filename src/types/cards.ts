@@ -1,7 +1,7 @@
 import type { CampaignMonthId } from './campaign';
 
 export type LanguageCode = 'en' | 'ko';
-export type CardKind = 'city' | 'event' | 'escalation' | 'threat';
+export type CardKind = 'city' | 'event' | 'escalation' | 'threat' | 'surveillance-satellite';
 export type Affiliation = 'allied' | 'neutral' | 'soviet';
 export type Region = 'north-america' | 'south-america' | 'europe' | 'africa' | 'asia' | 'pacific';
 
@@ -47,6 +47,11 @@ export interface EscalationCard extends BaseCard {
   escalationNumber: number;
 }
 
+export interface SurveillanceSatelliteCard extends BaseCard {
+  kind: 'surveillance-satellite';
+  region: Region;
+}
+
 export type ThreatCardType = 'threat' | 'infection';
 
 export interface ThreatCard extends BaseCard {
@@ -56,4 +61,4 @@ export interface ThreatCard extends BaseCard {
   incidentEffect?: LocalizedText;
 }
 
-export type PlayerCard = CityCard | EventCard | EscalationCard;
+export type PlayerCard = CityCard | EventCard | EscalationCard | SurveillanceSatelliteCard;

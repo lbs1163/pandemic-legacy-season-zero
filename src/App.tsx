@@ -22,7 +22,7 @@ import { createEmptyEnvelope, loadLocalCache, saveLocalCache } from './services/
 import { pollGitHubDeviceFlowUntilComplete, startGitHubDeviceFlow } from './services/githubAuth';
 import type { LanguageCode } from './types/cards';
 import type { CharacterProfile, MissionResult, PlayerProfile } from './types/campaign';
-import type { StartingHandAssignment, UnidentifiedTargetCitySelection } from './types/deck';
+import type { StartingHandAssignment, SurveillanceSatelliteSelection, UnidentifiedTargetCitySelection } from './types/deck';
 import type { AuthState, DeviceFlowUiState, GistSyncMetadata, PersistedEnvelope } from './types/sync';
 import { Alert } from './components/ui/alert';
 import { Button } from './components/ui/button';
@@ -194,6 +194,7 @@ export function App() {
     selectedEventCardIds: string[];
     fundingLevel: number;
     unidentifiedTargetCitySelections?: UnidentifiedTargetCitySelection[];
+    surveillanceSatelliteSelection?: SurveillanceSatelliteSelection;
     /** @deprecated Use unidentifiedTargetCitySelection instead. */
     unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
     initialThreatCardIds: string[];
@@ -208,6 +209,7 @@ export function App() {
         selectedEventCardIds: input.selectedEventCardIds,
         fundingLevel,
         unidentifiedTargetCitySelections: input.unidentifiedTargetCitySelections,
+        surveillanceSatelliteSelection: input.surveillanceSatelliteSelection,
         unidentifiedTargetCitySelection: input.unidentifiedTargetCitySelection,
         initialThreatCardIds: input.initialThreatCardIds
       });

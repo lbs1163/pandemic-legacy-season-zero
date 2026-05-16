@@ -1,5 +1,6 @@
 import { eventCards } from '../data/cards/events';
 import { escalationCards } from '../data/cards/escalations';
+import { getSurveillanceSatelliteCardIdForRegion } from '../data/cards/surveillanceSatellites';
 import { getInfectionCardIdForCity, threatCards } from '../data/cards/threats';
 import { cityCards } from '../data/cards/cities';
 import { campaignMonths, maySecondAttemptMission3A, monthSetupDefaults } from '../data/campaign/months';
@@ -12,9 +13,9 @@ import type {
   PerformanceRating,
   PlayerProfile
 } from '../types/campaign';
-import type { StartingHandAssignment, UnidentifiedTargetCitySelection } from '../types/deck';
+import type { StartingHandAssignment, SurveillanceSatelliteSelection, UnidentifiedTargetCitySelection } from '../types/deck';
 import type { MonthSetupDefaults } from '../types/campaignSetup';
-import { createInitialPlayerDeckState, configureStartingHands, prepareUnidentifiedTargetCities } from './playerDeck';
+import { createInitialPlayerDeckState, configureStartingHands, prepareSurveillanceSatellites, prepareUnidentifiedTargetCities } from './playerDeck';
 import { addThreatCardsToDiscard, createInitialThreatDeckState, recordInitialThreatSetup } from './threatDeck';
 
 const secretFile14Warning = 'Funding would exceed 10. Secret File 14 may be required, but this app does not reveal or implement it yet.';
@@ -131,6 +132,15 @@ export function selectEventCardsForMonth(
   });
 }
 
+export function getDefaultSurveillanceSatelliteSelectionForMonth(month: CampaignMonthId): SurveillanceSatelliteSelection | undefined {
+  const regions = getMonthSetupDefaults(month).surveillanceSatelliteRegions;
+  if (!regions?.length) return undefined;
+  return {
+    candidateCardIds: regions.map(getSurveillanceSatelliteCardIdForRegion),
+    hiddenRemovedCount: regions.length === 6 ? 1 : 0
+  };
+}
+
 export function isCampaignMonthSetupComplete(campaign: CampaignState): boolean {
   const threatSetupHasBeenRecorded =
     campaign.threatDeck.discardCardIds.length > 0 ||
@@ -149,6 +159,7 @@ export function createGameDecksForMonth(input: {
   unidentifiedTargetCitySelection?: UnidentifiedTargetCitySelection;
   initialThreatCardIds: string[];
   selectedEventCardIds?: string[];
+  surveillanceSatelliteSelection?: SurveillanceSatelliteSelection;
   fundingLevel?: number;
   now?: string;
 }): Pick<CampaignState, 'playerDeck' | 'threatDeck' | 'turnFlow'> {
@@ -156,16 +167,24 @@ export function createGameDecksForMonth(input: {
   const now = input.now ?? new Date().toISOString();
   const fundingLevel = clampFundingLevel(input.fundingLevel ?? input.campaign.progress.fundingLevel);
   const selectedEvents = selectEventCardsForMonth(eventCards, month, input.selectedEventCardIds, fundingLevel);
+  const surveillanceSatelliteSelection = input.surveillanceSatelliteSelection ?? getDefaultSurveillanceSatelliteSelectionForMonth(month);
   const initialPlayerDeck = createInitialPlayerDeckState({
-    playerCardIds: [...cityCards.map((card) => card.id), ...selectedEvents.map((card) => card.id)],
+    playerCardIds: [
+      ...cityCards.map((card) => card.id),
+      ...selectedEvents.map((card) => card.id),
+      ...(surveillanceSatelliteSelection?.candidateCardIds ?? [])
+    ],
     playerCount: input.players.length,
     escalationCardIds: escalationCards.map((card) => card.id),
     now
   });
+  const withSurveillanceSatellites = surveillanceSatelliteSelection
+    ? prepareSurveillanceSatellites(initialPlayerDeck, surveillanceSatelliteSelection)
+    : initialPlayerDeck;
   const selections = input.unidentifiedTargetCitySelections ?? (input.unidentifiedTargetCitySelection ? [input.unidentifiedTargetCitySelection] : []);
   const withUnidentifiedTarget = selections.length > 0
-    ? prepareUnidentifiedTargetCities(initialPlayerDeck, cityCards, selections)
-    : initialPlayerDeck;
+    ? prepareUnidentifiedTargetCities(withSurveillanceSatellites, cityCards, selections)
+    : withSurveillanceSatellites;
 
   const initialThreatDeck = recordInitialThreatSetup(createInitialThreatDeckState(threatCards.map((card) => card.id), now), input.initialThreatCardIds);
   const infectionCardIds = input.campaign.progress.infectionCardIds ?? [];
@@ -186,11 +205,16 @@ function createUnconfiguredDecksForMonth(input: {
   now: string;
 }): Pick<CampaignState, 'playerDeck' | 'threatDeck' | 'turnFlow'> {
   const availableEvents = getDefaultAvailableEventCardsForMonth(input.month);
+  const surveillanceSatelliteSelection = getDefaultSurveillanceSatelliteSelectionForMonth(input.month);
   const playerCount = Math.min(4, Math.max(2, input.players.length || 2));
 
   return {
     playerDeck: createInitialPlayerDeckState({
-      playerCardIds: [...cityCards.map((card) => card.id), ...availableEvents.map((card) => card.id)],
+      playerCardIds: [
+        ...cityCards.map((card) => card.id),
+        ...availableEvents.map((card) => card.id),
+        ...(surveillanceSatelliteSelection?.candidateCardIds ?? [])
+      ],
       playerCount,
       escalationCardIds: escalationCards.map((card) => card.id),
       now: input.now

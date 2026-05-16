@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { escalationCards } from '../data/cards/escalations';
 import { getThreatLevel } from '../domain/threatDeck';
 import type { CampaignState } from '../types/campaign';
-import type { CityCard, EventCard, LanguageCode, ThreatCard } from '../types/cards';
+import type { CityCard, EventCard, LanguageCode, SurveillanceSatelliteCard, ThreatCard } from '../types/cards';
 import type { PlayerDrawSelection } from '../domain/turnFlow';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -14,6 +14,7 @@ interface Props {
   language: LanguageCode;
   cityCards: CityCard[];
   eventCards: EventCard[];
+  surveillanceSatelliteCards: SurveillanceSatelliteCard[];
   threatCards: ThreatCard[];
   onCompletePlayerDraw: (selections: PlayerDrawSelection[]) => void;
   onCompleteThreatDraw: (cardIds: string[]) => void;
@@ -31,7 +32,7 @@ const emptyPlayerDrawSlots = (): PlayerDrawSlotState[] => [
   { cardId: '', bottomThreatCardId: '' }
 ];
 
-export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threatCards, onCompletePlayerDraw, onCompleteThreatDraw, onRecordIncidentBottomThreatDraw, onApplyEventEffect }: Props) {
+export function TurnFlowPanel({ campaign, language, cityCards, eventCards, surveillanceSatelliteCards, threatCards, onCompletePlayerDraw, onCompleteThreatDraw, onRecordIncidentBottomThreatDraw, onApplyEventEffect }: Props) {
   const step = campaign.turnFlow?.step ?? 'player-draw';
   const turnNumber = campaign.turnFlow?.turnNumber ?? 1;
   const [playerSlots, setPlayerSlots] = useState<PlayerDrawSlotState[]>(emptyPlayerDrawSlots);
@@ -50,18 +51,22 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
   const threatMap = useMemo(() => new Map(threatCards.map((card) => [card.id, card])), [threatCards]);
   const handEventCards = useMemo(() => eventCards.filter((card) => campaign.playerDeck.cardStates[card.id]?.zone === 'player-hand'), [campaign.playerDeck.cardStates, eventCards]);
   const playerOptions = useMemo(() => {
-    const drawablePlayerCards = [...cityCards, ...eventCards]
+    const drawablePlayerCards = [...cityCards, ...eventCards, ...surveillanceSatelliteCards]
       .filter((card) => campaign.playerDeck.cardStates[card.id]?.zone === 'player-deck-unknown')
       .map((card) => ({
         value: card.id,
         label: card.name[language],
-        description: card.kind === 'city' ? (language === 'ko' ? '도시 카드' : 'City card') : (language === 'ko' ? '이벤트 카드' : 'Event card')
+        description: card.kind === 'city'
+          ? (language === 'ko' ? '도시 카드' : 'City card')
+          : card.kind === 'event'
+            ? (language === 'ko' ? '이벤트 카드' : 'Event card')
+            : (language === 'ko' ? '감시위성 카드' : 'Surveillance Satellite card')
       }));
     const drawableEscalations = escalationCards
       .filter((card) => campaign.playerDeck.cardStates[card.id]?.zone === 'player-deck-unknown')
       .map((card) => ({ value: card.id, label: card.name[language], description: language === 'ko' ? '악화 카드' : 'Escalation card' }));
     return [...drawablePlayerCards, ...drawableEscalations];
-  }, [campaign.playerDeck.cardStates, cityCards, eventCards, language]);
+  }, [campaign.playerDeck.cardStates, cityCards, eventCards, language, surveillanceSatelliteCards]);
   const unknownThreatOptions = useMemo(() => threatCards
     .filter((card) => campaign.threatDeck.cardStates[card.id]?.zone === 'threat-deck-unknown')
     .map((card) => ({
@@ -196,7 +201,7 @@ export function TurnFlowPanel({ campaign, language, cityCards, eventCards, threa
                       options={availableBottomThreatOptions}
                       onChange={(bottomThreatCardId) => updatePlayerSlot(index, { bottomThreatCardId })}
                     />
-                  ) : <span className="self-center text-sm text-muted-foreground">{language === 'ko' ? '도시/이벤트는 손패로 기록됩니다.' : 'City/Event cards are recorded to hand.'}</span>}
+                  ) : <span className="self-center text-sm text-muted-foreground">{language === 'ko' ? '도시/이벤트/감시위성은 손패로 기록됩니다.' : 'City/Event/Surveillance Satellite cards are recorded to hand.'}</span>}
                 </div>
               );
             })}

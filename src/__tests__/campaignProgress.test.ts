@@ -9,11 +9,13 @@ import {
   createGameDecksForMonth,
   getCampaignMonthSetupDefaults,
   getAvailableEventCardsForMonth,
+  getDefaultSurveillanceSatelliteSelectionForMonth,
   getMonthSetupDefaults,
   isCampaignMonthSetupComplete
 } from '../domain/campaignProgress';
 import { cityCards } from '../data/cards/cities';
 import { eventCards } from '../data/cards/events';
+import { surveillanceSatelliteCards } from '../data/cards/surveillanceSatellites';
 import { getInfectionCardIdForCity, threatCards } from '../data/cards/threats';
 import type { MissionResult, PerformanceRating } from '../types/campaign';
 
@@ -379,9 +381,65 @@ describe('campaign progress domain', () => {
     expect(getMonthSetupDefaults('july').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-test-vaccine'
     ]));
+    expect(getMonthSetupDefaults('july').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
+    expect(getMonthSetupDefaults('july').legacyCardIdsApplied).toContain('legacy-surveillance-satellite-cards');
     expect(getMonthSetupDefaults('december').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-test-vaccine'
     ]));
+    expect(getMonthSetupDefaults('december').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
+  });
+
+  it('creates July decks with default Surveillance Satellite cards in the rightmost piles', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'July satellites',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const julyCampaign = {
+      ...campaign,
+      currentMonth: 'july' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'july' as const,
+        fundingLevel: 4
+      }
+    };
+    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'july').slice(0, 4).map((card) => card.id);
+    const startingHands = [
+      ...cityCards.slice(0, 4).map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign: julyCampaign,
+      players: julyCampaign.players,
+      startingHands,
+      selectedEventCardIds,
+      fundingLevel: 4,
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    expect(getDefaultSurveillanceSatelliteSelectionForMonth('july')).toEqual({
+      candidateCardIds: [
+        'surveillance-satellite-europe',
+        'surveillance-satellite-south-america',
+        'surveillance-satellite-asia'
+      ],
+      hiddenRemovedCount: 0
+    });
+    expect(decks.playerDeck.surveillanceSatelliteSetup).toMatchObject({
+      configured: true,
+      candidateCardIds: [
+        'surveillance-satellite-europe',
+        'surveillance-satellite-south-america',
+        'surveillance-satellite-asia'
+      ],
+      hiddenRemovedCount: 0
+    });
+    expect(decks.playerDeck.piles.slice(2).every((pile) => pile.initialUnknownCount > decks.playerDeck.piles[0].initialUnknownCount)).toBe(true);
+    expect(decks.playerDeck.cardStates['surveillance-satellite-europe'].zone).toBe('player-deck-unknown');
+    expect(surveillanceSatelliteCards.find((card) => card.id === 'surveillance-satellite-europe')?.name.ko).toBe('유럽 상공으로 감시위성 발사');
   });
 
   it('creates February decks with revealed Soviet test cards removed from the player deck', () => {
