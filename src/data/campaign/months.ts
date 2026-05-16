@@ -213,7 +213,41 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
     legacyCardIdsApplied: []
   },
   july: {
-    ...placeholderDefaults('july'),
+    month: 'july',
+    name: monthLabels.july,
+    missions: [
+      {
+        ...mission('july', 1, 'Stop the defector from leaking secrets', '기밀을 빼돌리려는 망명자 저지'),
+        description: {
+          en: 'This mission does not affect the deck counter.',
+          ko: '이 임무는 덱 카운터와 무관합니다.'
+        }
+      },
+      {
+        ...mission('july', 2, 'Stop Sabik from taking revenge on Soviet officers', '소련 장교들에게 복수하려는 사빅 저지'),
+        description: {
+          en: 'Acquire targets in Warsaw and Madrid at the same time.',
+          ko: '바르샤바, 마드리드 2곳에서 동시에 표적을 확보합니다.'
+        }
+      },
+      {
+        ...mission('july', 3, 'Wiretap the control center', '관제소 도청'),
+        description: {
+          en: 'Acquire a target in 1 unidentified city in Africa.',
+          ko: '아프리카 내 미식별 도시 1곳에서 표적을 확보합니다.'
+        }
+      }
+    ],
+    unidentifiedTargetCities: [
+      {
+        enabled: true,
+        filter: { type: 'city-ids', value: ['warsaw', 'madrid'] },
+        hiddenRemovedCount: 0,
+        revealedRemovedCount: 2,
+        warningWhenChanged: defaultSetupWarning
+      },
+      hiddenRegionSetup('africa', 1)
+    ],
     eventCardIdsAvailable: julyEventCardIds,
     surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']

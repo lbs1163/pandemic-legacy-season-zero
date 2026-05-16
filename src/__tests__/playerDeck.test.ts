@@ -383,7 +383,7 @@ describe('player deck domain', () => {
 
     expect(next.surveillanceSatelliteSetup?.hiddenRemovedCount).toBe(1);
     expect(next.surveillanceSatelliteSetup?.includedCardIds).toHaveLength(5);
-    expect(next.piles.map((pile) => pile.initialUnknownCount)).toEqual([5, 6, 6, 6, 6]);
+    expect(next.piles.map((pile) => pile.initialUnknownCount)).toEqual([6, 6, 6, 6, 5]);
   });
 
   it('rejects surveillance satellites in starting hands', () => {

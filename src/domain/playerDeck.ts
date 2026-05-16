@@ -93,11 +93,12 @@ function rebuildPilesPreservingSurveillanceSatellites(state: PlayerDeckState, hi
   const escalationCardIds = getEscalationCardIds(state);
   const satelliteSetup = getConfiguredSurveillanceSatelliteSetup(state);
   const candidateSatelliteCardIds = new Set(satelliteSetup?.candidateCardIds ?? []);
+  const hiddenReturnedSatelliteCount = satelliteSetup?.hiddenRemovedCount ?? 0;
   const nonEscalationDeckCount = Object.values(state.cardStates).filter(
     (cardState) => cardState.zone === 'player-deck-unknown' && !escalationCardIds.includes(cardState.cardId) && !candidateSatelliteCardIds.has(cardState.cardId)
   ).length;
   return buildPilesWithAdditions(
-    Math.max(0, nonEscalationDeckCount - hiddenRemovedCount),
+    Math.max(0, nonEscalationDeckCount - hiddenRemovedCount - hiddenReturnedSatelliteCount),
     escalationCardIds,
     satelliteSetup?.includedCardIds.length ?? 0
   );

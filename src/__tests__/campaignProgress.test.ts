@@ -437,7 +437,7 @@ describe('campaign progress domain', () => {
       ],
       hiddenRemovedCount: 0
     });
-    expect(decks.playerDeck.piles.slice(2).every((pile) => pile.initialUnknownCount > decks.playerDeck.piles[0].initialUnknownCount)).toBe(true);
+    expect(decks.playerDeck.piles.map((pile) => pile.initialUnknownCount)).toEqual([10, 10, 11, 11, 10]);
     expect(decks.playerDeck.cardStates['surveillance-satellite-europe'].zone).toBe('player-deck-unknown');
     expect(surveillanceSatelliteCards.find((card) => card.id === 'surveillance-satellite-europe')?.name.ko).toBe('유럽 상공으로 감시위성 발사');
   });
@@ -608,6 +608,92 @@ describe('campaign progress domain', () => {
       hiddenRemovedCount: 1,
       revealedRemovedCardIds: []
     });
+  });
+
+  it('defines July missions with Warsaw, Madrid, and hidden Africa target setup', () => {
+    const julyDefaults = getMonthSetupDefaults('july');
+
+    expect(julyDefaults.missions).toHaveLength(3);
+    expect(julyDefaults.missions.map((mission) => mission.id)).toEqual([
+      'july-mission-1',
+      'july-mission-2',
+      'july-mission-3'
+    ]);
+    expect(julyDefaults.missions[0]).toMatchObject({
+      name: { ko: '기밀을 빼돌리려는 망명자 저지' },
+      description: { ko: '이 임무는 덱 카운터와 무관합니다.' }
+    });
+    expect(julyDefaults.missions[1]).toMatchObject({
+      name: { ko: '소련 장교들에게 복수하려는 사빅 저지' },
+      description: { ko: '바르샤바, 마드리드 2곳에서 동시에 표적을 확보합니다.' }
+    });
+    expect(julyDefaults.missions[2]).toMatchObject({
+      name: { ko: '관제소 도청' },
+      description: { ko: '아프리카 내 미식별 도시 1곳에서 표적을 확보합니다.' }
+    });
+    expect(julyDefaults.unidentifiedTargetCities).toMatchObject([
+      {
+        enabled: true,
+        filter: { type: 'city-ids', value: ['warsaw', 'madrid'] },
+        hiddenRemovedCount: 0,
+        revealedRemovedCount: 2
+      },
+      {
+        enabled: true,
+        filter: { type: 'region', value: 'africa' },
+        hiddenRemovedCount: 1
+      }
+    ]);
+  });
+
+  it('creates July decks with Warsaw, Madrid, and one hidden Africa target removed from the player deck', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'July target setup',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const julyCampaign = {
+      ...campaign,
+      progress: { ...campaign.progress, currentMonth: 'july' as const, fundingLevel: 4 },
+      currentMonth: 'july' as const,
+      fundingLevel: 4
+    };
+    const selectedEventCardIds = getAvailableEventCardsForMonth(eventCards, 'july').slice(0, 4).map((card) => card.id);
+    const startingHands = [
+      ...cityCards
+        .filter((card) => !['warsaw', 'madrid'].includes(card.id) && card.region !== 'africa')
+        .slice(0, 4)
+        .map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign: julyCampaign,
+      players: julyCampaign.players,
+      startingHands,
+      selectedEventCardIds,
+      fundingLevel: 4,
+      unidentifiedTargetCitySelections: [
+        { filter: { type: 'city-ids', value: ['warsaw', 'madrid'] }, hiddenRemovedCount: 0, revealedRemovedCardIds: ['warsaw', 'madrid'] },
+        { filter: { type: 'region', value: 'africa' }, hiddenRemovedCount: 1 }
+      ],
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    expect(decks.playerDeck.cardStates.warsaw.zone).toBe('player-removed');
+    expect(decks.playerDeck.cardStates.madrid.zone).toBe('player-removed');
+    expect(decks.playerDeck.unidentifiedTargetCities).toMatchObject([
+      {
+        filter: { type: 'city-ids', value: ['warsaw', 'madrid'] },
+        hiddenRemovedCount: 0,
+        revealedRemovedCardIds: ['warsaw', 'madrid']
+      },
+      {
+        filter: { type: 'region', value: 'africa' },
+        hiddenRemovedCount: 1,
+        revealedRemovedCardIds: []
+      }
+    ]);
   });
 
   it('records the hidden South America control center city after a failed first May attempt', () => {
