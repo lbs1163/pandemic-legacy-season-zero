@@ -92,7 +92,7 @@ function candidatesFor(filter: UnidentifiedTargetCityFilter) {
 }
 
 export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, onSetup }: Props) {
-  const defaults = getCampaignMonthSetupDefaults(campaign);
+  const defaults = useMemo(() => getCampaignMonthSetupDefaults(campaign), [campaign]);
   const isPrologue = campaign.progress.currentMonth === 'prologue';
   const monthSetupComplete = isCampaignMonthSetupComplete(campaign);
   const title = monthSetupComplete
