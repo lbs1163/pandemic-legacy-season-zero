@@ -138,6 +138,11 @@ const julyEventCardIds = [
   'event-spectrum-interference'
 ];
 
+const septemberEventCardIds = [
+  ...julyEventCardIds,
+  'event-codebook'
+];
+
 export const defaultSurveillanceSatelliteRegions: Region[] = ['europe', 'south-america', 'asia'];
 
 export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
@@ -332,19 +337,19 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   },
   october: {
     ...placeholderDefaults('october'),
-    eventCardIdsAvailable: julyEventCardIds,
+    eventCardIdsAvailable: septemberEventCardIds,
     surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   november: {
     ...placeholderDefaults('november'),
-    eventCardIdsAvailable: julyEventCardIds,
+    eventCardIdsAvailable: septemberEventCardIds,
     surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   december: {
     ...placeholderDefaults('december'),
-    eventCardIdsAvailable: julyEventCardIds,
+    eventCardIdsAvailable: septemberEventCardIds,
     surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   }

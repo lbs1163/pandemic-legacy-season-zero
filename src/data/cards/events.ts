@@ -224,5 +224,19 @@ export const eventCards: EventCard[] = [
         ko: '현재 게임판 위에 놓인 감시위성 토큰 최대 2개를 창고에 되돌려 놓습니다.'
       }
     }
+  },
+  {
+    id: 'event-codebook',
+    kind: 'event',
+    initialSet: false,
+    availability: { afterMonthPlayed: 'september' },
+    name: { en: 'Codebook', ko: '암호해독서' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: "Flip 4 guard tokens at the 'Pearl' facility faceup. This does not affect the deck counter.",
+        ko: "'펄' 시설에 있는 경비 토큰 4개를 앞면으로 뒤집습니다. (덱 카운터와 무관함)"
+      }
+    }
   }
 ];

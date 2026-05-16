@@ -298,6 +298,7 @@ describe('campaign progress domain', () => {
     const unauthorizedAction = eventCards.find((eventCard) => eventCard.id === 'event-unauthorized-action');
     const testVaccine = eventCards.find((eventCard) => eventCard.id === 'event-test-vaccine');
     const spectrumInterference = eventCards.find((eventCard) => eventCard.id === 'event-spectrum-interference');
+    const codebook = eventCards.find((eventCard) => eventCard.id === 'event-codebook');
 
     expect(diversion).toMatchObject({
       availability: { afterMonthPlayed: 'march' },
@@ -366,6 +367,17 @@ describe('campaign progress domain', () => {
         description: {
           ko: '현재 게임판 위에 놓인 감시위성 토큰 최대 2개를 창고에 되돌려 놓습니다.',
           en: 'Return up to 2 surveillance satellite tokens currently on the board to the depot.'
+        }
+      }
+    });
+    expect(codebook).toMatchObject({
+      availability: { afterMonthPlayed: 'september' },
+      name: { ko: '암호해독서', en: 'Codebook' },
+      effect: {
+        kind: 'informational',
+        description: {
+          ko: "'펄' 시설에 있는 경비 토큰 4개를 앞면으로 뒤집습니다. (덱 카운터와 무관함)",
+          en: "Flip 4 guard tokens at the 'Pearl' facility faceup. This does not affect the deck counter."
         }
       }
     });
@@ -494,7 +506,8 @@ describe('campaign progress domain', () => {
     expect(getMonthSetupDefaults('september').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
     expect(getMonthSetupDefaults('december').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-test-vaccine',
-      'event-spectrum-interference'
+      'event-spectrum-interference',
+      'event-codebook'
     ]));
     expect(getMonthSetupDefaults('december').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
   });
@@ -967,6 +980,55 @@ describe('campaign progress domain', () => {
       'event-test-vaccine',
       'event-spectrum-interference'
     ]));
+  });
+
+  it('unlocks the September event card after a failed first September attempt and keeps it in October', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'September event unlocks',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const septemberCampaign = {
+      ...campaign,
+      currentMonth: 'september' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'september' as const,
+        currentAttempt: 1,
+        fundingLevel: 4
+      }
+    };
+
+    expect(getDefaultAvailableEventCardsForCampaign(septemberCampaign).map((card) => card.id)).not.toContain('event-codebook');
+
+    const retry = applyGameResult(septemberCampaign, {
+      characters: [],
+      missionResults: [
+        { missionId: 'september-mission-1', succeeded: false },
+        { missionId: 'september-mission-2', succeeded: false },
+        { missionId: 'september-mission-3', succeeded: false }
+      ],
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(retry.progress.currentMonth).toBe('september');
+    expect(retry.progress.currentAttempt).toBe(2);
+    expect(getDefaultAvailableEventCardsForCampaign(retry).map((card) => card.id)).toContain('event-codebook');
+    expect(retry.playerDeck.cardStates['event-codebook']).toBeDefined();
+
+    const october = applyGameResult(retry, {
+      characters: [],
+      missionResults: [
+        { missionId: 'september-mission-1', succeeded: true },
+        { missionId: 'september-mission-2', succeeded: true },
+        { missionId: 'september-mission-3', succeeded: true }
+      ],
+      now: '2026-05-10T00:00:00.000Z'
+    });
+
+    expect(october.progress.currentMonth).toBe('october');
+    expect(getDefaultAvailableEventCardsForCampaign(october).map((card) => card.id)).toContain('event-codebook');
   });
 
   it('records the hidden Africa control center city after a failed first July attempt', () => {
