@@ -300,7 +300,32 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   september: {
-    ...placeholderDefaults('september'),
+    month: 'september',
+    name: monthLabels.september,
+    missions: [
+      {
+        ...mission('september', 1, 'Stop or preempt every test', '모든 시험 저지 또는 원천차단'),
+        description: {
+          en: 'Prevent tests in all 3 North America test target cities at the same time, or preempt each city test.',
+          ko: '북아메리카 내 시험 대상 도시 3곳 모두에서 동시에 시험을 저지하거나, 각 도시의 시험을 원천차단합니다.'
+        }
+      },
+      {
+        ...mission('september', 2, "Secure Sabik's detention records", '사빅의 억류 기록 확보'),
+        description: {
+          en: 'This mission does not affect the deck counter.',
+          ko: '이 임무는 덱 카운터와 무관합니다.'
+        }
+      },
+      {
+        ...mission('september', 3, 'Wiretap the control center', '관제소 도청'),
+        description: {
+          en: 'Acquire a target in 1 unidentified city in the Pacific Rim.',
+          ko: '환태평양 내 미식별 도시 1곳에서 표적을 확보합니다.'
+        }
+      }
+    ],
+    unidentifiedTargetCities: [revealedRegionSetup('north-america', 3), hiddenRegionSetup('pacific', 1)],
     eventCardIdsAvailable: julyEventCardIds,
     surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']

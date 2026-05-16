@@ -27,7 +27,12 @@ function getSovietTestMissionId(month: CampaignState['progress']['currentMonth']
   if (month === 'april') return 'april-mission-1';
   if (month === 'june') return 'june-mission-1';
   if (month === 'august') return 'august-mission-1';
+  if (month === 'september') return 'september-mission-1';
   return undefined;
+}
+
+function isEveryTestCityRequiredMonth(month: CampaignState['progress']['currentMonth']) {
+  return month === 'september';
 }
 
 function getSovietTestCityIds(campaign: CampaignState): string[] {
@@ -56,6 +61,7 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
   const requiresJulyAfricaControlCenterCity = campaign.progress.currentMonth === 'july'
     && campaign.progress.currentAttempt === 1
     && resultRating === 'failure';
+  const everyTestCityRequired = isEveryTestCityRequiredMonth(campaign.progress.currentMonth);
 
   useEffect(() => {
     if (!open) return;
@@ -101,14 +107,20 @@ export function GameResultDialog({ open, campaign, language, onOpenChange, onSub
                 {mission.description ? <p className="ml-6 text-xs text-muted-foreground">{mission.description[language]}</p> : null}
                 {isSovietTestMission && result?.cityResults?.length ? <div className="ml-6 space-y-2 rounded-lg bg-muted/50 p-3">
                   <p className="text-sm font-medium">{language === 'ko' ? '도시별 시험 저지 결과' : 'Test prevention by city'}</p>
-                  <p className="text-xs text-muted-foreground">{language === 'ko' ? '체크한 도시는 시험 저지 성공입니다. 1곳 이상 성공하면 임무 성공이며, 체크하지 않은 도시는 감염 카드가 추가됩니다.' : 'Checked cities were successfully protected. Preventing at least 1 city succeeds the mission. Unchecked cities add Infection cards.'}</p>
+                  <p className="text-xs text-muted-foreground">{everyTestCityRequired
+                    ? (language === 'ko'
+                      ? '체크한 도시는 시험 저지 또는 원천차단 성공입니다. 모든 도시를 체크해야 임무 성공이며, 체크하지 않은 도시는 감염 카드가 추가됩니다.'
+                      : 'Checked cities were successfully protected or preempted. All cities must be checked to succeed the mission. Unchecked cities add Infection cards.')
+                    : (language === 'ko'
+                      ? '체크한 도시는 시험 저지 성공입니다. 1곳 이상 성공하면 임무 성공이며, 체크하지 않은 도시는 감염 카드가 추가됩니다.'
+                      : 'Checked cities were successfully protected. Preventing at least 1 city succeeds the mission. Unchecked cities add Infection cards.')}</p>
                   {result.cityResults.map((cityResult) => {
                     const city = cityCards.find((card) => card.id === cityResult.cityCardId);
                     return <label key={cityResult.cityCardId} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={cityResult.succeeded} onChange={(event) => setMissionResults((current) => current.map((item) => {
                       if (item.missionId !== mission.id) return item;
                       const cityResults = item.cityResults?.map((currentCityResult) => currentCityResult.cityCardId === cityResult.cityCardId ? { ...currentCityResult, succeeded: event.target.checked } : currentCityResult);
-                      return { ...item, cityResults, succeeded: cityResults?.some((currentCityResult) => currentCityResult.succeeded) ?? false };
-                    }))} /><span>{city?.name[language] ?? cityResult.cityCardId} {language === 'ko' ? '시험 저지 성공' : 'test prevented'}</span></label>;
+                      return { ...item, cityResults, succeeded: everyTestCityRequired ? cityResults?.every((currentCityResult) => currentCityResult.succeeded) ?? false : cityResults?.some((currentCityResult) => currentCityResult.succeeded) ?? false };
+                    }))} /><span>{city?.name[language] ?? cityResult.cityCardId} {language === 'ko' ? '시험 저지/원천차단 성공' : 'test prevented/preempted'}</span></label>;
                   })}
                 </div> : null}
               </div>;

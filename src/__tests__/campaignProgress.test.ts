@@ -474,6 +474,24 @@ describe('campaign progress domain', () => {
       { enabled: true, filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 1 }
     ]);
     expect(getMonthSetupDefaults('august').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
+    expect(getMonthSetupDefaults('september').missions.map((mission) => mission.id)).toEqual(['september-mission-1', 'september-mission-2', 'september-mission-3']);
+    expect(getMonthSetupDefaults('september').missions[0]).toMatchObject({
+      name: { ko: '모든 시험 저지 또는 원천차단' },
+      description: { ko: '북아메리카 내 시험 대상 도시 3곳 모두에서 동시에 시험을 저지하거나, 각 도시의 시험을 원천차단합니다.' }
+    });
+    expect(getMonthSetupDefaults('september').missions[1]).toMatchObject({
+      name: { ko: '사빅의 억류 기록 확보' },
+      description: { ko: '이 임무는 덱 카운터와 무관합니다.' }
+    });
+    expect(getMonthSetupDefaults('september').missions[2]).toMatchObject({
+      name: { ko: '관제소 도청' },
+      description: { ko: '환태평양 내 미식별 도시 1곳에서 표적을 확보합니다.' }
+    });
+    expect(getMonthSetupDefaults('september').unidentifiedTargetCities).toMatchObject([
+      { enabled: true, filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 0, revealedRemovedCount: 3 },
+      { enabled: true, filter: { type: 'region', value: 'pacific' }, hiddenRemovedCount: 1 }
+    ]);
+    expect(getMonthSetupDefaults('september').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
     expect(getMonthSetupDefaults('december').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-test-vaccine',
       'event-spectrum-interference'
@@ -835,6 +853,58 @@ describe('campaign progress domain', () => {
       },
       {
         filter: { type: 'region', value: 'north-america' },
+        hiddenRemovedCount: 1,
+        revealedRemovedCardIds: []
+      }
+    ]);
+  });
+
+  it('creates September decks with revealed North America test cards and hidden Pacific target removed from the player deck', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'September target setup',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const septemberCampaign = {
+      ...campaign,
+      progress: { ...campaign.progress, currentMonth: 'september' as const, currentAttempt: 1, fundingLevel: 4 },
+      currentMonth: 'september' as const,
+      fundingLevel: 4
+    };
+    const revealedNorthAmericaCityIds = ['havana', 'los-angeles', 'mexico-city'];
+    const selectedEventCardIds = getDefaultAvailableEventCardsForCampaign(septemberCampaign).slice(0, 4).map((card) => card.id);
+    const startingHands = [
+      ...cityCards
+        .filter((card) => !revealedNorthAmericaCityIds.includes(card.id) && card.region !== 'pacific')
+        .slice(0, 4)
+        .map((card) => ({ cardId: card.id, playerId: 'p1' })),
+      ...selectedEventCardIds.map((cardId) => ({ cardId, playerId: 'p2' }))
+    ];
+
+    const decks = createGameDecksForMonth({
+      campaign: septemberCampaign,
+      players: septemberCampaign.players,
+      startingHands,
+      selectedEventCardIds,
+      fundingLevel: 4,
+      unidentifiedTargetCitySelections: [
+        { filter: { type: 'region', value: 'north-america' }, hiddenRemovedCount: 0, revealedRemovedCardIds: revealedNorthAmericaCityIds },
+        { filter: { type: 'region', value: 'pacific' }, hiddenRemovedCount: 1 }
+      ],
+      initialThreatCardIds: threatCards.slice(0, 9).map((card) => card.id)
+    });
+
+    for (const cityId of revealedNorthAmericaCityIds) {
+      expect(decks.playerDeck.cardStates[cityId].zone).toBe('player-removed');
+    }
+    expect(decks.playerDeck.unidentifiedTargetCities).toMatchObject([
+      {
+        filter: { type: 'region', value: 'north-america' },
+        hiddenRemovedCount: 0,
+        revealedRemovedCardIds: revealedNorthAmericaCityIds
+      },
+      {
+        filter: { type: 'region', value: 'pacific' },
         hiddenRemovedCount: 1,
         revealedRemovedCardIds: []
       }
@@ -1304,6 +1374,59 @@ describe('campaign progress domain', () => {
     expect(next.progress.infectionCardIds).toEqual([
       getInfectionCardIdForCity('delhi'),
       getInfectionCardIdForCity('karachi')
+    ]);
+  });
+
+  it('adds infection cards for failed September North America test cities', () => {
+    const campaign = createInitialCampaign({
+      campaignName: 'September infections',
+      language: 'ko',
+      players: [{ id: 'p1', name: 'Player 1' }, { id: 'p2', name: 'Player 2' }]
+    });
+    const septemberCampaign = {
+      ...campaign,
+      currentMonth: 'september' as const,
+      fundingLevel: 4,
+      progress: {
+        ...campaign.progress,
+        currentMonth: 'september' as const,
+        fundingLevel: 4
+      },
+      playerDeck: {
+        ...campaign.playerDeck,
+        unidentifiedTargetCities: [{
+          configured: true,
+          filter: { type: 'region' as const, value: 'north-america' as const },
+          candidateCardIds: ['havana', 'los-angeles', 'mexico-city'],
+          hiddenRemovedCount: 0,
+          revealedRemovedCardIds: ['havana', 'los-angeles', 'mexico-city']
+        }]
+      }
+    };
+
+    const next = applyGameResult(septemberCampaign, {
+      characters: [],
+      missionResults: [
+        {
+          missionId: 'september-mission-1',
+          succeeded: false,
+          cityResults: [
+            { cityCardId: 'havana', succeeded: true },
+            { cityCardId: 'los-angeles', succeeded: false },
+            { cityCardId: 'mexico-city', succeeded: false }
+          ]
+        },
+        { missionId: 'september-mission-2', succeeded: true },
+        { missionId: 'september-mission-3', succeeded: true }
+      ],
+      now: '2026-05-09T00:00:00.000Z'
+    });
+
+    expect(next.progress.currentMonth).toBe('october');
+    expect(next.progress.currentAttempt).toBe(1);
+    expect(next.progress.infectionCardIds).toEqual([
+      getInfectionCardIdForCity('los-angeles'),
+      getInfectionCardIdForCity('mexico-city')
     ]);
   });
 

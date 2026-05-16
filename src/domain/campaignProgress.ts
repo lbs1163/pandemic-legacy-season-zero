@@ -406,7 +406,8 @@ const sovietTestMissionIdsByMonth: Partial<Record<CampaignMonthId, string>> = {
   february: 'february-mission-1',
   april: 'april-mission-1',
   june: 'june-mission-1',
-  august: 'august-mission-1'
+  august: 'august-mission-1',
+  september: 'september-mission-1'
 };
 
 function applySovietTestInfectionCards(
