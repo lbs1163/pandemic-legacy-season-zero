@@ -336,7 +336,31 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']
   },
   october: {
-    ...placeholderDefaults('october'),
+    month: 'october',
+    name: monthLabels.october,
+    missions: [
+      {
+        ...mission('october', 1, 'Secure the Soviet MEDUSA cure', '소련의 메두사 치료제 확보'),
+        description: {
+          en: 'This mission does not affect the deck counter.',
+          ko: '이 임무는 덱 카운터와 무관합니다.'
+        }
+      },
+      {
+        ...mission('october', 2, 'Interrogate the KGB official', 'KGB 간부 취조'),
+        description: {
+          en: 'In Johannesburg, use 2 active teams at the same time to acquire the target. This mission does not affect the deck counter.',
+          ko: '요하네스버그에서 활동 작전팀 2개를 동시에 사용하여 표적을 확보합니다. 이 임무는 덱 카운터와 무관합니다.'
+        }
+      },
+      {
+        ...mission('october', 3, 'Arrest the Soviet exporter', '소련 수출업자 검거'),
+        description: {
+          en: 'This mission does not affect the deck counter.',
+          ko: '이 임무는 덱 카운터와 무관합니다.'
+        }
+      }
+    ],
     eventCardIdsAvailable: septemberEventCardIds,
     surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']

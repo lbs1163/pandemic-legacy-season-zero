@@ -504,6 +504,26 @@ describe('campaign progress domain', () => {
       { enabled: true, filter: { type: 'region', value: 'pacific' }, hiddenRemovedCount: 1 }
     ]);
     expect(getMonthSetupDefaults('september').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
+    expect(getMonthSetupDefaults('october').missions.map((mission) => mission.id)).toEqual(['october-mission-1', 'october-mission-2', 'october-mission-3']);
+    expect(getMonthSetupDefaults('october').missions[0]).toMatchObject({
+      name: { ko: '소련의 메두사 치료제 확보' },
+      description: { ko: '이 임무는 덱 카운터와 무관합니다.' }
+    });
+    expect(getMonthSetupDefaults('october').missions[1]).toMatchObject({
+      name: { ko: 'KGB 간부 취조' },
+      description: { ko: '요하네스버그에서 활동 작전팀 2개를 동시에 사용하여 표적을 확보합니다. 이 임무는 덱 카운터와 무관합니다.' }
+    });
+    expect(getMonthSetupDefaults('october').missions[2]).toMatchObject({
+      name: { ko: '소련 수출업자 검거' },
+      description: { ko: '이 임무는 덱 카운터와 무관합니다.' }
+    });
+    expect(getMonthSetupDefaults('october').unidentifiedTargetCities).toBeUndefined();
+    expect(getMonthSetupDefaults('october').eventCardIdsAvailable).toEqual(expect.arrayContaining([
+      'event-test-vaccine',
+      'event-spectrum-interference',
+      'event-codebook'
+    ]));
+    expect(getMonthSetupDefaults('october').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
     expect(getMonthSetupDefaults('december').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-test-vaccine',
       'event-spectrum-interference',
