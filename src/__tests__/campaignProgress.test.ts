@@ -21,8 +21,8 @@ import { getInfectionCardIdForCity, threatCards } from '../data/cards/threats';
 import type { MissionResult, PerformanceRating } from '../types/campaign';
 
 describe('campaign progress domain', () => {
-  it('clamps funding levels to the supported 1..10 range', () => {
-    expect(clampFundingLevel(-2)).toBe(1);
+  it('clamps funding levels to the supported 0..10 range', () => {
+    expect(clampFundingLevel(-2)).toBe(0);
     expect(clampFundingLevel(4.8)).toBe(4);
     expect(clampFundingLevel(12)).toBe(10);
   });
@@ -36,6 +36,7 @@ describe('campaign progress domain', () => {
   it('calculates next funding and flags secret file 14 without revealing content', () => {
     expect(calculateNextFundingLevel(5, 'success')).toMatchObject({ fundingLevel: 4, secretFile14Required: false });
     expect(calculateNextFundingLevel(5, 'adequate')).toMatchObject({ fundingLevel: 6, secretFile14Required: false });
+    expect(calculateNextFundingLevel(1, 'success')).toMatchObject({ fundingLevel: 0, secretFile14Required: false });
     expect(calculateNextFundingLevel(9, 'failure')).toMatchObject({ fundingLevel: 10, secretFile14Required: true });
   });
 
@@ -524,6 +525,20 @@ describe('campaign progress domain', () => {
       'event-codebook'
     ]));
     expect(getMonthSetupDefaults('october').surveillanceSatelliteRegions).toEqual(['europe', 'south-america', 'asia']);
+    expect(getMonthSetupDefaults('december').missions.map((mission) => mission.id)).toEqual(['december-mission-1', 'december-mission-2', 'december-mission-3']);
+    expect(getMonthSetupDefaults('december').missions[0]).toMatchObject({
+      name: { ko: '메두사 유전체 탈취' }
+    });
+    expect(getMonthSetupDefaults('december').missions[1]).toMatchObject({
+      name: { ko: "'사자 송곳니' 작전 저지" },
+      description: { ko: '관제소가 있는 미식별 도시 1곳에서 표적을 확보합니다.' }
+    });
+    expect(getMonthSetupDefaults('december').missions[2]).toMatchObject({
+      name: { ko: '쿠퍼를 사빅에게 인도' }
+    });
+    expect(getMonthSetupDefaults('december').unidentifiedTargetCities).toMatchObject([
+      { enabled: true, filter: { type: 'city-ids', value: ['', '', '', '', '', ''] }, hiddenRemovedCount: 1 }
+    ]);
     expect(getMonthSetupDefaults('december').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-test-vaccine',
       'event-spectrum-interference',

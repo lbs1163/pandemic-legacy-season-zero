@@ -23,8 +23,8 @@ const secretFile14Warning = 'Funding would exceed 10. Secret File 14 may be requ
 export const initialCampaignFundingLevel = 5;
 
 export function clampFundingLevel(value: number): number {
-  if (!Number.isFinite(value)) return 1;
-  return Math.min(10, Math.max(1, Math.trunc(value)));
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(10, Math.max(0, Math.trunc(value)));
 }
 
 export function calculatePerformanceRating(missionResults: MissionResult[]): PerformanceRating {

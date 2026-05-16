@@ -117,7 +117,7 @@ const campaignMonthSchema = z.union([
   z.literal('december')
 ]);
 
-const fundingLevelSchema = z.number().int().min(1).max(10);
+const fundingLevelSchema = z.number().int().min(0).max(10);
 const playerProfileSchema = z.object({ id: z.string(), name: z.string() });
 const characterProfileSchema = z.object({
   id: z.string(),

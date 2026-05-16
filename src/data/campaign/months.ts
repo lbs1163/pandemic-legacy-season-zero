@@ -396,6 +396,25 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   },
   december: {
     ...placeholderDefaults('december'),
+    missions: [
+      mission('december', 1, 'Steal the MEDUSA genome', '메두사 유전체 탈취'),
+      {
+        ...mission('december', 2, 'Stop Operation "Lion Fang"', "'사자 송곳니' 작전 저지"),
+        description: {
+          en: 'Acquire a target in 1 unidentified city with a control center.',
+          ko: '관제소가 있는 미식별 도시 1곳에서 표적을 확보합니다.'
+        }
+      },
+      mission('december', 3, 'Deliver Cooper to Sabik', '쿠퍼를 사빅에게 인도')
+    ],
+    unidentifiedTargetCities: [
+      {
+        enabled: true,
+        filter: { type: 'city-ids', value: ['', '', '', '', '', ''] },
+        hiddenRemovedCount: 1,
+        warningWhenChanged: defaultSetupWarning
+      }
+    ],
     eventCardIdsAvailable: septemberEventCardIds,
     surveillanceSatelliteRegions: defaultSurveillanceSatelliteRegions,
     legacyCardIdsApplied: ['legacy-surveillance-satellite-cards']

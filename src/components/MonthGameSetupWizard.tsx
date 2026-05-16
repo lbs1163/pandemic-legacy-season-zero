@@ -279,7 +279,7 @@ export function MonthGameSetupWizard({ open, campaign, language, onOpenChange, o
           </label>
           <label className="block max-w-xs space-y-1">
             <span className="text-xs text-muted-foreground">{language === 'ko' ? '이번 달 자금 지원 단계' : 'Funding level for this month'}</span>
-            <Input type="number" min={1} max={10} value={fundingLevel} onChange={(event) => updateFundingLevel(Number(event.target.value))} />
+            <Input type="number" min={0} max={10} value={fundingLevel} onChange={(event) => updateFundingLevel(Number(event.target.value))} />
           </label>
           <p className="text-sm text-muted-foreground">
             {language === 'ko'
