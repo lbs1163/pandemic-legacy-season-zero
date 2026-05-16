@@ -116,6 +116,11 @@ const mayEventCardIds = [
 
 const juneEventCardIds = mayEventCardIds;
 
+const julyEventCardIds = [
+  ...juneEventCardIds,
+  'event-test-vaccine'
+];
+
 export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
   prologue: {
     month: 'prologue',
@@ -204,10 +209,28 @@ export const monthSetupDefaults: Record<CampaignMonthId, MonthSetupDefaults> = {
     eventCardIdsAvailable: juneEventCardIds,
     legacyCardIdsApplied: []
   },
-  july: placeholderDefaults('july'),
-  august: placeholderDefaults('august'),
-  september: placeholderDefaults('september'),
-  october: placeholderDefaults('october'),
-  november: placeholderDefaults('november'),
-  december: placeholderDefaults('december')
+  july: {
+    ...placeholderDefaults('july'),
+    eventCardIdsAvailable: julyEventCardIds
+  },
+  august: {
+    ...placeholderDefaults('august'),
+    eventCardIdsAvailable: julyEventCardIds
+  },
+  september: {
+    ...placeholderDefaults('september'),
+    eventCardIdsAvailable: julyEventCardIds
+  },
+  october: {
+    ...placeholderDefaults('october'),
+    eventCardIdsAvailable: julyEventCardIds
+  },
+  november: {
+    ...placeholderDefaults('november'),
+    eventCardIdsAvailable: julyEventCardIds
+  },
+  december: {
+    ...placeholderDefaults('december'),
+    eventCardIdsAvailable: julyEventCardIds
+  }
 };

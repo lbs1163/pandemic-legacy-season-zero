@@ -236,6 +236,8 @@ describe('campaign progress domain', () => {
       'event-time-extension',
       'event-unauthorized-action'
     ]));
+    expect(getAvailableEventCardsForMonth(eventCards, 'june').map((card) => card.id)).not.toContain('event-test-vaccine');
+    expect(getAvailableEventCardsForMonth(eventCards, 'july').map((card) => card.id)).toContain('event-test-vaccine');
   });
 
   it('defines post-February, post-March, and post-April event card effect descriptions', () => {
@@ -243,6 +245,7 @@ describe('campaign progress domain', () => {
     const quietNight = eventCards.find((eventCard) => eventCard.id === 'event-one-quiet-night');
     const timeExtension = eventCards.find((eventCard) => eventCard.id === 'event-time-extension');
     const unauthorizedAction = eventCards.find((eventCard) => eventCard.id === 'event-unauthorized-action');
+    const testVaccine = eventCards.find((eventCard) => eventCard.id === 'event-test-vaccine');
 
     expect(diversion).toMatchObject({
       availability: { fromMonth: 'march' },
@@ -281,6 +284,16 @@ describe('campaign progress domain', () => {
         description: {
           ko: '제약 카드 1장을 창고로 옮깁니다. 해당 제약 카드는 이번 게임에 더 이상 영향을 미치지 않습니다.',
           en: 'Move 1 restriction card to the depot. That restriction card has no further effect during this game.'
+        }
+      }
+    });
+    expect(testVaccine).toMatchObject({
+      availability: { fromMonth: 'july' },
+      effect: {
+        kind: 'informational',
+        description: {
+          ko: '게임판에서 질병 큐브 2개를 제거합니다.',
+          en: 'Remove 2 disease cubes from the board.'
         }
       }
     });
@@ -361,6 +374,13 @@ describe('campaign progress domain', () => {
     expect(getMonthSetupDefaults('june').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-time-extension',
       'event-unauthorized-action'
+    ]));
+    expect(getMonthSetupDefaults('june').eventCardIdsAvailable).not.toContain('event-test-vaccine');
+    expect(getMonthSetupDefaults('july').eventCardIdsAvailable).toEqual(expect.arrayContaining([
+      'event-test-vaccine'
+    ]));
+    expect(getMonthSetupDefaults('december').eventCardIdsAvailable).toEqual(expect.arrayContaining([
+      'event-test-vaccine'
     ]));
   });
 

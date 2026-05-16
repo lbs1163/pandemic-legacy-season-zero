@@ -182,5 +182,19 @@ export const eventCards: EventCard[] = [
         ko: '제약 카드 1장을 창고로 옮깁니다. 해당 제약 카드는 이번 게임에 더 이상 영향을 미치지 않습니다.'
       }
     }
+  },
+  {
+    id: 'event-test-vaccine',
+    kind: 'event',
+    initialSet: false,
+    availability: { fromMonth: 'july' },
+    name: { en: 'Test Vaccine', ko: '시험 백신' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'Remove 2 disease cubes from the board.',
+        ko: '게임판에서 질병 큐브 2개를 제거합니다.'
+      }
+    }
   }
 ];
