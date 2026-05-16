@@ -126,7 +126,8 @@ const aprilEventCardIds = [
 const mayEventCardIds = [
   ...aprilEventCardIds,
   'event-time-extension',
-  'event-unauthorized-action'
+  'event-unauthorized-action',
+  'event-border-security'
 ];
 
 const juneEventCardIds = mayEventCardIds;

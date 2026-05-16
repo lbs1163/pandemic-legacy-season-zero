@@ -184,6 +184,20 @@ export const eventCards: EventCard[] = [
     }
   },
   {
+    id: 'event-border-security',
+    kind: 'event',
+    initialSet: false,
+    availability: { afterMonthPlayed: 'may' },
+    name: { en: 'Border Security', ko: '국경 보안' },
+    effect: {
+      kind: 'informational',
+      description: {
+        en: 'Each player may add up to 2 checkpoint tokens on the connections of the city they are currently in.',
+        ko: '모든 플레이어가 각자 자신이 현재 위치한 도시의 연결선 위에 검문소 토큰 최대 2개를 추가할 수 있습니다.'
+      }
+    }
+  },
+  {
     id: 'event-test-vaccine',
     kind: 'event',
     initialSet: false,

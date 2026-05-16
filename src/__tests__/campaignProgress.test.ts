@@ -237,6 +237,7 @@ describe('campaign progress domain', () => {
     expect(getAvailableEventCardsForMonth(eventCards, 'april').map((card) => card.id)).not.toContain('event-unauthorized-action');
     expect(getAvailableEventCardsForMonth(eventCards, 'may').map((card) => card.id)).not.toContain('event-time-extension');
     expect(getAvailableEventCardsForMonth(eventCards, 'may').map((card) => card.id)).not.toContain('event-unauthorized-action');
+    expect(getAvailableEventCardsForMonth(eventCards, 'may').map((card) => card.id)).not.toContain('event-border-security');
     expect(getAvailableEventCardsForMonth(eventCards, 'june').map((card) => card.id)).not.toContain('event-test-vaccine');
     expect(getAvailableEventCardsForMonth(eventCards, 'july').map((card) => card.id)).not.toContain('event-test-vaccine');
   });
@@ -289,10 +290,11 @@ describe('campaign progress domain', () => {
     expect(getDefaultAvailableEventCardsForCampaign(marchCampaign).map((card) => card.id)).not.toContain('event-diversion');
   });
 
-  it('defines post-February, post-March, and post-April event card effect descriptions', () => {
+  it('defines post-February, post-March, post-April, and post-May event card effect descriptions', () => {
     const diversion = eventCards.find((eventCard) => eventCard.id === 'event-diversion');
     const quietNight = eventCards.find((eventCard) => eventCard.id === 'event-one-quiet-night');
     const timeExtension = eventCards.find((eventCard) => eventCard.id === 'event-time-extension');
+    const borderSecurity = eventCards.find((eventCard) => eventCard.id === 'event-border-security');
     const unauthorizedAction = eventCards.find((eventCard) => eventCard.id === 'event-unauthorized-action');
     const testVaccine = eventCards.find((eventCard) => eventCard.id === 'event-test-vaccine');
     const spectrumInterference = eventCards.find((eventCard) => eventCard.id === 'event-spectrum-interference');
@@ -334,6 +336,16 @@ describe('campaign progress domain', () => {
         description: {
           ko: '제약 카드 1장을 창고로 옮깁니다. 해당 제약 카드는 이번 게임에 더 이상 영향을 미치지 않습니다.',
           en: 'Move 1 restriction card to the depot. That restriction card has no further effect during this game.'
+        }
+      }
+    });
+    expect(borderSecurity).toMatchObject({
+      availability: { afterMonthPlayed: 'may' },
+      effect: {
+        kind: 'informational',
+        description: {
+          ko: '모든 플레이어가 각자 자신이 현재 위치한 도시의 연결선 위에 검문소 토큰 최대 2개를 추가할 수 있습니다.',
+          en: 'Each player may add up to 2 checkpoint tokens on the connections of the city they are currently in.'
         }
       }
     });
@@ -420,7 +432,8 @@ describe('campaign progress domain', () => {
     ]);
     expect(getMonthSetupDefaults('may').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-time-extension',
-      'event-unauthorized-action'
+      'event-unauthorized-action',
+      'event-border-security'
     ]));
     expect(getMonthSetupDefaults('june').missions.map((mission) => mission.id)).toEqual(['june-mission-1', 'june-mission-2', 'june-mission-3']);
     expect(getMonthSetupDefaults('june').missions[1]).toMatchObject({
@@ -433,7 +446,8 @@ describe('campaign progress domain', () => {
     ]);
     expect(getMonthSetupDefaults('june').eventCardIdsAvailable).toEqual(expect.arrayContaining([
       'event-time-extension',
-      'event-unauthorized-action'
+      'event-unauthorized-action',
+      'event-border-security'
     ]));
     expect(getMonthSetupDefaults('june').eventCardIdsAvailable).not.toContain('event-test-vaccine');
     expect(getMonthSetupDefaults('july').eventCardIdsAvailable).toEqual(expect.arrayContaining([
@@ -1004,6 +1018,8 @@ describe('campaign progress domain', () => {
       name: { ko: '완공된 남아메리카 관제소 도청' },
       description: { ko: '남아메리카 관제소가 있는 도시에서 표적 확보 행동을 수행합니다.' }
     });
+    expect(getDefaultAvailableEventCardsForCampaign(retry).map((card) => card.id)).toContain('event-border-security');
+    expect(retry.playerDeck.cardStates['event-border-security']).toBeDefined();
   });
 
   it('requires a South America control center city after a failed first May attempt', () => {
